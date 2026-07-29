@@ -23,10 +23,10 @@
 AI 디자인 및 프론트엔드 퍼블리싱 생성 시 공통 적용되는 스펙입니다:
 
 - **Primary Color**: `#2A60F7` (KB Blue), Active: `#1D4ED8`, Background Gradient: `linear-gradient(135deg, #1E3A8A, #2A60F7)`
-- **Safety Status Colors**:
-  - 🟢 **안전 (80~100점)**: `#10B981` (위반건축물 없음, CCTV 밀집, 안전경로)
-  - 🟡 **주의 (60~79점)**: `#F59E0B` (연식 15년 이상, 가로등 보통)
-  - 🔴 **위험 (0~59점)**: `#EF4444` (위반건축물, 치안 취약)
+- **Safety Status Colors**
+  - 🟢 **안전 (80~100점)**: `#10B981` (CCTV 밀집, 가로등 충분, 파출소 접근성 우수)
+  - 🟡 **주의 (60~79점)**: `#F59E0B` (CCTV·가로등·파출소 접근성이 보통)
+  - 🔴 **위험 (0~59점)**: `#EF4444` (CCTV 부족, 가로등 부족, 파출소 접근성 낮음)
 - **Convenience Badge Color**: `#8B5CF6` (편의시설 조건 충족 뱃지, 예: `4/5`)
 - **Layout Architecture**:
   - **PC Layout**: Left Fixed Sidebar (380px) + Center Map View (Flex 1) + Right Sliding Door Panel (560px)
