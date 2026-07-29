@@ -72,11 +72,6 @@ salgosipo-fe/
 │   │   └── useMapStore.js      # 지도 중심 좌표, 레벨, 핀 선택 상태
 │   ├── router/                 # Vue Router v4 라우팅 가드 및 경로 정의
 │   │   └── index.js
-│   ├── types/                  # JavaScript 인터페이스 정의
-│   │   ├── user.js
-│   │   ├── onboarding.js
-│   │   ├── property.js
-│   │   └── safety.js
 │   ├── utils/                  # 공통 유틸리티 (포맷터, 좌표 연산, 상수)
 │   │   ├── formatters.js       # 통화/가격(만원->억/만원), 도보시간 포맷터
 │   │   ├── mapUtils.js         # 위경도 좌표 연산, 반경/거리 계산 유틸
