@@ -34,7 +34,7 @@ AI 개발 도구 및 팀원은 핵심 요약 흐름을 본 문서에서 확인�
 
 - **Design Tokens**: Primary KB Blue (`#2A60F7`), Safety Palette (🟢 80~100 / 🟡 60~79 / 🔴 0~59), Glassmorphism, Radius 20px
 - **Layout Architecture**:
-  - Mobile (375px~430px): Bottom Sheet, Floating Controls, Mobile First
+  - Mobile (iPhone 17 Pro Max - 440 x 956px, 6.9인치 19.6:9, 1320x2868px): Bottom Sheet, Floating Controls, Mobile First
   - PC Widescreen (1440px~1920px): Left 380px Sidebar + Center Map Canvas + Right 560px Sliding Door Detail Panel + 3-Column Wide Table
 
 ### 🔗 상세 UI/UX 비주얼 디자인 프롬프트 문서 (Click to View)

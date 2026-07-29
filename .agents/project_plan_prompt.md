@@ -30,7 +30,7 @@ AI 디자인 및 프론트엔드 퍼블리싱 생성 시 공통 적용되는 스
 - **Convenience Badge Color**: `#8B5CF6` (편의시설 조건 충족 뱃지, 예: `4/5`)
 - **Layout Architecture**:
   - **PC Layout**: Left Fixed Sidebar (380px) + Center Map View (Flex 1) + Right Sliding Door Panel (560px)
-  - **Mobile Layout**: Mobile First (375px~430px), Bottom Floating Sheet + Sliding Drawer Panel
+  - **Mobile Layout**: Mobile First (iPhone 17 Pro Max - 440 x 956px, 6.9인치 19.6:9, 1320x2868px, 163.4 x 78.0 mm), Bottom Floating Sheet + Sliding Drawer Panel
 
 ---
 

@@ -11,7 +11,7 @@
   - Vue 3 Dev Server: `http://localhost:5173`
   - Spring Backend API: `http://localhost:8080`
 - **Testing Viewports**:
-  - 📱 **Mobile Viewport**: 375 x 812px (iPhone 13 / Galaxy S22)
+  - 📱 **Mobile Viewport**: 440 x 956px (iPhone 17 Pro Max - 6.9인치 19.6:9, 1320x2868px, 163.4 x 78.0 mm)
   - 🖥️ **PC Widescreen Viewport**: 1920 x 1080px (Desktop Full HD)
 
 ---
