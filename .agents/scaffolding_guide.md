@@ -1,6 +1,6 @@
 # 🏗️ [살고싶오] 프로젝트 스캐폴딩(Scaffolding) & 보일러플레이트 가이드 (Markdown)
 
-본 문서는 **살고싶오(29반 1팀) - 빌라촌 안심 주거 매칭 플랫폼** 프로젝트 개발 착수 시, 프론트엔드(Vue 3 + Vite + Tailwind CSS), 백엔드(Java 17 + Spring Boot + MyBatis), DB, API 및 E2E 테스트(Playwright) 디렉토리 구조와 **초기 뼈대(Scaffolding)**를 한 번에 세우기 위한 표준 설치 및 아키텍처 명세서입니다.
+본 문서는 **살고싶오(29반 1팀) - 빌라촌 안심 주거 매칭 플랫폼** 프로젝트 개발 착수 시, 프론트엔드(Vue 3 + Vite + Tailwind CSS), 백엔드(Java 17 + Spring Legacy + MyBatis), DB, API 및 E2E 테스트(Playwright) 디렉토리 구조와 **초기 뼈대(Scaffolding)**를 한 번에 세우기 위한 표준 설치 및 아키텍처 명세서입니다.
 
 ---
 
@@ -90,7 +90,7 @@ salgosipo-fe/
 
 ---
 
-## ☕ 2. Backend (Java 17 + Spring Boot + MyBatis) 스캐폴딩 뼈대
+## ☕ 2. Backend (Java 17 + Spring Legacy + MyBatis) 스캐폴딩 뼈대
 
 ### ■ 디렉토리 구조 명세 (`salgosipo-be/`)
 

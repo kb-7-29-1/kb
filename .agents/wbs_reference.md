@@ -40,7 +40,7 @@
 ---
 
 ### ⚙️ Phase 2. 개발 준비 (Dev Setup)
-1. **기술 스택 선정**: Vue 3 + Spring Legacy/Boot + MyBatis + MySQL
+1. **기술 스택 선정**: Vue 3 + Spring Legacy + MyBatis + MySQL
 2. **AI 규칙 정의**: `agent.md` 작성
 3. **GitHub 환경**: Repository 생성, 브랜치 전략(`main` ➔ `develop` ➔ `feature/*`), 커밋 컨벤션 정의
 4. **프로젝트 구조**: 디렉토리 스키마, 공통 환경 설정, Docker CI/CD 배포 파이프라인

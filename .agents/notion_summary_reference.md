@@ -236,7 +236,7 @@ erDiagram
 
 ## ⚡ 4. 기술 스택 & 개발 환경 명세
 
-- **Backend**: Java 17, Spring Legacy / Boot, Spring Security (JWT), MyBatis, MySQL
+- **Backend**: Java 17, Spring Legacy, Spring Security (JWT), MyBatis, MySQL
 - **Frontend**: Vue 3 (Composition API / `<script setup>`), JavaScript (ES6+), Pinia, Vue Router, Tailwind CSS
 - **External API**: Naver Map API, Naver Directions API, ODsay API
 - **Tools**: IntelliJ IDEA, GitHub, Postman, dbdiagram.io, Figma, Notion
