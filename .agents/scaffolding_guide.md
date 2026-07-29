@@ -41,7 +41,7 @@ salgosipo-fe/
 │   │   ├── auth/               # 로그인, 회원가입, 찾기 모달/폼 컴포넌트
 │   │   ├── onboarding/         # 온보딩 Step 1~5 (출퇴근/예산/안전 선호도) 단계별 컴포넌트
 │   │   ├── map/                # 지도 렌더링, 핀, 오버레이, 안심 경로, 필터 바텀시트
-│   │   │   ├── KakaoMap.vue
+│   │   │   ├── NaverMap.vue
 │   │   │   ├── IsochroneMap.vue
 │   │   │   ├── PropertyPin.vue
 │   │   │   ├── MarkerOverlay.vue
