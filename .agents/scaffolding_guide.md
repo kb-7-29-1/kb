@@ -72,7 +72,7 @@ salgosipo-fe/
 │   │   └── useMapStore.js      # 지도 중심 좌표, 레벨, 핀 선택 상태
 │   ├── router/                 # Vue Router v4 라우팅 가드 및 경로 정의
 │   │   └── index.js
-│   ├── types/                  # TypeScript 인터페이스 정의
+│   ├── types/                  # JavaScript 인터페이스 정의
 │   │   ├── user.js
 │   │   ├── onboarding.js
 │   │   ├── property.js
@@ -214,8 +214,8 @@ salgosipo-fe/
 ### 1) Vue 3 프론트엔드 스캐폴딩 초기화
 
 ```bash
-# Vite 기반 Vue 3 + TypeScript 초기화
-npm create vite@latest salgosipo-fe -- --template vue-ts
+# Vite 기반 Vue 3 + JavaScript 초기화
+npm create vite@latest salgosipo-fe -- --template vue
 
 # 필수 패키지 설치 (Pinia, Router, Axios, Tailwind)
 cd salgosipo-fe

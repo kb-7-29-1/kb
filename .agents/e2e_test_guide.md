@@ -87,7 +87,7 @@
 
 ## 🛠️ 2. Playwright E2E 자동화 코드 예시 (`tests/e2e/signup-to-map.spec.ts`)
 
-```typescript
+```javascript
 import { test, expect } from '@playwright/test';
 
 test.describe('살고싶오 가입 및 매칭 E2E 테스트', () => {
