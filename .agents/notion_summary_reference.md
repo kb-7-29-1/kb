@@ -266,6 +266,6 @@ main (배포/제출용, PR로만 merge)
 
 ### 3) PR 및 충돌 관리 규칙
 - **"고봉밥 PR" 금지**: 파일 10개, 500줄 이상의 대형 커밋을 자제하고 1개 기능 단위로 분할 PR.
-- **팀원 최소 1명 Approve 후 merge**: 본인 PR 셀프 머지 금지.
+- **팀원 최소 1명 승인 후 merge**: 본인 PR 셀프 머지 금지.
 - **매일 작업 시작 시**: `git pull origin develop` 필수 실행.
 - **그레이존 담당**: `RootConfig`, `application.properties` 등 공통 파일 수정 시 슬랙 공지 후 진행.
