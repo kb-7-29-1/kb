@@ -64,7 +64,7 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 1. Modal Backdrop: Dimmed Overlay (`rgba(15, 23, 42, 0.5)` Blur 8px)
 2. Tab Control: `[아이디 찾기]` / `[비밀번호 찾기]` 상단 탭
 3. Input & Result:
-   - 아이디 찾기: 이름 + 이메일 입력 시 마스킹된 아이디(`ahs0***`) 결과 출력
+   - 아이디 찾기: 이름 + 이메일 입력 시 마스킹 처리된 아이디(예: `ahs0***`) 결과 출력
    - 비밀번호 찾기: 비밀번호 재설정 폼 노출
 ```
 
@@ -82,7 +82,7 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 1. Fixed Header: 좌측 뒤로가기, 중앙 타이틀 `나에게 맞는 매물 찾기`, 우측 현재 단계 표시와 Blue Progress Bar를 상단 고정
 2. Content Card: 화면 중앙의 흰색 라운드 카드 안에 아이콘, 질문 문구, 보조 설명 배치
 3. Purpose Selector: 학교·직장·기타를 아이콘형 선택 버튼으로 구성하고, 활성 항목은 Blue Border·Subtle Blue Background 적용
-4. Address Search: 돋보기 아이콘·Clear(X)가 있는 검색 Input과 도로명/지번 주소가 구분된 결과 리스트 배치
+4. Address Search: 돋보기 아이콘·Clear(X)가 있는 목적지 검색 Input과, 입력 중 자동완성되는 주소 선택 리스트 배치
 5. Fixed Bottom CTA: `[다음]` Full-Width Primary 버튼을 화면 하단에 고정
 ```
 
@@ -94,10 +94,9 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 [시각적 디자인 스펙]
 
 1. Fixed Header: 뒤로가기, `나에게 맞는 매물 찾기` 타이틀, 단계 표시와 Progress Bar를 상단 고정
-2. Content Card: 중앙 질문 카드에 이동 수단 선택 영역과 시간 설정 영역을 세로로 배치
+2. Content Card: 중앙 질문 카드에 이동 수단 선택 영역을 배치
 3. Transport Toggle: 도보·대중교통을 아이콘이 포함된 2개 선택 버튼으로 구성하고 활성 상태는 Blue 강조
-4. Time Slider: 선택한 수단별 희망 이동 시간을 현재 값 라벨과 수평 슬라이더로 조절
-5. Fixed Bottom CTA: `[이전]` 보조 버튼과 `[다음]` Primary 버튼을 화면 하단에 함께 고정
+4. Fixed Bottom CTA: `[이전]` 보조 버튼과 `[다음]` Primary 버튼을 화면 하단에 함께 고정
 ```
 
 ### 🎨 화면 06: 온보딩 Step 3 - 예산 범위 듀얼 슬라이더 UI 디자인
@@ -111,7 +110,8 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 2. Content Card: 중앙 질문 카드 안에 보증금과 월세 항목을 분리하고 현재 선택 범위를 강조 텍스트로 표시
 3. Budget Range: 각 예산 항목에 최소·최대값 라벨과 듀얼 노브 Range Slider를 배치
 4. Selection Feedback: 조절 중인 값은 Blue 강조와 Floating Tooltip 또는 금액 뱃지로 즉시 피드백
-5. Fixed Bottom CTA: `[이전]` 보조 버튼과 `[다음]` Primary 버튼을 화면 하단에 함께 고정
+5. Loan Recommendation Panel: 보증금·월세 예산 범위 아래에 KB 대출 상품 추천 패널 배치. 예상 대출 한도, 금리, 월 상환 예상액 등 핵심 정보를 요약하고 `[상품 자세히 보기]` 링크 제공
+6. Fixed Bottom CTA: `[이전]` 보조 버튼과 `[다음]` Primary 버튼을 화면 하단에 함께 고정
 ```
 
 ### 🎨 화면 07: 온보딩 Step 4 - 안전 기준 선택 UI 디자인
@@ -184,7 +184,8 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 2. Safety Score Filter: 최소 안전 점수를 값 라벨이 있는 수평 슬라이더로 조절
 3. Travel Filter: 도보·대중교통 이동 수단과 희망 이동 시간을 토글·슬라이더로 제공
 4. Convenience Tab: `[편의시설 필터]` 탭 선택 시 편의점, 카페, 세탁소 등 시설 유형을 아이콘형 선택 버튼으로 표시
-5. Time Range: 선택한 편의시설의 도보 시간 제한을 수평 슬라이더로 조절하고, `[초기화]`·`[적용완료]` 버튼은 시트 하단 고정
+5. Selected Facility Filter: 선택한 편의시설 항목에 대해서만 해당 시설의 도보 시간 제한 슬라이더를 노출
+6. Bottom Action: `[초기화]`·`[적용완료]` 버튼을 시트 하단에 고정
 ```
 
 ### 📄 화면 12: 지도 매물 선택 상세 바텀시트 UI 디자인
@@ -197,8 +198,7 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 1. Selected Map State: 선택한 매물 마커를 강조하고, 매물과 목적지를 잇는 이동·귀갓길 경로를 지도 위 Blue Line으로 표시
 2. Detail Bottom Sheet: 기존 매물 목록 바텀시트가 선택 매물의 상세 바텀시트로 전환. Drag Handle과 접기/펼치기 동작 유지
 3. Property Summary: 매물 유형 배지, 썸네일, 주소, 보증금·월세, 면적·층수, 관심 하트를 가로형 요약 카드로 배치
-4. Safety Preview: 건물 안전 정보와 안전 점수 원형 차트, 안전 등급을 간결한 미리보기 영역으로 표시
-5. Navigation: 바텀시트 또는 매물 카드 터치 시 전체 매물 상세 화면으로 연결
+4. Navigation: 바텀시트 또는 매물 카드 터치 시 전체 매물 상세 화면으로 연결
 ```
 
 ### 🎨 화면 13: 귀갓길 경로 실시간 평가 모달 UI 디자인
@@ -301,7 +301,7 @@ AI 디자인 및 코드 생성 도구(Antigravity, Figma AI, Cursor)에 기본 �
 
 1. Header: 좌측 뒤로가기와 중앙 `관심 매물` 타이틀을 가진 상단 바 구성
 2. Listing Card: 매물 썸네일, 유형 배지, 주소, 보증금·월세, 면적, 안전 점수, 관심 하트를 세로 리스트 카드로 배치
-3. Safety State: 안전 점수는 상태색 뱃지 또는 작은 원형 차트로 표시하고, 관심 해제는 하트 토글로 제공
+3. Safety State: 안전 점수는 상태색 뱃지로 표시하고, 관심 해제는 하트 토글로 제공
 4. Interaction: 매물 카드 터치 시 지도 또는 선택 매물 상세 바텀시트로 이동
 ```
 
