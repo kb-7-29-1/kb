@@ -12,7 +12,7 @@
             <AppenderRef ref="console"/>
         </Root>
 
-        <Logger name="org.scoula" level="INFO" additivity="false" >
+        <Logger name="com.salgosipo" level="INFO" additivity="false" >
             <AppenderRef ref="console"/>
         </Logger>
 
