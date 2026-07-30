@@ -88,7 +88,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
     //시큐리티 적용하고 싶지 않은 요청 주소 등록.
     @Override
     public void configure(WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/assets/**", "/*", "/api/member/**", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
+        web.ignoring().antMatchers("/assets/**", "/*", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
     }
 
     @Override
@@ -111,67 +111,34 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         http.httpBasic().disable()
                 .csrf().disable()
                 .formLogin().disable()
+                .logout().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-
-
 
         http
                 .authorizeRequests() // 경로별 접근 권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST,"/api/member//role별 접근 권한 설정\n" +
-                        "//        http.authorizeRequests()\n" +
-                        "//                .antMatchers(\"/security/all\").permitAll()\n" +
-                        "//                .antMatchers(\"/security/admin\").access(\"hasRole('ROLE_ADMIN')\")\n" +
-                        "//                .antMatchers(\"/security/member\").access(\"hasAnyRole('ROLE_ADMIN', 'ROLE_MEMBER')\");").authenticated()
-                .antMatchers(HttpMethod.PUT, "/api/member", "/api/member/*/changepassword").authenticated()
-                // 게시판
-                .antMatchers(HttpMethod.GET, "/api/board/download/**").authenticated()
-                .antMatchers(HttpMethod.POST, "/api/board/**").authenticated()
-                .antMatchers(HttpMethod.PUT, "/api/board/**").authenticated()
-                .antMatchers(HttpMethod.DELETE, "/api/board/**").authenticated()
-                .anyRequest().permitAll(); // 일단 모든 접근 허용
-//                .antMatchers("/api/security/all").permitAll() // 모두 허용
-//                .antMatchers("/api/security/member").access("hasRole('ROLE_MEMBER')") // ROLE_MEMBER 이상 접근 허용
-//                .antMatchers("/api/security/admin").access("hasRole('ROLE_ADMIN')")
-//                .anyRequest().authenticated();
-
-        // 기본 로그인 화면 다시 활성화
-        // http.formLogin();
-
-        // 커스텀한 로그인 화면 설정
-        http.formLogin()
-                .loginPage("/security/login")
-                .loginProcessingUrl("/security/login")
-                .defaultSuccessUrl("/");
-
-        http.logout() // 로그아웃설정시작
-                .logoutUrl("/security/logout") // POST: 로그아웃 호출 url
-                .invalidateHttpSession(true) // 세션 invalidate
-                .deleteCookies("remember-me", "JSESSION-ID") // 삭제할 쿠키 목록
-                .logoutSuccessUrl("/security/logout"); // GET: 로그아웃 이후이동할페이지
-
+                .antMatchers(HttpMethod.POST,"/api/member/signup","/api/auth/login").permitAll() // 회원가입/ 로그인
+                .antMatchers("/api/auth/**").permitAll()
+                .antMatchers("/api/user/**",     // 회원 정보 수정/조회/탈퇴
+                        "/api/property/**",      // 지도 검색 및 매물 상세
+                        "/api/bookmark/**",      // 관심 매물 (마이페이지 연동)
+                        "/api/onboarding/**",    // 탐색 조건 설정 (마이페이지 연동)
+                        "/api/destination/**",   // 목적지 검색
+                        "/api/safety/**",        // 안전점수
+                        "/api/amenity/**",       // 편의시설
+                        "/api/comment/**",       // 매물 댓글
+                        "/api/route-vote/**")    // 경로 투표
+                .authenticated()
+                .anyRequest().permitAll();
     }
 
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
-        log.info("개인 계정 설정- ram에 만들어 테스트(in memory)");
 
         auth
                 .userDetailsService(userDetailsService)
                 .passwordEncoder(passwordEncoder());
-
-//        auth.inMemoryAuthentication()
-//                .withUser("admin")
-////                .password("{noop}1234")
-//                .password("$2a$10$CJEer.FckE2NtlHzgKRShemk8iSXL0JLPewdAQYLqDRXjG/PvKan6")
-//                .roles("ADMIN", "MEMBER");
-//
-//        auth.inMemoryAuthentication()
-//                .withUser("member")
-////                .password("{noop}1234")
-//                .password("$2a$10$XyJq1p6ZfcjhFNcYj253yOyAlvcVqeAbcbGOubKAnS1sHkNAzB/Wq")
-//                .roles("MEMBER");
 
     }
 }
