@@ -50,6 +50,7 @@ tmp/
 # Spring & Backend Security Keys / Certificates
 application-*.yml
 application-*.properties
+*.properties
 *.pem
 *.key
 *.p12
