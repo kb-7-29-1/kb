@@ -88,7 +88,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
     //시큐리티 적용하고 싶지 않은 요청 주소 등록.
     @Override
     public void configure(WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/assets/**", "/*", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
+        web.ignoring().antMatchers("/assets/**", "/resources/**", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
     }
 
     @Override
