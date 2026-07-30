@@ -41,6 +41,22 @@ pnpm-debug.log*
 Thumbs.db
 
 # Temporary & Cache files
+temp/
+tmp/
 .cache/
 .turbo/
 .vercel/
+
+# Spring & Backend Security Keys / Certificates
+application-*.yml
+application-*.properties
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+
+# Test Coverage & Reports
+coverage/
+.nyc_output/
+
