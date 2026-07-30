@@ -1,6 +1,5 @@
 backend/
 └─ src/main/
-├─ java/com/salgosipo/
 │ ├─ global/ # 공통: 담당자 공동, 최초 1회 설정
 │ │ ├─ config/ # RootConfig, ServletConfig, Swagger, Web
 │ │ ├─ security/ # JWT, 인증 필터
