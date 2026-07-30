@@ -1,0 +1,11 @@
+.git
+.gitignore
+.idea
+.vscode
+.agents
+temp
+**/node_modules
+**/build
+**/.gradle
+**/.DS_Store
+*.md
