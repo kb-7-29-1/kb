@@ -150,6 +150,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .deleteCookies("remember-me", "JSESSION-ID") // 삭제할 쿠키 목록
                 .logoutSuccessUrl("/security/logout"); // GET: 로그아웃 이후이동할페이지
 
+
     }
 
 
