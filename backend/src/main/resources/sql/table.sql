@@ -61,8 +61,6 @@ CREATE TABLE properties (
     built_year          CHAR(4)        NOT NULL,
     is_illegal_building BOOLEAN        NOT NULL DEFAULT FALSE,
     del_yn              CHAR(1)        NOT NULL DEFAULT 'N',
-    created_at          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at          DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT chk_property_latitude CHECK (property_latitude BETWEEN -90 AND 90),
     CONSTRAINT chk_property_longitude CHECK (property_longitude BETWEEN -180 AND 180),
     CONSTRAINT chk_properties_del_yn CHECK (del_yn IN ('N', 'Y')),
