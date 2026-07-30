@@ -39,8 +39,6 @@ CREATE TABLE destinations (
     dest_longitude DECIMAL(12, 8) NOT NULL,
     dest_name      VARCHAR(100)   NOT NULL,
     dest_address   VARCHAR(255)   NULL,
-    created_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT chk_dest_latitude CHECK (dest_latitude BETWEEN -90 AND 90),
     CONSTRAINT chk_dest_longitude CHECK (dest_longitude BETWEEN -180 AND 180),
     UNIQUE KEY uq_dest_location (dest_latitude, dest_longitude),
@@ -120,7 +118,6 @@ CREATE TABLE property_tag (
     property_id INT      NOT NULL,
     tag_type    TINYINT  NOT NULL,
     tag_count   INT      NOT NULL DEFAULT 1,
-    updated_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (property_id, tag_type),
     CONSTRAINT fk_tag_properties
         FOREIGN KEY (property_id) REFERENCES properties(property_id),
