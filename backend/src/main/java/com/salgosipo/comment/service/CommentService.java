@@ -1,4 +1,4 @@
 package com.salgosipo.comment.service;
 
-public class CommentService {
+public interface CommentService {
 }
