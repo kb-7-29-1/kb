@@ -20,4 +20,9 @@ public interface UserMapper {
     void updateProfile(@Param("userId") Long userId,
                        @Param("name") String name,
                        @Param("email") String email);
+
+    void updatePassword(@Param("userId") Long userId,
+                        @Param("password") String password);
+
+    void withdraw(Long userId);
 }

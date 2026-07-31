@@ -13,6 +13,14 @@
         update users set name = #{name}, email = #{email} where user_id = #{userId} and del_yn = 'N'
     </update>
 
+    <update id="updatePassword">
+        update users set password = #{password} where user_id = #{userId} and del_yn ='N'
+    </update>
+
+    <update id="withdraw">
+        update users set del_yn ='Y' where user_id = #{userId}
+    </update>
+
     <select id="findByLoginId" resultType="com.salgosipo.user.domain.UserVO">
         SELECT user_id, login_id, password, name, birth_date, gender, email, del_yn
         FROM users
