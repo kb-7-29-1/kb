@@ -75,7 +75,7 @@
 
 - **도보 평균 속도**: 약 `4.5 km/h`
 - **버스 표정 속도**: 약 `15 ~ 20 km/h`
-- **지하철 표정 속도**: 약 `30 ~ 35 km/h` (정차/환승 포함)
+- **지하철 표정 속도**: 약 `30 ~ 35 km/h`
 - **수도권 통합 대중교통 가중평균 속도**: 약 **`22 ~ 25 km/h`** 적용 (체감 시간과 가장 유사하도록 도출)
 
 ### ■ 공공/민간 API 제약 및 해결 전략 (Hybrid API Architecture)
@@ -113,17 +113,17 @@ _(기본 100점에서 시작하여 음영 및 위험 구간 진입 시 감점하
 
 ## 🗄️ 5. 데이터베이스 테이블 설계 (11개 핵심 테이블)
 
-1. `users` (회원 테이블): `user_id`, `id`, `password`, `name`, `birth_date`, `gender`, `email`
-2. `onboardings` (온보딩 테이블): `user_id`, `destination_type`, `destination_id`, `transport_mode`, `max_travel_time`, `budget_deposit`, `budget_rent`, `min_safety_score`
+1. `users` (회원 테이블): `user_id`, `login_id`, `password`, `name`, `birth_date`, `gender`, `email`, `del_yn`, `created_at`, `updated_at`
+2. `onboardings` (온보딩 테이블): `user_id`, `destination_type`, `destination_id`, `transport_mode`, `max_travel_time`, `budget_deposit`, `budget_rent`, `min_safety_score`, `created_at`, `updated_at`
 3. `destinations` (목적지 테이블): `destination_id`, `dest_name`, `dest_address`, `dest_latitude`, `dest_longitude`
-4. `properties` (매물 테이블): `property_id`, `address`, `latitude`, `longitude`, `building_type`, `room_type`, `deposit`, `monthly_rent`, `area`, `floor`, `built_year`, `is_illegal_building`
-5. `property_images` (매물 이미지): `image_id`, `property_id`, `image_url`, `display_order`
-6. `property_comment` (댓글 테이블): `comment_id`, `user_id`, `property_id`, `content`
-7. `property_tag` (태그 테이블): `property_id`, `tag_type` (곰팡이, 채광, 소음 등)
-8. `property_safety` (안전 귀갓길): `property_id`, `destination_id`, `safety_score`, `cctv_count`, `street_lamp_count`, `has_police_station`
-9. `route_vote` (경로 만족도 투표): `vote_id`, `user_id`, `property_id`, `destination_id`, `vote_type` ('SAFE', 'UNSAFE')
-10. `property_amenities` (편의시설 도보거리): `property_id`, `amenity_type`, `distance_meters`, `walk_time_minutes`
-11. `bookmarks` (관심 매물): `user_id`, `property_id`
+4. `properties` (매물 테이블): `property_id`, `address`, `latitude`, `longitude`, `building_type`, `room_type`, `deposit`, `monthly_rent`, `area`, `floor`, `built_year`, `is_illegal_building`, `del_yn`
+5. `property_images` (매물 이미지): `image_id`, `property_id`, `image_url`, `display_order`, `created_at`
+6. `property_comment` (댓글 테이블): `comment_id`, `user_id`, `property_id`, `content`, `created_at`, `updated_at`
+7. `property_tag` (태그 테이블): `property_id`, `tag_type`, `tag_count`
+8. `property_safety` (안전 귀갓길): `property_id`, `destination_id`, `safety_score`, `cctv_count`, `street_lamp_count`, `has_police_station`, `created_at`, `updated_at`
+9. `route_vote` (경로 만족도 투표): `vote_id`, `user_id`, `property_id`, `destination_id`, `vote_type` ('SAFE', 'UNSAFE'), `del_yn`, `created_at`, `updated_at`
+10. `property_amenities` (편의시설 도보거리): `property_id`, `amenity_type`, `distance_meters`, `walk_time_minutes`, `created_at`, `updated_at`
+11. `bookmarks` (관심 매물): `user_id`, `property_id`, `created_at`
 
 ---
 
@@ -134,4 +134,4 @@ _(기본 100점에서 시작하여 음영 및 위험 구간 진입 시 감점하
 - **KB 금융 상품 연동 유도**:
   - KB 청년 버팀목 전세자금대출 (최저 1.8%)
   - 청년 월세 한시 특별지원 (월 20만원 12개월)
-  - KB 주택보증보험 (전세 사기 피해 예방 안심 보증)
+  - KB 주택보증보험 (전세 사기 피해 예방 안심 보증) 등등
