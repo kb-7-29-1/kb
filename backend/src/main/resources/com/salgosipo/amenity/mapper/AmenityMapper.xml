@@ -5,4 +5,14 @@
 
 <mapper namespace="com.salgosipo.amenity.mapper.AmenityMapper">
 
+    <select id="getAmenitiesByFilter" resultType="com.salgosipo.amenity.dto.AmenityResponseDTO">
+        SELECT property_id,
+               amenity_type,
+               amenity_name,
+               amenity_latitude,
+               amenity_longitude,
+               walk_time_minutes
+        FROM property_amenities
+        WHERE property_id = #{propertyId}
+    </select>
 </mapper>
