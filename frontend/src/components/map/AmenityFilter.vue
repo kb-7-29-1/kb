@@ -52,7 +52,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import {ref, computed} from 'vue';
 import FilterBottomBar from './FilterBottomBar.vue';
 
 const emit = defineEmits(['close', 'apply']);
@@ -61,13 +61,13 @@ const activeTab = ref('amenity');
 
 // 편의시설 데이터 상태 관리
 const amenities = ref([
-  { id: 'convenience', name: '편의점', icon: '🏪', selected: false, timeLimit: 15 },
-  { id: 'cafe', name: '카페', icon: '☕', selected: false, timeLimit: 15 },
-  { id: 'laundry', name: '코인세탁소', icon: '🧺', selected: false, timeLimit: 15 },
-  { id: 'fastfood', name: '패스트푸드', icon: '🍔', selected: false, timeLimit: 15 },
-  { id: 'daiso', name: '다이소', icon: '🛒', selected: false, timeLimit: 15 },
-  { id: 'oliveyoung', name: '올리브영', icon: '💄', selected: false, timeLimit: 15 },
-  { id: 'mart', name: '대형마트', icon: '🏢', selected: false, timeLimit: 15 },
+  {id: 'convenience', amenityType: 1, name: '편의점', icon: '🏪', selected: false, timeLimit: 15},
+  {id: 'cafe', amenityType: 2, name: '카페', icon: '☕', selected: false, timeLimit: 15},
+  {id: 'laundry', amenityType: 3, name: '코인세탁소', icon: '🧺', selected: false, timeLimit: 15},
+  {id: 'fastfood', amenityType: 4, name: '패스트푸드', icon: '🍔', selected: false, timeLimit: 15},
+  {id: 'daiso', amenityType: 5, name: '다이소', icon: '🛒', selected: false, timeLimit: 15},
+  {id: 'oliveyoung', amenityType: 6, name: '올리브영', icon: '💄', selected: false, timeLimit: 15},
+  {id: 'mart', amenityType: 7, name: '대형마트', icon: '🏢', selected: false, timeLimit: 15},
 ]);
 
 // 선택된 편의시설만 필터링
@@ -84,22 +84,23 @@ const toggleAmenity = (item) => {
 const resetFilters = () => {
   amenities.value.forEach(item => {
     item.selected = false;
-    item.timeLimit = 0;
+    item.timeLimit = 15;
   });
 };
 
 // 적용완료 버튼 함수
 const applyFilters = () => {
   const result = selectedAmenities.value.map(item => ({
-    type: item.id,
-    name: item.name,
-    timeLimit: item.timeLimit
+    amenityType: item.amenityType,
+    walkTimeMinutes: Number(item.timeLimit)
   }));
 
   emit('apply', result);
-
-  emit('close');
 };
+defineExpose({
+  resetFilters,
+  applyFilters
+});
 </script>
 
 <style scoped>
