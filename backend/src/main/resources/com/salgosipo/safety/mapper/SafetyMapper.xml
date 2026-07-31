@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.salgosipo.safety.mapper.SafetyMapper">
+
+    <!--
+        property_safety 테이블 조회 결과와
+        PropertySafetyVO 필드를 연결합니다.
+    -->
+    <resultMap id="propertySafetyResultMap"
+               type="com.salgosipo.safety.domain.PropertySafetyVO">
+
+        <id property="propertyId"
+            column="property_id"/>
+
+        <id property="destinationId"
+            column="destination_id"/>
+
+        <result property="safetyScore"
+                column="safety_score"/>
+
+        <result property="cctvCount"
+                column="cctv_count"/>
+
+        <result property="streetLampCount"
+                column="street_lamp_count"/>
+
+        <result property="hasPoliceStation"
+                column="has_police_station"/>
+
+        <result property="createdAt"
+                column="created_at"/>
+
+        <result property="updatedAt"
+                column="updated_at"/>
+    </resultMap>
+
+
+    <!--
+        매물과 목적지 조합의 안전 정보 조회
+    -->
+    <select id="selectPropertySafety"
+            resultMap="propertySafetyResultMap">
+
+        SELECT
+            property_id,
+            destination_id,
+            safety_score,
+            cctv_count,
+            street_lamp_count,
+            has_police_station,
+            created_at,
+            updated_at
+        FROM property_safety
+        WHERE property_id = #{propertyId}
+          AND destination_id = #{destinationId}
+
+    </select>
+
+
+    <!--
+        안전 정보 저장
+
+        복합 기본키가 이미 존재하면 UPDATE하고,
+        존재하지 않으면 INSERT합니다.
+    -->
+    <insert id="upsertPropertySafety"
+            parameterType="com.salgosipo.safety.domain.PropertySafetyVO">
+
+        INSERT INTO property_safety (
+            property_id,
+            destination_id,
+            safety_score,
+            cctv_count,
+            street_lamp_count,
+            has_police_station
+        )
+        VALUES (
+                   #{propertyId},
+                   #{destinationId},
+                   #{safetyScore},
+                   #{cctvCount},
+                   #{streetLampCount},
+                   #{hasPoliceStation}
+               )
+            ON DUPLICATE KEY UPDATE
+                                 safety_score = VALUES(safety_score),
+                                 cctv_count = VALUES(cctv_count),
+                                 street_lamp_count = VALUES(street_lamp_count),
+                                 has_police_station = VALUES(has_police_station)
+
+    </insert>
+
+</mapper>
