@@ -3,6 +3,9 @@
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-config.dtd">
 <configuration>
+    <settings>
+        <setting name="mapUnderscoreToCamelCase" value="true"/>
+    </settings>
     <mappers>
         <mapper resource="com/salgosipo/auth/mapper/AuthMapper.xml"/>
         <mapper resource="com/salgosipo/user/mapper/UserMapper.xml"/>
