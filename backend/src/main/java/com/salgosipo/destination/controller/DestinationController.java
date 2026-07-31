@@ -14,13 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/destinations")
 @RequiredArgsConstructor
 public class DestinationController {
-
     private final DestinationService destinationService;
 
-    /**
-     * 목적지 검색
-     * GET /api/destinations/search?keyword=세종대학교
-     */
     @GetMapping("/search")
     public ResponseEntity<List<DestinationDTO>> searchDestinations(
             @RequestParam String keyword
