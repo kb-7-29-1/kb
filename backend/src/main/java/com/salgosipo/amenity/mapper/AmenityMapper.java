@@ -1,4 +1,4 @@
 package com.salgosipo.amenity.mapper;
 
-public class AmenityMapper {
+public interface AmenityMapper {
 }
