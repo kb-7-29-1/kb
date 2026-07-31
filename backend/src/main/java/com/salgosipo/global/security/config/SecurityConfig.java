@@ -117,10 +117,14 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
 <<<<<<< HEAD
+<<<<<<< HEAD
                 .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search").permitAll()
 =======
                 .antMatchers(HttpMethod.GET, "/api/user/check-id").permitAll()
 >>>>>>> 479ac07 (feat: 아이디 중복 체크 기능 구현)
+=======
+                .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search").permitAll()
+>>>>>>> 36e37d2 (feat: 네이버 검색 API 구현)
                 .antMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated();
     }
