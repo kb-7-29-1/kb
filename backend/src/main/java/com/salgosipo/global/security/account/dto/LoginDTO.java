@@ -17,8 +17,8 @@ public class LoginDTO {
     //form을 안쓰고 id,pw를 json으로 가지고 오려고 함.
     //json --> dto로 받아서 저장하려고 함.
 
-    private  String username;
-    private  String password;
+    private String loginId;
+    private String password;
 
     //http body로 전송된 데이터를 dto에 넣으면 됨.
     public static LoginDTO of(HttpServletRequest request) {
@@ -31,7 +31,7 @@ public class LoginDTO {
             //request.getInputStream() : http body(json)을 읽어온다
             return om.readValue(request.getInputStream(), LoginDTO.class);
         } catch (IOException e) {
-            throw new BadCredentialsException("json에 username, password가 없었음.");
+            throw new BadCredentialsException("json에 loginId, password가 없었음.");
         }
     }
 }

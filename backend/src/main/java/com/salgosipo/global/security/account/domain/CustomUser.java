@@ -1,25 +1,20 @@
 package com.salgosipo.global.security.account.domain;
 
+import com.salgosipo.user.domain.UserVO;
 import lombok.Getter;
 import lombok.Setter;
-import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
-import java.util.Collection;
+import java.util.List;
 
 @Getter
 @Setter
 public class CustomUser extends User {
-    private MemberVO member;		// 실질적인 사용자 데이터
+    private UserVO user;		// 실질적인 사용자 데이터
 
-    public CustomUser(String username, String password,
-                      Collection<? extends GrantedAuthority> authorities) {
-        super(username, password, authorities);
+    public CustomUser(UserVO vo) {
+        super(vo.getLoginId(), vo.getPassword(), List.of(new SimpleGrantedAuthority("ROLE_USER")));
+        this.user = vo;
     }
-
-    public CustomUser(MemberVO vo) {
-        super(vo.getUsername(), vo.getPassword(), vo.getAuthList());
-        this.member = vo;
-    }
-
 }

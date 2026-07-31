@@ -1,25 +1,21 @@
 package com.salgosipo.global.security.account.dto;
 
+import com.salgosipo.user.domain.UserVO;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import com.salgosipo.security.account.domain.MemberVO;
-
-import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
 public class UserInfoDTO {
-    String username;
+    String loginId;
+    String name;
     String email;
-    List<String> roles;
 
-    public static UserInfoDTO of(MemberVO member) {
+    public static UserInfoDTO of(UserVO user) {
         return new UserInfoDTO(
-                member.getUsername(),
-                member.getEmail(),
-                member.getAuthList().stream().map(a -> a.getAuth()).toList() // {"role_admin", "role_member"}
+                user.getLoginId(), user.getName(), user.getEmail()
         );
     }
 

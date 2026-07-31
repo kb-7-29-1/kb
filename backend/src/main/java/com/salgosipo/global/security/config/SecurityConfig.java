@@ -35,7 +35,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Configuration
 @EnableWebSecurity
 @Log4j2
-@MapperScan(basePackages = {"com.salgosipo.global.security.account.mapper"})
 @ComponentScan(basePackages  = {"com.salgosipo.global.security"})
 @RequiredArgsConstructor
 public class SecurityConfig  extends WebSecurityConfigurerAdapter {
@@ -78,7 +77,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOriginPattern("*");
+        config.addAllowedOrigin("http://localhost:5173");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
         source.registerCorsConfiguration("/**", config);
@@ -114,22 +113,11 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .logout().disable()
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 
-        http
-                .authorizeRequests() // 경로별 접근 권한 설정
+        http.authorizeRequests() // 경로별 접근권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST,"/api/member/signup","/api/auth/login").permitAll() // 회원가입/ 로그인
+                .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
                 .antMatchers("/api/auth/**").permitAll()
-                .antMatchers("/api/user/**",     // 회원 정보 수정/조회/탈퇴
-                        "/api/property/**",      // 지도 검색 및 매물 상세
-                        "/api/bookmark/**",      // 관심 매물 (마이페이지 연동)
-                        "/api/onboarding/**",    // 탐색 조건 설정 (마이페이지 연동)
-                        "/api/destination/**",   // 목적지 검색
-                        "/api/safety/**",        // 안전점수
-                        "/api/amenity/**",       // 편의시설
-                        "/api/comment/**",       // 매물 댓글
-                        "/api/route-vote/**")    // 경로 투표
-                .authenticated()
-                .anyRequest().permitAll();
+                .anyRequest().authenticated();
     }
 
 

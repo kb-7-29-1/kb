@@ -18,22 +18,22 @@ import javax.sql.DataSource;
 
 @Configuration
 @PropertySource({"classpath:/application.properties"})
-//@MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
-//        "com.salgosipo.bookmark.mapper",
-//        "com.salgosipo.commentM.mapper",
-//        "com.salgosipo.destination.mapper",
-//        "com.salgosipo.onboarding.mapper",
-//        "com.salgosipo.property.mapper",
-//        "com.salgosipo.safety.mapper",
-//        "com.salgosipo.user.mapper"})
-//@ComponentScan(basePackages = {"com.salgosipo.amenity.service",
-//        "com.salgosipo.bookmark.service",
-//        "com.salgosipo.comment.service",
-//        "com.salgosipo.destination.service",
-//        "com.salgosipo.onboarding.service",
-//        "com.salgosipo.property.service",
-//        "com.salgosipo.safety.service",
-//        "com.salgosipo.user.service"})
+@MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
+        "com.salgosipo.bookmark.mapper",
+        "com.salgosipo.comment.mapper",
+        "com.salgosipo.destination.mapper",
+        "com.salgosipo.onboarding.mapper",
+        "com.salgosipo.property.mapper",
+        "com.salgosipo.safety.mapper",
+        "com.salgosipo.user.mapper"})
+@ComponentScan(basePackages = {"com.salgosipo.amenity.service",
+        "com.salgosipo.bookmark.service",
+        "com.salgosipo.comment.service",
+        "com.salgosipo.destination.service",
+        "com.salgosipo.onboarding.service",
+        "com.salgosipo.property.service",
+        "com.salgosipo.safety.service",
+        "com.salgosipo.user.service"})
 public class RootConfig {
     //프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired
