@@ -17,9 +17,7 @@ public class DestinationController {
     private final DestinationService destinationService;
 
     @GetMapping("/search")
-    public ResponseEntity<List<DestinationDTO>> searchDestinations(
-            @RequestParam String keyword
-    ) {
+    public ResponseEntity<List<DestinationDTO>> searchDestinations(@RequestParam String keyword) {
         return ResponseEntity.ok(destinationService.searchDestinations(keyword));
     }
 }

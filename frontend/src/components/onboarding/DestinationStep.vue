@@ -1,8 +1,21 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
+import onboardingApi from '@/api/onboardingApi';
+
+const emit = defineEmits(['select-destination']);
+const props = defineProps({
+  selectedDestination: {
+    type: Object,
+    default: null,
+  },
+});
 
 const selectedPurpose = ref('school');
-const destination = ref('');
+const keyword = ref(props.selectedDestination?.destName ?? '');
+const destinations = ref([]);
+const selectedDestination = ref(props.selectedDestination);
+const isSearching = ref(false);
+const searchError = ref('');
 
 const purposes = [
   { id: 'school', label: '학교', icon: '🎓' },
@@ -10,7 +23,51 @@ const purposes = [
   { id: 'etc', label: '기타', icon: '🏠' },
 ];
 
-const showSuggestions = computed(() => destination.value.trim().length > 0);
+let searchTimer;
+
+const clearSearch = () => {
+  keyword.value = '';
+  destinations.value = [];
+  selectedDestination.value = null;
+  searchError.value = '';
+};
+
+const selectDestination = (destination) => {
+  selectedDestination.value = destination;
+  keyword.value = destination.destName;
+  destinations.value = [];
+  searchError.value = '';
+  emit('select-destination', destination);
+};
+
+watch(keyword, (value) => {
+  clearTimeout(searchTimer);
+  searchError.value = '';
+
+  const searchKeyword = value.trim();
+  if (searchKeyword.length < 2 || selectedDestination.value?.destName === value) {
+    destinations.value = [];
+    isSearching.value = false;
+    return;
+  }
+
+  selectedDestination.value = null;
+  searchTimer = setTimeout(async () => {
+    isSearching.value = true;
+
+    try {
+      destinations.value = await onboardingApi.searchDestinations(searchKeyword);
+    } catch (error) {
+      destinations.value = [];
+      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      console.error('DESTINATION SEARCH ERROR: ', error);
+    } finally {
+      isSearching.value = false;
+    }
+  }, 300);
+});
+
+onBeforeUnmount(() => clearTimeout(searchTimer));
 </script>
 
 <template>
@@ -21,7 +78,7 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
       </div>
 
       <h2>자주 방문하는 장소를 알려주세요</h2>
-      <p class="description">목적지를 기준으로 나에게 맞는 매물을 찾아드려요</p>
+      <p class="description">목적지를 기준으로 나에게 맞는 매물을 찾아드려요.</p>
 
       <div class="purpose-list" role="group" aria-label="목적지 유형">
         <button
@@ -42,33 +99,48 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input
           id="destination"
-          v-model="destination"
+          v-model="keyword"
           type="text"
-          placeholder="예) 세종대학교, KB국민은행 신관"
+          autocomplete="off"
+          placeholder="예: 세종대학교, KB국민은행, 서울역"
         />
         <button
-          v-if="destination"
+          v-if="keyword"
           type="button"
           class="clear-button"
           aria-label="검색어 지우기"
-          @click="destination = ''"
+          @click="clearSearch"
         >
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </div>
 
-      <ul v-if="showSuggestions" class="suggestion-list">
-        <li>
-          <button type="button">
+      <p v-if="isSearching" class="search-message">검색 중이에요.</p>
+      <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
+      <p
+        v-else-if="keyword.trim().length >= 2 && !selectedDestination && !destinations.length"
+        class="search-message"
+      >
+        검색 결과가 없어요.
+      </p>
+
+      <ul v-if="destinations.length" class="suggestion-list">
+        <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
+          <button type="button" @click="selectDestination(item)">
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
             <span>
-              <strong>{{ destination }}</strong>
-              <small>목적지 검색 API 연결 후 표시</small>
+              <strong>{{ item.destName }}</strong>
+              <small>{{ item.destAddress }}</small>
             </span>
             <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
           </button>
         </li>
       </ul>
+
+      <p v-if="selectedDestination" class="selected-message">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+        {{ selectedDestination.destName }}을(를) 선택했어요.
+      </p>
     </div>
   </section>
 </template>
@@ -79,7 +151,6 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
   justify-content: center;
   width: 100%;
 }
-
 .destination-card {
   width: 100%;
   box-sizing: border-box;
@@ -89,7 +160,6 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
   background: #fff;
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
 }
-
 .card-icon {
   display: flex;
   align-items: center;
@@ -102,7 +172,6 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
   color: #2a60f7;
   font-size: 17px;
 }
-
 h2 {
   margin: 0;
   color: #0f172a;
@@ -110,21 +179,18 @@ h2 {
   font-weight: 700;
   line-height: 1.4;
 }
-
 .description {
   margin: 8px 0 24px;
   color: #64748b;
   font-size: 14px;
   line-height: 1.5;
 }
-
 .purpose-list {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 24px;
 }
-
 .purpose-button {
   display: flex;
   flex-direction: column;
@@ -140,18 +206,15 @@ h2 {
   font-size: 13px;
   font-weight: 600;
 }
-
 .purpose-icon {
   font-size: 20px;
   line-height: 1;
 }
-
 .purpose-button.active {
   border-color: #2a60f7;
   background: #eff6ff;
   color: #2a60f7;
 }
-
 .search-label {
   display: block;
   margin-bottom: 8px;
@@ -159,7 +222,6 @@ h2 {
   font-size: 14px;
   font-weight: 600;
 }
-
 .search-box {
   display: flex;
   align-items: center;
@@ -171,12 +233,10 @@ h2 {
   border-radius: 14px;
   color: #94a3b8;
 }
-
 .search-box:focus-within {
   border-color: #2a60f7;
   box-shadow: 0 0 0 3px #eff6ff;
 }
-
 input {
   flex: 1;
   min-width: 0;
@@ -186,11 +246,9 @@ input {
   font: inherit;
   font-size: 14px;
 }
-
 input::placeholder {
   color: #94a3b8;
 }
-
 .clear-button {
   display: grid;
   width: 24px;
@@ -202,7 +260,14 @@ input::placeholder {
   color: #94a3b8;
   font-size: 14px;
 }
-
+.search-message {
+  margin: 10px 2px 0;
+  color: #64748b;
+  font-size: 12px;
+}
+.search-message.error {
+  color: #dc2626;
+}
 .suggestion-list {
   margin: 12px 0 0;
   padding: 0;
@@ -211,7 +276,9 @@ input::placeholder {
   border-radius: 14px;
   list-style: none;
 }
-
+.suggestion-list li + li {
+  border-top: 1px solid #eef2f7;
+}
 .suggestion-list button {
   display: flex;
   align-items: center;
@@ -223,7 +290,6 @@ input::placeholder {
   color: #2a60f7;
   text-align: left;
 }
-
 .suggestion-list span {
   display: flex;
   flex: 1;
@@ -233,14 +299,23 @@ input::placeholder {
   color: #0f172a;
   font-size: 14px;
 }
-
 .suggestion-list small {
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.suggestion-list > li > button > :last-child {
   color: #94a3b8;
   font-size: 12px;
 }
-
-.suggestion-list > li > button > :last-child {
-  color: #94a3b8;
+.selected-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 2px 0;
+  color: #2563eb;
   font-size: 12px;
 }
 </style>

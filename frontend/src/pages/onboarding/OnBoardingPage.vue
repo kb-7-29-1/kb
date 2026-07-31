@@ -11,6 +11,9 @@ import TransportStep from '@/components/onboarding/TransportStep.vue';
 
 const currentStep = ref(1);
 const router = useRouter();
+const onboardingData = ref({
+  destination: null,
+});
 
 const currentComponent = computed(() => {
   const steps = {
@@ -40,13 +43,21 @@ const goNext = () => {
 const goMap = () => {
   router.push('/map');
 };
+
+const setDestination = (destination) => {
+  onboardingData.value.destination = destination;
+};
 </script>
 
 <template>
   <main class="onboarding-page">
     <OnboardingHeader :current-step="currentStep" @back="goPrevious" />
     <section class="onboarding-content">
-      <component :is="currentComponent" />
+      <component
+        :is="currentComponent"
+        :selected-destination="onboardingData.destination"
+        @select-destination="setDestination"
+      />
     </section>
     <OnboardingBottom
       :current-step="currentStep"
