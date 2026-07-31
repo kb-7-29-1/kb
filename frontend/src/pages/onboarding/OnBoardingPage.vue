@@ -25,7 +25,12 @@ const currentComponent = computed(() => {
 });
 
 const goPrevious = () => {
-  if (currentStep.value > 1) currentStep.value -= 1;
+  if (currentStep.value > 1) {
+    currentStep.value -= 1;
+    return;
+  }
+
+  router.push('/');
 };
 
 const goNext = () => {
@@ -38,8 +43,8 @@ const goMap = () => {
 </script>
 
 <template>
-  <main>
-    <OnboardingHeader :current-step="currentStep" />
+  <main class="onboarding-page">
+    <OnboardingHeader :current-step="currentStep" @back="goPrevious" />
     <component :is="currentComponent" />
     <OnboardingBottom
       :current-step="currentStep"
@@ -49,3 +54,12 @@ const goMap = () => {
     />
   </main>
 </template>
+
+<style scoped>
+.onboarding-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: #f8fafc;
+}
+</style>
