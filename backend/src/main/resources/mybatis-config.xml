@@ -3,5 +3,9 @@
         PUBLIC "-//mybatis.org//DTD Config 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-config.dtd">
 <configuration>
-
+    <mappers>
+        <mapper resource="com/salgosipo/auth/mapper/AuthMapper.xml"/>
+        <mapper resource="com/salgosipo/user/mapper/UserMapper.xml"/>
+        <mapper resource="com/salgosipo/bookmark/mapper/BookmarkMapper.xml"/>
+    </mappers>
 </configuration>
