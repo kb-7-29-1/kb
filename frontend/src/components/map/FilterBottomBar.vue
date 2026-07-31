@@ -1,9 +1,14 @@
 <template>
-  <footer class="filter-bottom-bar">
-    <button class="reset-button" type="button">초기화</button>
-    <button class="apply-button" type="button">적용 완료</button>
-  </footer>
+  <div class="filter-bottom-bar">
+    <button class="reset-button" @click="$emit('reset')">초기화</button>
+
+    <button class="apply-button" @click="$emit('apply')">적용완료</button>
+  </div>
 </template>
+
+<script setup>
+defineEmits(['reset', 'apply']);
+</script>
 
 <style scoped>
 .filter-bottom-bar {

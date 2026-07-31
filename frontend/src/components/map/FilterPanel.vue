@@ -7,8 +7,21 @@ import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
 
 const activeTab = ref('all');
+const amenityFilterRef = ref(null);
 
 defineEmits(['close']);
+
+const handleReset = () => {
+  if (amenityFilterRef.value) {
+    amenityFilterRef.value.resetFilters();
+  }
+};
+
+const handleApply = () => {
+  if (amenityFilterRef.value) {
+    amenityFilterRef.value.applyFilters();
+  }
+};
 </script>
 
 <template>
@@ -20,10 +33,17 @@ defineEmits(['close']);
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
         <OnBoardingFilter v-if="activeTab === 'all'" />
-        <AmenityFilter v-else />
+        <AmenityFilter
+            v-else
+            ref="amenityFilterRef"
+            @apply="handleAmenityResult"
+        />
       </div>
 
-      <FilterBottomBar />
+      <FilterBottomBar
+          @reset="handleReset"
+          @apply="handleApply"
+      />
     </div>
   </section>
 </template>
