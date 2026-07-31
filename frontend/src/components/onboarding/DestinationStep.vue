@@ -43,7 +43,7 @@ const showSuggestions = computed(() => destination.value.trim().length > 0);
         <input
           id="destination"
           v-model="destination"
-          type="search"
+          type="text"
           placeholder="예) 세종대학교, KB국민은행 신관"
         />
         <button
