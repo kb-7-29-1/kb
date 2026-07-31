@@ -116,7 +116,11 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         http.authorizeRequests() // 경로별 접근권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
+<<<<<<< HEAD
                 .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search").permitAll()
+=======
+                .antMatchers(HttpMethod.GET, "/api/user/check-id").permitAll()
+>>>>>>> 479ac07 (feat: 아이디 중복 체크 기능 구현)
                 .antMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated();
     }
