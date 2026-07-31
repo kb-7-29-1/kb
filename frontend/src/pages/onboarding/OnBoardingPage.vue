@@ -45,7 +45,9 @@ const goMap = () => {
 <template>
   <main class="onboarding-page">
     <OnboardingHeader :current-step="currentStep" @back="goPrevious" />
-    <component :is="currentComponent" />
+    <section class="onboarding-content">
+      <component :is="currentComponent" />
+    </section>
     <OnboardingBottom
       :current-step="currentStep"
       @previous="goPrevious"
@@ -61,5 +63,10 @@ const goMap = () => {
   flex-direction: column;
   min-height: 100dvh;
   background: #f8fafc;
+}
+
+.onboarding-content {
+  flex: 1;
+  padding: 24px 20px 110px;
 }
 </style>

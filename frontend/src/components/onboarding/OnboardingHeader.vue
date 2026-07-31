@@ -17,7 +17,7 @@ defineEmits(['back']);
   <header class="onboarding-header">
     <div class="header-row">
       <button type="button" class="back-button" aria-label="이전 단계" @click="$emit('back')">
-        ‹
+        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
       </button>
 
       <h1>나에게 맞는 매물 찾기</h1>
@@ -54,10 +54,9 @@ defineEmits(['back']);
   padding: 0;
   border: 0;
   background: transparent;
-  color: #1d1d1f;
-  font-size: 26px;
-  font-weight: 300;
-  line-height: 30px;
+  color: #6d7480;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
 }
 
