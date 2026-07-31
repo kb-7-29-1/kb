@@ -1,10 +1,10 @@
 package com.salgosipo.global.security.account.service;
 
+import com.salgosipo.user.domain.UserVO;
+import com.salgosipo.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import com.salgosipo.security.account.domain.CustomUser;
-import com.salgosipo.security.account.domain.MemberVO;
-import com.salgosipo.security.account.mapper.UserDetailsMapper;
+import com.salgosipo.global.security.account.domain.CustomUser;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -15,13 +15,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CustomUserDetailsService implements UserDetailsService {
 
-    private final UserDetailsMapper mapper;
+    private final UserMapper mapper;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        MemberVO vo = mapper.get(username);
+    public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
+        UserVO vo = mapper.findByLoginId(loginId);
         if (vo == null) {
-            throw new UsernameNotFoundException(username + "은 없는 id입니다.");
+            throw new UsernameNotFoundException(loginId + "은 없는 id입니다.");
         }
         return new CustomUser(vo);
     }

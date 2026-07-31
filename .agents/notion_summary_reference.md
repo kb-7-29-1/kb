@@ -7,15 +7,17 @@
 ## 📌 1. 프로젝트 가이드라인 & 세부 수행 과업
 
 ### ■ 프로젝트 개요
+
 - **주제**: ⑤ 안전한 부동산 거래를 위한 부동산 정보 도우미 (팀명: 살고싶오)
-- **핵심 목표**: 빌라촌 거주자를 위해 건물 안전(위반건축물·연식) 및 거리 안전(CCTV·가로등)을 고려한 안심 부동산 매칭 플랫폼 개발.
+- **핵심 목표**: 낯선 동네로 거주하는 사람들의 주거 및 귀갓길 안전 불안을 해소하는 안심 주거 매칭 플랫폼 (위반건축물·연식) 및 거리 안전(CCTV·가로등)을 고려한 안심 부동산 매칭 플랫폼 개발.
 - **기본 개발 규격**: **Vue 3 (Composition API)** + **Spring Framework (Java 17, MyBatis)** 기반 구현.
 
 ### ■ 세부 수행 과업 (R&R)
+
 1. **부동산 데이터 및 API 연동**: 국토교통부, 건축물대장 API, 법원 부동산 등기 API 조사.
 2. **금융 연계 설계**: KB 부동산 담보 대출 금리 한도 연동 API 및 주택 청약 데이터 설계.
 3. **데이터 모델링 & ERD**: 10개 핵심 테이블 설계 및 릴레이션십 정립.
-4. **UI/UX 프론트엔드 설계**: Naver/Kakao Map API 기반 지도 시각화, 편의시설 도보 제한 필터, 통계/그래프 시각화.
+4. **UI/UX 프론트엔드 설계**: Naver Map API 기반 지도 시각화, 편의시설 도보 제한 필터, 통계/그래프 시각화.
 5. **백엔드 API 가공 & Swagger**: REST API 설계, Swagger 문서화, 개인 관심사 추적 기능.
 
 ---
@@ -23,6 +25,7 @@
 ## 🗄️ 2. 데이터베이스 스키마 (10개 테이블 MySQL DDL)
 
 ### 1) 회원 테이블 (`users`)
+
 ```sql
 CREATE TABLE users (
     user_id          INT AUTO_INCREMENT PRIMARY KEY,     -- 회원 고유 번호
@@ -39,6 +42,7 @@ CREATE TABLE users (
 ```
 
 ### 2) 목적지 테이블 (`destinations`)
+
 ```sql
 CREATE TABLE destinations (
     destination_id   INT AUTO_INCREMENT PRIMARY KEY,     -- 목적지 고유 번호
@@ -48,13 +52,14 @@ CREATE TABLE destinations (
     dest_address     VARCHAR(255) NULL,                  -- 도로명/지번 주소
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     UNIQUE KEY uq_dest_location (dest_latitude, dest_longitude),
     INDEX idx_destinations_location (dest_latitude, dest_longitude)
 );
 ```
 
 ### 3) 온보딩 테이블 (`onboardings`)
+
 ```sql
 CREATE TABLE onboardings (
     user_id          INT NOT NULL PRIMARY KEY,           -- 회원 ID (1:1 관계)
@@ -67,13 +72,14 @@ CREATE TABLE onboardings (
     min_safety_score TINYINT NOT NULL DEFAULT 0,         -- 최소 안전 점수 (0~100)
     created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     CONSTRAINT fk_onboardings_users FOREIGN KEY (user_id) REFERENCES users(user_id),
     CONSTRAINT fk_onboardings_destinations FOREIGN KEY (destination_id) REFERENCES destinations(destination_id)
 );
 ```
 
-### 4) 매물 테이블 (`properties`)
+### 4) 주거지 테이블 (`properties`)
+
 ```sql
 CREATE TABLE properties (
     property_id          INT AUTO_INCREMENT PRIMARY KEY,     -- 매물 고유 번호
@@ -91,13 +97,14 @@ CREATE TABLE properties (
     del_yn               CHAR(1) NOT NULL DEFAULT 'N',       -- 삭제 여부
     created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     UNIQUE KEY uq_property_location (property_latitude, property_longitude),
     INDEX idx_properties_location (property_latitude, property_longitude)
 );
 ```
 
 ### 5) 매물 이미지 테이블 (`property_images`)
+
 ```sql
 CREATE TABLE property_images (
     image_id      INT AUTO_INCREMENT PRIMARY KEY,
@@ -105,13 +112,14 @@ CREATE TABLE property_images (
     image_url     VARCHAR(500) NOT NULL,
     display_order TINYINT NOT NULL DEFAULT 1,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- 
+
     CONSTRAINT fk_pi_properties FOREIGN KEY (property_id) REFERENCES properties(property_id),
     INDEX idx_pi_property_id (property_id)
 );
 ```
 
 ### 6) 댓글 테이블 (`property_comment`)
+
 ```sql
 CREATE TABLE property_comment (
     comment_id   INT AUTO_INCREMENT PRIMARY KEY,
@@ -121,7 +129,7 @@ CREATE TABLE property_comment (
     del_yn       CHAR(1) NOT NULL DEFAULT 'N',
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     CONSTRAINT fk_comment_properties FOREIGN KEY (property_id) REFERENCES properties(property_id),
     CONSTRAINT fk_comment_users FOREIGN KEY (user_id) REFERENCES users(user_id),
     INDEX idx_comment_property (property_id, del_yn)
@@ -129,19 +137,21 @@ CREATE TABLE property_comment (
 ```
 
 ### 7) 태그 테이블 (`property_tag`)
+
 ```sql
 CREATE TABLE property_tag (
     property_id  INT NOT NULL,
     tag_type     TINYINT NOT NULL,                   -- 1: 곰팡이, 2: 햇살좋음, 3: 소음 등 8개 구분값
     tag_count    INT NOT NULL DEFAULT 1,
     updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     PRIMARY KEY (property_id, tag_type),
     CONSTRAINT fk_tag_properties FOREIGN KEY (property_id) REFERENCES properties(property_id)
 );
 ```
 
 ### 8) 안전 귀갓길 테이블 (`property_safety`)
+
 ```sql
 CREATE TABLE property_safety (
     property_id         INT NOT NULL,
@@ -152,7 +162,7 @@ CREATE TABLE property_safety (
     has_police_station  BOOLEAN NOT NULL DEFAULT FALSE,
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     PRIMARY KEY (property_id, destination_id),
     CONSTRAINT fk_safety_properties FOREIGN KEY (property_id) REFERENCES properties(property_id),
     CONSTRAINT fk_safety_destinations FOREIGN KEY (destination_id) REFERENCES destinations(destination_id),
@@ -161,6 +171,7 @@ CREATE TABLE property_safety (
 ```
 
 ### 9) 경로 만족도 테이블 (`route_vote`)
+
 ```sql
 CREATE TABLE route_vote (
     vote_id         INT AUTO_INCREMENT PRIMARY KEY,
@@ -171,7 +182,7 @@ CREATE TABLE route_vote (
     del_yn          CHAR(1) NOT NULL DEFAULT 'N',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     CONSTRAINT fk_vote_users FOREIGN KEY (user_id) REFERENCES users(user_id),
     CONSTRAINT fk_vote_properties FOREIGN KEY (property_id) REFERENCES properties(property_id),
     CONSTRAINT fk_vote_destinations FOREIGN KEY (destination_id) REFERENCES destinations(destination_id),
@@ -180,6 +191,7 @@ CREATE TABLE route_vote (
 ```
 
 ### 10) 편의시설 테이블 (`property_amenities`)
+
 ```sql
 CREATE TABLE property_amenities (
     property_id        INT NOT NULL,
@@ -191,19 +203,20 @@ CREATE TABLE property_amenities (
     walk_time_minutes  TINYINT UNSIGNED NOT NULL,
     created_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at         DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- 
+
     PRIMARY KEY (property_id, amenity_type),
     CONSTRAINT fk_amenities_properties FOREIGN KEY (property_id) REFERENCES properties(property_id)
 );
 ```
 
 ### 11) 관심 매물 테이블 (`bookmarks`)
+
 ```sql
 CREATE TABLE bookmarks (
     user_id      INT NOT NULL,
     property_id  INT NOT NULL,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- 
+
     PRIMARY KEY (user_id, property_id),
     CONSTRAINT fk_bookmarks_users FOREIGN KEY (user_id) REFERENCES users(user_id),
     CONSTRAINT fk_bookmarks_properties FOREIGN KEY (property_id) REFERENCES properties(property_id)
@@ -246,6 +259,7 @@ erDiagram
 ## 🌿 5. Git 협업 규칙 & 커밋/PR 컨벤션
 
 ### 1) 브랜치 전략
+
 ```
 main (배포/제출용, PR로만 merge)
   └─ develop (통합 브랜치)
@@ -257,6 +271,7 @@ main (배포/제출용, PR로만 merge)
 ```
 
 ### 2) 커밋 메시지 컨벤션
+
 - `feat`: 새 기능 추가
 - `fix`: 버경 수정
 - `refactor`: 코드 개선 (로직 변화 없음)
@@ -265,6 +280,7 @@ main (배포/제출용, PR로만 merge)
 - `chore`: 빌드/패키지 설정
 
 ### 3) PR 및 충돌 관리 규칙
+
 - **"고봉밥 PR" 금지**: 파일 10개, 500줄 이상의 대형 커밋을 자제하고 1개 기능 단위로 분할 PR.
 - **팀원 최소 1명 승인 후 merge**: 본인 PR 셀프 머지 금지.
 - **매일 작업 시작 시**: `git pull origin develop` 필수 실행.

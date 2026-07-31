@@ -41,7 +41,7 @@ public class JwtUsernamePasswordAuthenticationFilter extends UsernamePasswordAut
         LoginDTO login = LoginDTO.of(request);
 
         //인증매니저에게 id/pw 인증해달라고 요청(username/passwordtoken으로 만들어서 주어야함.)
-        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(login.getUsername(), login.getPassword());
+        UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(login.getLoginId(), login.getPassword());
 
         //인증매니저에게 username/passwordtoken을 주면서 인증해달라고 요청함.
         //인증이 완료가 되면 인증정보를 담고 있는 Authentication객체를 생성해서 리턴함.

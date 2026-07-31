@@ -17,11 +17,12 @@
 ## 🎯 1. 기획 의도 및 서비스 배경 (WHY)
 
 ### ■ 기존 부동산 플랫폼의 한계와 사용자의 니즈
+
 - **단기 계약 피로감**: 원룸·빌라 거주 대학생 및 사회초년생은 1~2년 단위 이사가 빈번하여 매물 탐색 피로도가 매우 높음.
 - **주요 니즈**:
   1. **주 목적지(학교/직장) 중심 탐색**: 내가 자주 가는 거점을 기준으로 통근 가능한 동네만 좁혀서 탐색하고 싶음.
   2. **생활 편의시설 접근성**: 다이소, 올리브영, 편의점, 코인세탁소 등이 도보 몇 분 거리인지 실시간 파악 원함.
-  3. **빌라촌 길거리 치안/분위기 안심**: 골목길 가로등, 보안등, CCTV, 파출소 위치 등 실제 야간 보행 안전 데이터 필요.
+  3. **낯선 지역 이주 시 주거 및 귀갓길 안전 불안을 해소하기 위한, 길거리 치안/분위기 안심**: 귀갓길 가로등, 보안등, CCTV, 파출소 위치 등 실제 야간 보행 안전 데이터 필요.
 
 ---
 
@@ -46,6 +47,7 @@
 ```
 
 ### ■ 주요 기능별 UI 구현 스펙
+
 1. **로그인 / 회원가입 / 계정 찾기**:
    - ID, 비밀번호, 이름, 이메일, 생년월일, 성별 Form.
    - 아이디/비밀번호 찾기 모달 팝업.
@@ -70,12 +72,14 @@
 ## 🚗 3. 이동시간 연산 기준 & API 하이브리드 파이프라인
 
 ### ■ 속도 및 소요시간 연산 기준 (TOPIS 데이터 기반)
+
 - **도보 평균 속도**: 약 `4.5 km/h`
 - **버스 표정 속도**: 약 `15 ~ 20 km/h`
-- **지하철 표정 속도**: 약 `30 ~ 35 km/h` (정차/환승 포함)
+- **지하철 표정 속도**: 약 `30 ~ 35 km/h`
 - **수도권 통합 대중교통 가중평균 속도**: 약 **`22 ~ 25 km/h`** 적용 (체감 시간과 가장 유사하도록 도출)
 
 ### ■ 공공/민간 API 제약 및 해결 전략 (Hybrid API Architecture)
+
 - **카카오맵 API**: 보행자/대중교통 상세 경로 미제공.
 - **네이버지도 API**: 차량 경로 위주 제공.
 - **SK Tmap API**: 보행자 경로는 최상이나 대중교통 일일 호출 10건 제한.
@@ -87,37 +91,39 @@
 ## 🛡️ 4. CPTED 기반 귀갓길 안전 점수 알고리즘 (V1 감산 모델)
 
 ### ■ 셈테드(CPTED, 범죄예방 환경설정) 수치화 기준
+
 - 도로 주변은 **가로등**, 주택 골목길은 **보안등** 구분 반영!
 - 실제 이동 동선 기준 반경 **30~50m 이내 유효 데이터만 집계**.
 
 ### ■ 최종 점수 산출 공식 (V1 감산 모델)
+
 $$\text{총점 (S)} = \operatorname{Max}(0, 100 - P_{\text{CCTV\_밀도}} - P_{\text{CCTV\_분포}} - P_{\text{조명\_분포}} - P_{\text{파출소}})$$
-*(기본 100점에서 시작하여 음영 및 위험 구간 진입 시 감점하는 방식)*
+_(기본 100점에서 시작하여 음영 및 위험 구간 진입 시 감점하는 방식)_
 
 ### ■ 항목별 세부 감점 기준표
 
-| 항목 | 측정 범위 | 세부 감점 기준 |
-| :--- | :--- | :--- |
-| **CCTV 밀도 감점** ($P_{\text{CCTV\_밀도}}$) | 평균 간격 (m/대) | 50m 이하: 0점 / 75m 이하: 5점 / 100m 이하: 10점 / 150m 이하: 15점 / 151m 이상 또는 0개: **20점** |
-| **CCTV 분포 감점** ($P_{\text{CCTV\_분포}}$) | 50m 구간 커버리지 % | 80% 이상: 0점 / 60~79%: 4점 / 40~59%: 8점 / 20~39%: 12점 / 20% 미만: **15점** |
-| **조명 분포 감점** ($P_{\text{조명\_분포}}$) | 30m 구간 커버리지 % (보안등/가로등) | 80% 이상: 0점 / 60~79%: 10점 / 40~59%: 20점 / 20~39%: 30점 / 20% 미만: **45점** |
-| **파출소 부재 감점** ($P_{\text{파출소}}$) | 반경 300m 이내 | 반경 300m 이내 파출소/경찰서 존재: 0점 / 반경 300m 초과 또는 없음: **20점** |
+| 항목                                         | 측정 범위                           | 세부 감점 기준                                                                                   |
+| :------------------------------------------- | :---------------------------------- | :----------------------------------------------------------------------------------------------- |
+| **CCTV 밀도 감점** ($P_{\text{CCTV\_밀도}}$) | 평균 간격 (m/대)                    | 50m 이하: 0점 / 75m 이하: 5점 / 100m 이하: 10점 / 150m 이하: 15점 / 151m 이상 또는 0개: **20점** |
+| **CCTV 분포 감점** ($P_{\text{CCTV\_분포}}$) | 50m 구간 커버리지 %                 | 80% 이상: 0점 / 60~79%: 4점 / 40~59%: 8점 / 20~39%: 12점 / 20% 미만: **15점**                    |
+| **조명 분포 감점** ($P_{\text{조명\_분포}}$) | 30m 구간 커버리지 % (보안등/가로등) | 80% 이상: 0점 / 60~79%: 10점 / 40~59%: 20점 / 20~39%: 30점 / 20% 미만: **45점**                  |
+| **파출소 부재 감점** ($P_{\text{파출소}}$)   | 반경 300m 이내                      | 반경 300m 이내 파출소/경찰서 존재: 0점 / 반경 300m 초과 또는 없음: **20점**                      |
 
 ---
 
 ## 🗄️ 5. 데이터베이스 테이블 설계 (11개 핵심 테이블)
 
-1. `users` (회원 테이블): `user_id`, `id`, `password`, `name`, `birth_date`, `gender`, `email`
-2. `onboardings` (온보딩 테이블): `user_id`, `destination_type`, `destination_id`, `transport_mode`, `max_travel_time`, `budget_deposit`, `budget_rent`, `min_safety_score`
+1. `users` (회원 테이블): `user_id`, `login_id`, `password`, `name`, `birth_date`, `gender`, `email`, `del_yn`, `created_at`, `updated_at`
+2. `onboardings` (온보딩 테이블): `user_id`, `destination_type`, `destination_id`, `transport_mode`, `max_travel_time`, `budget_deposit`, `budget_rent`, `min_safety_score`, `created_at`, `updated_at`
 3. `destinations` (목적지 테이블): `destination_id`, `dest_name`, `dest_address`, `dest_latitude`, `dest_longitude`
-4. `properties` (매물 테이블): `property_id`, `address`, `latitude`, `longitude`, `building_type`, `room_type`, `deposit`, `monthly_rent`, `area`, `floor`, `built_year`, `is_illegal_building`
-5. `property_images` (매물 이미지): `image_id`, `property_id`, `image_url`, `display_order`
-6. `property_comment` (댓글 테이블): `comment_id`, `user_id`, `property_id`, `content`
-7. `property_tag` (태그 테이블): `property_id`, `tag_type` (곰팡이, 채광, 소음 등)
-8. `property_safety` (안전 귀갓길): `property_id`, `destination_id`, `safety_score`, `cctv_count`, `street_lamp_count`, `has_police_station`
-9. `route_vote` (경로 만족도 투표): `vote_id`, `user_id`, `property_id`, `destination_id`, `vote_type` ('SAFE', 'UNSAFE')
-10. `property_amenities` (편의시설 도보거리): `property_id`, `amenity_type`, `distance_meters`, `walk_time_minutes`
-11. `bookmarks` (관심 매물): `user_id`, `property_id`
+4. `properties` (매물 테이블): `property_id`, `address`, `latitude`, `longitude`, `building_type`, `room_type`, `deposit`, `monthly_rent`, `area`, `floor`, `built_year`, `is_illegal_building`, `del_yn`
+5. `property_images` (매물 이미지): `image_id`, `property_id`, `image_url`, `display_order`, `created_at`
+6. `property_comment` (댓글 테이블): `comment_id`, `user_id`, `property_id`, `content`, `created_at`, `updated_at`
+7. `property_tag` (태그 테이블): `property_id`, `tag_type`, `tag_count`
+8. `property_safety` (안전 귀갓길): `property_id`, `destination_id`, `safety_score`, `cctv_count`, `street_lamp_count`, `has_police_station`, `created_at`, `updated_at`
+9. `route_vote` (경로 만족도 투표): `vote_id`, `user_id`, `property_id`, `destination_id`, `vote_type` ('SAFE', 'UNSAFE'), `del_yn`, `created_at`, `updated_at`
+10. `property_amenities` (편의시설 도보거리): `property_id`, `amenity_type`, `distance_meters`, `walk_time_minutes`, `created_at`, `updated_at`
+11. `bookmarks` (관심 매물): `user_id`, `property_id`, `created_at`
 
 ---
 
@@ -128,4 +134,4 @@ $$\text{총점 (S)} = \operatorname{Max}(0, 100 - P_{\text{CCTV\_밀도}} - P_{\
 - **KB 금융 상품 연동 유도**:
   - KB 청년 버팀목 전세자금대출 (최저 1.8%)
   - 청년 월세 한시 특별지원 (월 20만원 12개월)
-  - KB 주택보증보험 (전세 사기 피해 예방 안심 보증)
+  - KB 주택보증보험 (전세 사기 피해 예방 안심 보증) 등등

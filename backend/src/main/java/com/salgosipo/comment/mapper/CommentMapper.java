@@ -1,4 +1,4 @@
 package com.salgosipo.comment.mapper;
 
-public class CommentMapper {
+public interface CommentMapper {
 }

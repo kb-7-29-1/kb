@@ -5,4 +5,18 @@
 
 <mapper namespace="com.salgosipo.user.mapper.UserMapper">
 
+    <select id="findByLoginId" resultType="com.salgosipo.user.domain.UserVO">
+        SELECT
+            user_id     AS userId,
+            login_id    AS loginId,
+            password    AS password,
+            name        AS name,
+            birth_date  AS birthDate,
+            gender      AS gender,
+            email       AS email,
+            del_yn      AS delYn
+        FROM users
+        WHERE login_id = #{loginId}
+          AND del_yn = 'N'
+    </select>
 </mapper>

@@ -24,9 +24,9 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
     private final JwtProcessor jwtProcessor;
 
     private AuthResultDTO makeAuthResult(CustomUser user){
-        String username = user.getUsername();
-        String token = jwtProcessor.generateToken(username);
-        return new AuthResultDTO(token, UserInfoDTO.of(user.getMember()));
+        String loginId = user.getUser().getLoginId();
+        String token = jwtProcessor.generateToken(loginId);
+        return new AuthResultDTO(token, UserInfoDTO.of(user.getUser()));
     }
 
     @Override
