@@ -12,28 +12,46 @@ defineEmits(['close']);
 </script>
 
 <template>
-  <section class="filter-panel">
-    <header>
-      <h1>필터</h1>
-      <button type="button" @click="$emit('close')">닫기</button>
-    </header>
+  <section class="filter-overlay">
+    <div class="filter-panel">
+      <div class="filter-content">
+        <OnboardingSummary @close="$emit('close')" />
 
-    <OnboardingSummary />
+        <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-    <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
+        <OnBoardingFilter v-if="activeTab === 'all'" />
+        <AmenityFilter v-else />
+      </div>
 
-    <OnBoardingFilter v-if="activeTab === 'all'" />
-    <AmenityFilter v-else />
-
-    <FilterBottomBar />
+      <FilterBottomBar />
+    </div>
   </section>
 </template>
 
 <style scoped>
-.filter-panel {
+.filter-overlay {
+  --map-header-height: 64px;
   position: fixed;
-  inset: 0;
+  top: var(--map-header-height);
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 10;
   background: #fff;
+}
+
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: calc(100dvh - var(--map-header-height));
+  background: #fff;
+}
+
+.filter-content {
+  flex: 1;
+  min-height: 0;
+  padding: 24px 20px;
+  overflow-y: auto;
 }
 </style>
