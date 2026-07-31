@@ -2,6 +2,8 @@ package com.salgosipo.user.service;
 
 import com.salgosipo.user.domain.UserVO;
 import com.salgosipo.user.dto.SignupRequestDto;
+import com.salgosipo.user.dto.UserProfileResponseDto;
+import com.salgosipo.user.dto.UserUpdateRequestDto;
 import com.salgosipo.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -42,7 +44,20 @@ public class UserService {
         return userMapper.countByLoginId(loginId)==0;
     }
 
-    public boolean isEmailAvailable(String email){
-        return userMapper.countByEmail(email)==0;
+    public UserProfileResponseDto getProfile(String loginId){
+        UserVO vo = userMapper.findByLoginId(loginId);
+        if(vo == null){
+            throw new IllegalArgumentException("존재하지않는 사용자입니다.");
+        }
+        return userMapper.findProfileByUserId(vo.getUserId());
+    }
+
+    @Transactional
+    public void updateProfile(String loginId, UserUpdateRequestDto dto){
+        UserVO vo = userMapper.findByLoginId(loginId);
+        if(vo == null){
+            throw new IllegalArgumentException("존재하지않는 사용자입니다.");
+        }
+        userMapper.updateProfile(vo.getUserId(),dto.getName(),dto.getEmail());
     }
 }
