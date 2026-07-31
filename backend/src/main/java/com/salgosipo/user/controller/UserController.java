@@ -1,9 +1,7 @@
 package com.salgosipo.user.controller;
 
 import com.salgosipo.global.security.account.domain.CustomUser;
-import com.salgosipo.user.dto.SignupRequestDto;
-import com.salgosipo.user.dto.UserProfileResponseDto;
-import com.salgosipo.user.dto.UserUpdateRequestDto;
+import com.salgosipo.user.dto.*;
 import com.salgosipo.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -44,4 +42,19 @@ public class UserController {
         userService.updateProfile(customUser.getUsername(), dto);
         return ResponseEntity.ok().build();
     }
+
+    @PutMapping("/password")
+    public ResponseEntity<?> changePassword(@AuthenticationPrincipal CustomUser customUser,
+                                            @RequestBody PasswordChangeRequestDto dto){
+        userService.changePassword(customUser.getUsername(), dto);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> withdraw(@AuthenticationPrincipal CustomUser customUser,
+                                      @RequestBody WithdrawRequestDto dto) {
+        userService.withdraw(customUser.getUsername(), dto.getPassword());
+        return ResponseEntity.ok().build();
+    }
+
 }

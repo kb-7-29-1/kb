@@ -1,6 +1,7 @@
 package com.salgosipo.user.service;
 
 import com.salgosipo.user.domain.UserVO;
+import com.salgosipo.user.dto.PasswordChangeRequestDto;
 import com.salgosipo.user.dto.SignupRequestDto;
 import com.salgosipo.user.dto.UserProfileResponseDto;
 import com.salgosipo.user.dto.UserUpdateRequestDto;
@@ -59,5 +60,30 @@ public class UserService {
             throw new IllegalArgumentException("존재하지않는 사용자입니다.");
         }
         userMapper.updateProfile(vo.getUserId(),dto.getName(),dto.getEmail());
+    }
+
+    @Transactional
+    public void changePassword(String loginId, PasswordChangeRequestDto dto){
+        UserVO vo = userMapper.findByLoginId(loginId);
+        if(vo == null){
+            throw new IllegalArgumentException("존재하지않는 사용자입니다.");
+        }
+        if(!passwordEncoder.matches(dto.getCurrentPassword(),vo.getPassword())){
+            throw new IllegalArgumentException("현재 비밀번호가 일치하지않습니다");
+        }
+        String encodedNewPassword = passwordEncoder.encode(dto.getNewPassword());
+        userMapper.updatePassword(vo.getUserId(), encodedNewPassword);
+    }
+
+    @Transactional
+    public void withdraw(String loginId, String password){
+        UserVO vo = userMapper.findByLoginId(loginId);
+        if(vo == null){
+            throw new IllegalArgumentException("존재하지않는 사용자입니다.");
+        }
+        if (!passwordEncoder.matches(password, vo.getPassword())) {
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+        userMapper.withdraw(vo.getUserId());
     }
 }
