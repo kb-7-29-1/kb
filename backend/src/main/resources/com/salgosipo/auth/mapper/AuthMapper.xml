@@ -4,5 +4,15 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.auth.mapper.AuthMapper">
+    <update id="resetPassword">
+        update users set password = #{password} where user_id = #{userId} and del_yn ='N'
+    </update>
 
+    <select id="findLoginIdByEmail" resultType="java.lang.String">
+        select login_id from users where email = #{email} and del_yn='N'
+    </select>
+
+    <select id="findUserIdForPasswordReset" resultType="java.lang.Long">
+        select user_id from users where login_id = #{loginId} and name = #{name} and email=#{email} and del_yn='N'
+    </select>
 </mapper>
