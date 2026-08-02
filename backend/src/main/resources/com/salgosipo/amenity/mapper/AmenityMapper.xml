@@ -4,6 +4,23 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.amenity.mapper.AmenityMapper">
+    <insert id="insertAmenity" parameterType="com.salgosipo.amenity.dto.AmenityResponseDTO">
+        INSERT INTO property_amenity (
+            property_id,
+            amenity_type,
+            amenity_name,
+            amenity_latitude,
+            amenity_longitude,
+            walk_time_minutes
+        ) VALUES (
+                     #{propertyId},
+                     #{amenityType},
+                     #{amenityName},
+                     #{amenityLatitude},
+                     #{amenityLongitude},
+                     #{walkTimeMinutes}
+                 )
+    </insert>
 
     <select id="getAmenitiesByFilter" resultType="com.salgosipo.amenity.dto.AmenityResponseDTO">
         SELECT property_id,

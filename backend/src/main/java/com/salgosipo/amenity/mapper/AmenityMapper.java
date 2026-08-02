@@ -8,4 +8,6 @@ import java.util.List;
 public interface AmenityMapper {
 
     List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request);
+
+    void insertAmenity(AmenityResponseDTO amenity);
 }
