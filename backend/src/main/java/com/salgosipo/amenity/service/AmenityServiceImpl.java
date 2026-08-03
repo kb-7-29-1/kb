@@ -5,6 +5,7 @@ import com.salgosipo.amenity.dto.AmenityFilter;
 import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
+import com.salgosipo.property.dto.PropertyDetailDTO;
 import com.salgosipo.property.mapper.PropertyMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,20 +41,20 @@ public class AmenityServiceImpl implements AmenityService {
             return existingAmenities;
         }
 
-        // 2. 매물의 위경도 조회
-        // Double startLat = propertyMapper.getLatitude(request.getPropertyId());
-        // Double startLng = propertyMapper.getLongitude(request.getPropertyId());
-
-        // 예시: 강남역 10번 출구 근처 좌표로 임시 설정
-        Double startLat = 37.497952;
-        Double startLng = 127.027619;
+        // 2. 매물의 실제 위경도 조회
+        PropertyDetailDTO property = propertyMapper.selectPropertyDetail(
+                request.getPropertyId().longValue(),
+                null
+        );
+        Double startLat = property == null ? null : property.getLatitude();
+        Double startLng = property == null ? null : property.getLongitude();
 
         List<AmenityResponseDTO> newAmenities = new ArrayList<>();
 
-        // if (startLat == null || startLng == null) {
-        //    log.warn("매물 좌표가 존재하지 않습니다. PropertyId: {}", request.getPropertyId());
-        //    return newAmenities;
-        // }
+         if (startLat == null || startLng == null) {
+           log.warn("매물 좌표가 존재하지 않습니다. PropertyId: {}", request.getPropertyId());
+            return newAmenities;
+         }
 
         // 클라이언트가 보낸 필터 목록이 없으면 빈 리스트 반환
         if (request.getAmenities() == null || request.getAmenities().isEmpty()) {
