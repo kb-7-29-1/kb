@@ -29,6 +29,8 @@ const goMyPage = () => {
     </header>
     <MapView @open-filter="openFilter" />
 
+    <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
+    <!--
     <button
       v-if="!isFilterOpen"
       type="button"
@@ -37,17 +39,34 @@ const goMyPage = () => {
       title="필터"
       @click="openFilter"
     >
-      <svg class="filter-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <!-- 첫 번째 선 -->
-        <path d="M5 8H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+      <svg
+        class="filter-icon"
+        viewBox="0 0 32 32"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 8H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="20" cy="8" r="3.2" fill="currentColor" />
 
-        <!-- 두 번째 선 -->
-        <path d="M5 16H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        <path
+          d="M5 16H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="11" cy="16" r="3.2" fill="currentColor" />
 
-        <!-- 세 번째 선 -->
-        <path d="M5 24H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        <path
+          d="M5 24H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="22" cy="24" r="3.2" fill="currentColor" />
       </svg>
     </button>
@@ -55,6 +74,7 @@ const goMyPage = () => {
     <Transition name="bottom-sheet">
       <FilterPanel v-if="isFilterOpen" @close="closeFilter" />
     </Transition>
+    -->
   </main>
 </template>
 

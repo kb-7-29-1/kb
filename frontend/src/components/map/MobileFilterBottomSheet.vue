@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
+import FilterTabs from './FilterTabs.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
 
 const props = defineProps({
@@ -14,7 +15,7 @@ const props = defineProps({
   },
   initialTab: {
     type: String,
-    default: 'general', // 'general' | 'amenity'
+    default: 'all', // 'all' | 'amenity'
   },
   totalCount: {
     type: Number,
@@ -28,13 +29,13 @@ const props = defineProps({
 
 const emit = defineEmits(['update:isOpen', 'update:modelValue', 'reset', 'update-filters']);
 
-// 현재 바텀시트 내부 활성 탭 ('general' = 전체 조건 / 'amenity' = 편의시설 필터)
-const activeTab = ref(props.initialTab || 'general');
+// 현재 바텀시트 내부 활성 탭 ('all' = 전체 조건 / 'amenity' = 편의시설 필터)
+const activeTab = ref(props.initialTab || 'all');
 
 watch(
   () => props.initialTab,
   (newTab) => {
-    if (newTab) activeTab.value = newTab;
+    if (newTab) activeTab.value = newTab === 'general' ? 'all' : newTab;
   },
 );
 
@@ -77,7 +78,7 @@ const notifyUpdate = () => {
           ></span>
         </div>
 
-        <div class="px-4 pt-3 pb-3 border-b border-slate-100">
+        <div class="px-4 pt-3 pb-3 border-b border-slate-100 space-y-3">
           <OnboardingSummary
             :destination="filters.destination"
             :transport-mode="filters.transportMode"
@@ -87,57 +88,15 @@ const notifyUpdate = () => {
             :min-safety-score="filters.minSafetyScore"
             @close="close"
           />
-        </div>
 
-        <!-- 2. [ 🎨 전체 조건 필터 ] vs [ 🛍️ 편의시설 필터 ] 2종 구분 탭바 -->
-        <div class="flex border-b border-slate-200 bg-white sticky top-0 z-20 px-4">
-          <button
-            type="button"
-            class="flex-1 py-3 text-xs font-bold transition-all relative flex items-center justify-center gap-1.5"
-            :class="
-              activeTab === 'general'
-                ? 'text-blue-600 font-extrabold'
-                : 'text-slate-500 hover:text-slate-800'
-            "
-            @click="activeTab = 'general'"
-          >
-            <span>🎨</span>
-            <span>전체 조건 필터</span>
-            <div
-              v-if="activeTab === 'general'"
-              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
-            ></div>
-          </button>
-
-          <button
-            type="button"
-            class="flex-1 py-3 text-xs font-bold transition-all relative flex items-center justify-center gap-1.5"
-            :class="
-              activeTab === 'amenity'
-                ? 'text-blue-600 font-extrabold'
-                : 'text-slate-500 hover:text-slate-800'
-            "
-            @click="activeTab = 'amenity'"
-          >
-            <span>🛍️</span>
-            <span>편의시설 필터</span>
-            <span
-              v-if="filters.selectedAmenities?.length > 0"
-              class="w-4 h-4 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-black"
-            >
-              {{ filters.selectedAmenities.length }}
-            </span>
-            <div
-              v-if="activeTab === 'amenity'"
-              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
-            ></div>
-          </button>
+          <!-- 2. FilterPanel 계승 FilterTabs (전체 필터 ↔ 편의시설 필터) -->
+          <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
         </div>
 
         <!-- 3. 탭별 스크롤 내용 영역 -->
         <div class="flex-1 overflow-y-auto p-5">
-          <!-- 탭 1: 🎨 전체 조건 필터 (목적지 / 이동시간 / 금액 / 안전점수) -->
-          <div v-if="activeTab === 'general'" class="space-y-6">
+          <!-- 🎨 전체 조건 필터 (목적지 / 이동시간 / 금액 / 안전점수) -->
+          <div v-show="activeTab === 'all' || activeTab === 'general'" class="space-y-6">
             <!-- 섹션 1: 목적지 선택 -->
             <div class="space-y-2">
               <label class="text-xs font-black text-slate-800 flex items-center gap-1.5">
@@ -441,8 +400,8 @@ const notifyUpdate = () => {
             </div>
           </div>
 
-          <!-- 탭 2: 🛍️ 주변 편의시설 필터 (AmenityFilter.vue 단독 탭 전구역) -->
-          <div v-else class="space-y-4">
+          <!-- 탭 2: 🛍️ 주변 편의시설 필터 (FilterPanel 계승) -->
+          <div v-show="activeTab === 'amenity'" class="space-y-4 pt-2">
             <div
               class="p-3 bg-blue-50/80 rounded-2xl border border-blue-200/80 text-xs text-blue-900 font-bold flex items-center gap-2"
             >

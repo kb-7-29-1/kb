@@ -624,38 +624,52 @@ const safetyThumbColor = computed(() => {
     </div>
 
     <!-- ======================================================== -->
-    <!-- 2. 모바일 전용 퀵 플로팅 버튼 2종 구분 (md:hidden)       -->
+    <!-- 2. 모바일 전용 퀵 플로팅 버튼 (HomePage.vue 원형 필터 버튼) -->
     <!-- ======================================================== -->
     <div class="flex md:hidden items-center gap-1.5 z-30">
-      <!-- 모바일 버튼 1: [🎨 조건 필터] -->
       <button
         type="button"
-        class="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-900 text-white rounded-full shadow-xl text-xs font-black transition-transform active:scale-95 border border-slate-700"
+        class="filter-floating-button-circle"
+        aria-label="필터 열기"
+        title="필터"
         @click="openMobileFilter('general')"
       >
-        <span>🎨 전체 필터</span>
-      </button>
+        <svg
+          class="filter-icon"
+          viewBox="0 0 32 32"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M5 8H27"
+            stroke="currentColor"
+            stroke-width="2.8"
+            stroke-linecap="round"
+          />
+          <circle cx="20" cy="8" r="3.2" fill="currentColor" />
 
-      <!-- 모바일 버튼 2: [🛍️ 편의시설 (N)] -->
-      <button
-        type="button"
-        class="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-slate-900 rounded-full shadow-xl text-xs font-bold transition-transform active:scale-95 border border-slate-200"
-        :class="{
-          'border-blue-500 font-black text-blue-600 bg-blue-50':
-            filters.selectedAmenities?.length > 0,
-        }"
-        @click="openMobileFilter('amenity')"
-      >
-        <span>🛍️ 편의시설</span>
-        <span>
-          {{ activeFilterCount }}
-        </span>
+          <path
+            d="M5 16H27"
+            stroke="currentColor"
+            stroke-width="2.8"
+            stroke-linecap="round"
+          />
+          <circle cx="11" cy="16" r="3.2" fill="currentColor" />
+
+          <path
+            d="M5 24H27"
+            stroke="currentColor"
+            stroke-width="2.8"
+            stroke-linecap="round"
+          />
+          <circle cx="22" cy="24" r="3.2" fill="currentColor" />
+        </svg>
       </button>
 
       <!-- 모바일 이소크론 영역 ON/OFF 빠른 버튼 -->
       <button
         type="button"
-        class="flex items-center gap-1.5 px-3 py-2.5 rounded-full shadow-lg text-xs font-bold transition-all backdrop-blur-md border"
+        class="filter-floating-button-capsule"
         :class="[
           filters.showIsochrone
             ? 'bg-indigo-600 text-white border-indigo-500 font-black'
@@ -683,6 +697,74 @@ const safetyThumbColor = computed(() => {
 </template>
 
 <style scoped>
+/* HomePage.vue 원형 필터 버튼 전용 스타일 */
+.filter-floating-button-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / 14%),
+    0 1px 3px rgb(0 0 0 / 8%);
+  color: #3f5bf6;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.filter-floating-button-circle:hover {
+  background: #f8f9ff;
+  box-shadow:
+    0 5px 12px rgb(0 0 0 / 16%),
+    0 2px 4px rgb(0 0 0 / 8%);
+}
+
+.filter-floating-button-circle:active {
+  transform: scale(0.96);
+}
+
+.filter-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.filter-floating-button-capsule {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: all 0.15s ease-in-out;
+  border-width: 1px;
+}
+
+.filter-floating-button:active {
+  transform: scale(0.95);
+}
+
+.filter-floating-button-dark {
+  background-color: #0f172a;
+  color: #ffffff;
+  font-weight: 900;
+  border-color: #334155;
+}
+
+.filter-floating-button-white {
+  background-color: #ffffff;
+  color: #0f172a;
+  border-color: #e2e8f0;
+}
+
 /* 동적 콩나물 핸들(Thumb) 색상 및 스케일 애니메이션 */
 .safety-range-input::-webkit-slider-thumb {
   appearance: none;

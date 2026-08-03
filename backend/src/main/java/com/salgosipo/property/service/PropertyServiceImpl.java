@@ -16,10 +16,15 @@ import java.util.List;
 public class PropertyServiceImpl implements PropertyService {
 
     private final PropertyMapper propertyMapper;
+    private final PublicDataApiService publicDataApiService;
 
     @Override
     public List<PropertyListDTO> getPropertyList(PropertySearchCondDTO cond, Long userId) {
-        return propertyMapper.selectPropertyList(cond, userId);
+        List<PropertyListDTO> list = propertyMapper.selectPropertyList(cond, userId);
+        if (list == null || list.isEmpty()) {
+            return publicDataApiService.getGwangjinMonthlyProperties();
+        }
+        return list;
     }
 
     @Override

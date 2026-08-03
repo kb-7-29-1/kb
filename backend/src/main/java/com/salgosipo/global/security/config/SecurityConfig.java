@@ -35,9 +35,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Configuration
 @EnableWebSecurity
 @Log4j2
-@ComponentScan(basePackages  = {"com.salgosipo.global.security"})
+@ComponentScan(basePackages = { "com.salgosipo.global.security" })
 @RequiredArgsConstructor
-public class SecurityConfig  extends WebSecurityConfigurerAdapter {
+public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
     private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -55,7 +55,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
 
     // 문자셋필터 ==> post방식으로 전달된 데이터 utf-8로 설정해서 받아야 한글깨지지 않음.
     // http의 body에 따라오므로 별도로 설정해주어야함.
-    // ip, pw를 입력에 한글 깨지지 않게 설정, 모든 회원가입, 로그인은  post로 보내야함.
+    // ip, pw를 입력에 한글 깨지지 않게 설정, 모든 회원가입, 로그인은 post로 보내야함.
     public CharacterEncodingFilter encodingFilter() {
         CharacterEncodingFilter encodingFilter = new CharacterEncodingFilter();
         encodingFilter.setEncoding("UTF-8");
@@ -64,10 +64,10 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
     }
 
     @Bean
-//    JWT 방식은 폼로그인과달리 Spring Security의
-//    기본인증필터를사용하지않고,
-//    클라이언트→ JWT 토큰→ 커스텀필터
-//            (OncePerRequestFilter 등) → SecurityContext 직접 설정
+    // JWT 방식은 폼로그인과달리 Spring Security의
+    // 기본인증필터를사용하지않고,
+    // 클라이언트→ JWT 토큰→ 커스텀필터
+    // (OncePerRequestFilter 등) → SecurityContext 직접 설정
     public AuthenticationManager authenticationManager() throws Exception {
         return super.authenticationManager();
     }
@@ -84,10 +84,11 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
         return new CorsFilter(source);
     }
 
-    //시큐리티 적용하고 싶지 않은 요청 주소 등록.
+    // 시큐리티 적용하고 싶지 않은 요청 주소 등록.
     @Override
     public void configure(WebSecurity web) throws Exception {
-        web.ignoring().antMatchers("/assets/**", "/resources/**", "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
+        web.ignoring().antMatchers("/", "/index.html", "/favicon.ico", "/favicon.svg", "/assets/**", "/resources/**",
+                "/swagger-ui.html", "/webjars/**", "/swagger-resources/**", "/v2/api-docs");
     }
 
     @Override
@@ -100,8 +101,8 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .addFilterBefore(jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
-                    jwtUsernamePasswordAuthenticationFilter,
-                    UsernamePasswordAuthenticationFilter.class);
+                        jwtUsernamePasswordAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class);
 
         http
                 .exceptionHandling()
@@ -122,7 +123,6 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
                 .antMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated();
     }
-
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
