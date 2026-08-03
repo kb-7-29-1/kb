@@ -1,13 +1,17 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
+import { getHaversineDistance } from '@/utils/geo.js';
+import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
+import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { mockProperties } from '@/mock/mockProperties.js';
 
-// 5종 정렬 필터 옵션 (스펙: 추천순, 가격 낮은순, 가격 높은순, 안전점수 높은순, 면적 넓은순)
+// 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
 const sortOptions = [
   { key: 'RECOMMENDED', label: '추천순' },
@@ -17,17 +21,8 @@ const sortOptions = [
   { key: 'AREA_DESC', label: '면적 넓은순' },
 ];
 
-// 퀵 필터 바 반응형 상태
-const filterState = ref({
-  destination: '세종대학교',
-  tradeType: 'MONTHLY',
-  maxDeposit: 5000,
-  maxRent: 100,
-  minSafetyScore: 0,
-  transportMode: 'WALK',
-  showIsochrone: true,
-  selectedAmenities: [],
-});
+// 온보딩 디폴트 연동 퀵 필터 상태 Composable
+const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
 const showAmenityFilter = ref(false);
@@ -36,144 +31,25 @@ const showAmenityFilter = ref(false);
 const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 
-// 하버사인 공식 (목적지 세종대 ~ 매물 간 실제 거리 km 계산)
-const getHaversineDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // 지구 반지름 (km)
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // 거리 (km)
+// 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
+const properties = ref([...mockProperties]);
+
+// 백엔드 실제 DB 매물 API 조회 (실패 시 mockProperties 백업 자동 유지)
+const fetchPropertiesFromBackend = async () => {
+  try {
+    const res = await api.get('/properties');
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      properties.value = res.data;
+    }
+  } catch (error) {
+    console.log('Backend DB API connection status: Using mock properties fallback.', error);
+  }
 };
 
-// 광진구 세종대 인근 실제 공공데이터 실거래 월세 매물 5개
-const properties = ref([
-  {
-    propertyId: 101,
-    title: '세종대 화양동 프리미엄 오피스텔',
-    buildingType: 3, // 오피스텔
-    roomType: 1, // 원룸
-    deposit: 1000,
-    monthlyRent: 65,
-    area: 24.5,
-    floor: 5,
-    builtYear: '2023년',
-    address: '서울특별시 광진구 화양동 111-23',
-    latitude: 37.5485,
-    longitude: 127.072,
-    thumbnailUrl:
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 92,
-    safetyGrade: 'SAFE',
-    cctvCount: 18,
-    streetlightCount: 42,
-    hasPoliceStation: true,
-    isIllegalBuilding: false,
-    isBookmarked: true,
-    tags: ['풀옵션', '역세권', 'CCTV가득'],
-  },
-  {
-    propertyId: 102,
-    title: '어린이대공원역 역세권 신축 원룸',
-    buildingType: 1, // 빌라
-    roomType: 1, // 원룸
-    deposit: 500,
-    monthlyRent: 55,
-    area: 22.0,
-    floor: 3,
-    builtYear: '2022년',
-    address: '서울특별시 광진구 군자동 361-15',
-    latitude: 37.5528,
-    longitude: 127.0745,
-    thumbnailUrl:
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 88,
-    safetyGrade: 'SAFE',
-    cctvCount: 22,
-    streetlightCount: 50,
-    hasPoliceStation: true,
-    isIllegalBuilding: false,
-    isBookmarked: false,
-    tags: ['초역세권', '안심길', '보호구역'],
-  },
-  {
-    propertyId: 103,
-    title: '건대입구역 가성비 밝은 원룸',
-    buildingType: 2, // 다가구
-    roomType: 1, // 원룸
-    deposit: 2000,
-    monthlyRent: 60,
-    area: 26.8,
-    floor: 2,
-    builtYear: '2020년',
-    address: '서울특별시 광진구 화양동 48-12',
-    latitude: 37.5442,
-    longitude: 127.0685,
-    thumbnailUrl:
-      'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 78,
-    safetyGrade: 'WARNING',
-    cctvCount: 12,
-    streetlightCount: 28,
-    hasPoliceStation: false,
-    isIllegalBuilding: false,
-    isBookmarked: false,
-    tags: ['가성비', '남향', '번화가가까움'],
-  },
-  {
-    propertyId: 104,
-    title: '세종대 후문 풀옵션 다가구 원룸',
-    buildingType: 2, // 다가구
-    roomType: 1, // 원룸
-    deposit: 1000,
-    monthlyRent: 50,
-    area: 21.0,
-    floor: 4,
-    builtYear: '2021년',
-    address: '서울특별시 광진구 군자동 102-4',
-    latitude: 37.5545,
-    longitude: 127.0782,
-    thumbnailUrl:
-      'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 95,
-    safetyGrade: 'SAFE',
-    cctvCount: 25,
-    streetlightCount: 55,
-    hasPoliceStation: true,
-    isIllegalBuilding: false,
-    isBookmarked: false,
-    tags: ['세종대도보3분', '최고안전점수', '조용한주택가'],
-  },
-  {
-    propertyId: 105,
-    title: '자양동 신양초 인근 안심 투룸',
-    buildingType: 1, // 빌라
-    roomType: 2, // 투룸
-    deposit: 3000,
-    monthlyRent: 80,
-    area: 45.2,
-    floor: 3,
-    builtYear: '2023년',
-    address: '서울특별시 광진구 자양동 224-8',
-    latitude: 37.5385,
-    longitude: 127.066,
-    thumbnailUrl:
-      'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 82,
-    safetyGrade: 'SAFE',
-    cctvCount: 16,
-    streetlightCount: 38,
-    hasPoliceStation: true,
-    isIllegalBuilding: false,
-    isBookmarked: true,
-    tags: ['투룸', '넓은면적', '경찰서인근'],
-  },
-]);
+onMounted(() => {
+  loadOnboardingDefaultFilters();
+  fetchPropertiesFromBackend();
+});
 
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직
 const sortedProperties = computed(() => {
@@ -274,16 +150,42 @@ const handleToggleBookmark = async (id) => {
 const handleApplyAmenities = (selectedList) => {
   filterState.value.selectedAmenities = selectedList.map((a) => a.amenityType);
 };
+
+// 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
+const {
+  mobilePanelHeight,
+  isDragging,
+  dragPixelHeight,
+  toggleMobilePanel,
+  startDrag,
+} = useMobilePanelDrag();
 </script>
 
 <template>
   <div
     class="relative w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100"
   >
-    <!-- 1. 매물 탐색 사이드바 (모바일: flex-col-reverse 하단배치 / PC: md:flex-row 좌측배치) -->
+    <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="w-full md:w-[380px] h-1/3 md:h-full bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-lg"
+      class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
+      :class="[
+        isDragging ? 'duration-0' : 'duration-300',
+        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-1/3 md:h-full',
+      ]"
+      :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
+      <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
+      <div
+        class="w-full py-2 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing md:hidden select-none touch-none shrink-0 border-b border-slate-100"
+        @click="toggleMobilePanel"
+        @mousedown="startDrag"
+        @touchstart.prevent="startDrag"
+      >
+        <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
+        <span class="text-[10px] font-bold text-slate-400">
+          {{ mobilePanelHeight === 'EXPANDED' ? '▼ 접고 지도 보기' : '▲ 올리고 목록 더보기' }}
+        </span>
+      </div>
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
       <div class="p-4 border-b border-slate-200 bg-white space-y-3">
         <div class="flex items-center justify-between">
