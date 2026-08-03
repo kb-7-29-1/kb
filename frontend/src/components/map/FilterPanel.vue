@@ -7,71 +7,33 @@ import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
 
 const activeTab = ref('all');
-const amenityFilterRef = ref(null);
 
 defineEmits(['close']);
-
-const handleReset = () => {
-  if (amenityFilterRef.value) {
-    amenityFilterRef.value.resetFilters();
-  }
-};
-
-const handleApply = () => {
-  if (amenityFilterRef.value) {
-    amenityFilterRef.value.applyFilters();
-  }
-};
 </script>
 
 <template>
-  <section class="filter-overlay">
-    <div class="filter-panel">
-      <div class="filter-content">
-        <OnboardingSummary @close="$emit('close')" />
+  <section class="filter-panel">
+    <header>
+      <h1>필터</h1>
+      <button type="button" @click="$emit('close')">닫기</button>
+    </header>
 
-        <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
+    <OnboardingSummary />
 
-        <OnBoardingFilter v-if="activeTab === 'all'" />
-        <AmenityFilter
-            v-else
-            ref="amenityFilterRef"
-            @apply="handleAmenityResult"
-        />
-      </div>
+    <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-      <FilterBottomBar
-          @reset="handleReset"
-          @apply="handleApply"
-      />
-    </div>
+    <OnBoardingFilter v-if="activeTab === 'all'" />
+    <AmenityFilter v-else />
+
+    <FilterBottomBar />
   </section>
 </template>
 
 <style scoped>
-.filter-overlay {
-  --map-header-height: 64px;
+.filter-panel {
   position: fixed;
-  top: var(--map-header-height);
-  right: 0;
-  bottom: 0;
-  left: 0;
+  inset: 0;
   z-index: 10;
   background: #fff;
-}
-
-.filter-panel {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  min-height: calc(100dvh - var(--map-header-height));
-  background: #fff;
-}
-
-.filter-content {
-  flex: 1;
-  min-height: 0;
-  padding: 24px 20px;
-  overflow-y: auto;
 }
 </style>

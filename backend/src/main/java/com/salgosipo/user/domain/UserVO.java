@@ -5,8 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,7 +14,7 @@ public class UserVO {
     private String loginId;
     private String password;
     private String name;
-    private Date birthDate;
+    private String birthDate;
     private String gender;
     private String email;
     private String delYn;

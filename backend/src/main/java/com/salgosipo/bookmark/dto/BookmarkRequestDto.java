@@ -1,12 +1,4 @@
 package com.salgosipo.bookmark.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class BookmarkRequestDto {
-    private Long propertyId;
 }

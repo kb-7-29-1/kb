@@ -19,7 +19,6 @@ import javax.sql.DataSource;
 @Configuration
 @PropertySource({"classpath:/application.properties"})
 @MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
-        "com.salgosipo.auth.mapper",
         "com.salgosipo.bookmark.mapper",
         "com.salgosipo.comment.mapper",
         "com.salgosipo.destination.mapper",
@@ -28,7 +27,6 @@ import javax.sql.DataSource;
         "com.salgosipo.safety.mapper",
         "com.salgosipo.user.mapper"})
 @ComponentScan(basePackages = {"com.salgosipo.amenity.service",
-        "com.salgosipo.auth.service",
         "com.salgosipo.bookmark.service",
         "com.salgosipo.comment.service",
         "com.salgosipo.destination.service",
