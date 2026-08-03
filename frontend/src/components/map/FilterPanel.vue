@@ -10,6 +10,7 @@ import onboardingApi from '@/api/onboardingApi';
 const activeTab = ref('all');
 const amenityFilterRef = ref(null);
 const onboarding = ref(null);
+const selectedDestination = ref(null);
 
 const emit = defineEmits(['close', 'apply']);
 
@@ -50,7 +51,7 @@ const handleApply = () => {
     <div class="filter-panel">
       <div class="filter-content">
         <OnboardingSummary
-          :destination="onboarding?.destination?.destName"
+          :destination="selectedDestination?.destName ?? onboarding?.destination?.destName"
           :transport-mode="onboarding?.transportMode"
           :travel-time="onboarding?.maxTravelTime"
           :max-deposit="onboarding?.budgetDeposit"
@@ -61,7 +62,11 @@ const handleApply = () => {
 
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-        <OnBoardingFilter v-show="activeTab === 'all'" :onboarding="onboarding" />
+        <OnBoardingFilter
+          v-show="activeTab === 'all'"
+          :onboarding="onboarding"
+          @select-destination="selectedDestination = $event"
+        />
         <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
 

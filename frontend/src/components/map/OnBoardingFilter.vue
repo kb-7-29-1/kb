@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import onboardingApi from '@/api/onboardingApi';
 
 const props = defineProps({
   onboarding: {
@@ -7,6 +8,7 @@ const props = defineProps({
     default: null,
   },
 });
+const emit = defineEmits(['select-destination']);
 
 const minSafetyScore = ref(40);
 const depositOptions = [
@@ -17,6 +19,12 @@ const maxRent = ref(120);
 const transportMode = ref('walk');
 const travelTime = ref(15);
 const flexTime = ref(10);
+const selectedDestination = ref(null);
+const searchKeyword = ref('');
+const searchResults = ref([]);
+const isSearching = ref(false);
+const searchError = ref('');
+let searchTimer;
 
 const rangeStyle = (value, min, max, color = '#3d55f6') => {
   const percent = ((value - min) / (max - min)) * 100;
@@ -32,7 +40,49 @@ const depositLabel = computed(() =>
 );
 const rentLabel = computed(() => `${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
-const destinationName = computed(() => props.onboarding?.destination?.destName ?? '세종대학교');
+const destinationName = computed(
+  () =>
+    selectedDestination.value?.destName ?? props.onboarding?.destination?.destName ?? '세종대학교',
+);
+
+const selectDestination = (destination) => {
+  selectedDestination.value = destination;
+  searchKeyword.value = destination.destName;
+  searchResults.value = [];
+  searchError.value = '';
+  emit('select-destination', destination);
+};
+
+const clearSearch = () => {
+  searchKeyword.value = '';
+  searchResults.value = [];
+  searchError.value = '';
+};
+
+watch(searchKeyword, (value) => {
+  clearTimeout(searchTimer);
+  searchError.value = '';
+
+  const keyword = value.trim();
+  if (keyword.length < 2 || selectedDestination.value?.destName === value) {
+    searchResults.value = [];
+    isSearching.value = false;
+    return;
+  }
+
+  searchTimer = setTimeout(async () => {
+    isSearching.value = true;
+    try {
+      searchResults.value = await onboardingApi.searchDestinations(keyword);
+    } catch (error) {
+      searchResults.value = [];
+      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      console.error('FILTER DESTINATION SEARCH ERROR: ', error);
+    } finally {
+      isSearching.value = false;
+    }
+  }, 300);
+});
 
 watch(
   () => props.onboarding,
@@ -49,6 +99,8 @@ watch(
   },
   { immediate: true },
 );
+
+onBeforeUnmount(() => clearTimeout(searchTimer));
 </script>
 
 <template>
@@ -59,8 +111,46 @@ watch(
       </p>
       <label class="search-field">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input type="text" placeholder="예: 연세대학교, 삼성전자 서초사옥" />
+        <input
+          v-model="searchKeyword"
+          type="text"
+          autocomplete="off"
+          placeholder="예: 연세대학교, 삼성전자 서초사옥"
+        />
+        <button
+          v-if="searchKeyword"
+          type="button"
+          class="clear-search-button"
+          aria-label="검색어 지우기"
+          @click="clearSearch"
+        >
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
       </label>
+      <p v-if="isSearching" class="search-message">검색 중이에요.</p>
+      <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
+      <p
+        v-else-if="
+          searchKeyword.trim().length >= 2 &&
+          !searchResults.length &&
+          selectedDestination?.destName !== searchKeyword
+        "
+        class="search-message"
+      >
+        검색 결과가 없어요.
+      </p>
+      <ul v-if="searchResults.length" class="search-result-list">
+        <li v-for="item in searchResults" :key="`${item.destName}-${item.destAddress}`">
+          <button type="button" @click="selectDestination(item)">
+            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+            <span>
+              <strong>{{ item.destName }}</strong>
+              <small>{{ item.destAddress }}</small>
+            </span>
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+          </button>
+        </li>
+      </ul>
     </div>
 
     <div class="filter-section">
@@ -267,6 +357,65 @@ watch(
 }
 .search-field input::placeholder {
   color: #b5bcc7;
+}
+.clear-search-button {
+  display: grid;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: #a1a8b5;
+  font-size: 10px;
+}
+.search-message {
+  margin: 8px 2px 0;
+  color: #7b8797;
+  font-size: 12px;
+}
+.search-message.error {
+  color: #dc2626;
+}
+.search-result-list {
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e1e5eb;
+  border-radius: 10px;
+  list-style: none;
+}
+.search-result-list li + li {
+  border-top: 1px solid #edf0f5;
+}
+.search-result-list button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 0;
+  background: #fff;
+  color: #3d55f6;
+  text-align: left;
+}
+.search-result-list span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  color: #374151;
+  font-size: 12px;
+}
+.search-result-list small {
+  overflow: hidden;
+  color: #9aa3b0;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-result-list > li > button > :last-child {
+  color: #a1a8b5;
+  font-size: 11px;
 }
 
 input[type='range'] {
