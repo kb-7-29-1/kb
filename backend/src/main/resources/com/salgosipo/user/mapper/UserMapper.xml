@@ -4,19 +4,40 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.user.mapper.UserMapper">
+    <insert id="signup">
+        insert into users (login_id, password, name, birth_date, gender, email)
+        values (#{loginId}, #{password}, #{name}, #{birthDate}, #{gender}, #{email})
+    </insert>
+
+    <update id="updateProfile">
+        update users set name = #{name}, email = #{email} where user_id = #{userId} and del_yn = 'N'
+    </update>
+
+    <update id="updatePassword">
+        update users set password = #{password} where user_id = #{userId} and del_yn ='N'
+    </update>
+
+    <update id="withdraw">
+        update users set del_yn ='Y' where user_id = #{userId}
+    </update>
 
     <select id="findByLoginId" resultType="com.salgosipo.user.domain.UserVO">
-        SELECT
-            user_id     AS userId,
-            login_id    AS loginId,
-            password    AS password,
-            name        AS name,
-            birth_date  AS birthDate,
-            gender      AS gender,
-            email       AS email,
-            del_yn      AS delYn
+        SELECT user_id, login_id, password, name, birth_date, gender, email, del_yn
         FROM users
         WHERE login_id = #{loginId}
           AND del_yn = 'N'
+    </select>
+
+    <select id="countByLoginId" resultType="java.lang.Integer">
+        select count(*) from users where login_id = #{loginId} and del_yn='N'
+    </select>
+
+    <select id="countByEmail" resultType="java.lang.Integer">
+        select count(*) from users where email = #{email} and del_yn = 'N'
+    </select>
+
+    <select id="findProfileByUserId" resultType="com.salgosipo.user.dto.UserProfileResponseDto">
+        select user_id, login_id, name, email, birth_date, gender
+        from users where user_id = #{userId} and del_yn ='N'
     </select>
 </mapper>

@@ -10,5 +10,7 @@
         <mapper resource="com/salgosipo/auth/mapper/AuthMapper.xml"/>
         <mapper resource="com/salgosipo/user/mapper/UserMapper.xml"/>
         <mapper resource="com/salgosipo/bookmark/mapper/BookmarkMapper.xml"/>
+        <mapper resource="com/salgosipo/destination/mapper/DestinationMapper.xml"/>
+        <mapper resource="com/salgosipo/onboarding/mapper/OnboardingMapper.xml"/>
     </mappers>
 </configuration>

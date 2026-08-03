@@ -5,4 +5,29 @@
 
 <mapper namespace="com.salgosipo.bookmark.mapper.BookmarkMapper">
 
+    <insert id="addBookmark">
+        insert into bookmarks (user_id, property_id) values (#{userId}, #{propertyId})
+    </insert>
+
+    <delete id="removeBookmark">
+        delete from bookmarks where user_id = #{userId} and property_id = #{propertyId}
+    </delete>
+
+    <select id="countByUserIdAndPropertyId" resultType="java.lang.Integer">
+        select count(*) from bookmarks where user_id = #{userId} and property_id = #{propertyId}
+    </select>
+
+    <select id="findBookmarksByUserId" resultType="com.salgosipo.bookmark.dto.BookmarkResponseDto">
+        select p.property_id, p.address,p.deposit, p.monthly_rent, p.area, p.is_illegal_building,
+               COALESCE(ps.safety_score, 0) AS safety_score, b.created_at AS bookmarked_at,
+               CASE
+                   WHEN p.building_type = 3 THEN '오피스텔'
+                   WHEN p.room_type = 2 THEN '투룸'
+                   WHEN p.room_type = 1 THEN '원룸'
+                   ELSE '빌라/주택'
+                   END AS building_type_tag
+            from bookmarks b join properties p on b.property_id = p.property_id left join
+            property_safety ps on p.property_id = ps.property_id where b.user_id = #{userId}
+            AND p.del_yn = 'N' ORDER BY b.created_at DESC
+    </select>
 </mapper>
