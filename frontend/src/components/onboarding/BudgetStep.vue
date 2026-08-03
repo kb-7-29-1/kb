@@ -73,7 +73,7 @@ const rangeStyle = (value, min, max) => {
         </div>
         <input
           id="deposit"
-          v-model="depositIndex"
+          v-model.number="depositIndex"
           type="range"
           min="0"
           :max="depositOptions.length - 1"
@@ -93,7 +93,7 @@ const rangeStyle = (value, min, max) => {
         </div>
         <input
           id="monthly-rent"
-          v-model="monthlyRent"
+          v-model.number="monthlyRent"
           type="range"
           min="0"
           max="150"

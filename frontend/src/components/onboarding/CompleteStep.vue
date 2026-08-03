@@ -50,13 +50,16 @@ const summaryItems = computed(() => [
   {
     icon: 'fa-wallet',
     label: '보증금',
-    value: `${formatDeposit(props.deposit)} 이하`,
+    value: `${formatDeposit(Number(props.deposit))} 이하`,
     tone: 'purple',
   },
   {
     icon: 'fa-won-sign',
     label: '월세',
-    value: props.monthlyRent === 0 ? '전세' : `${props.monthlyRent.toLocaleString()}만원 이하`,
+    value:
+      Number(props.monthlyRent) === 0
+        ? '전세'
+        : `${Number(props.monthlyRent).toLocaleString()}만원 이하`,
     tone: 'blue',
   },
   {
