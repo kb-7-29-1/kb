@@ -3,6 +3,8 @@ import { ref, computed } from 'vue';
 import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
+import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
+import AmenityFilter from '@/components/map/AmenityFilter.vue';
 
 // 5종 정렬 필터 옵션 (스펙: 추천순, 가격 낮은순, 가격 높은순, 안전점수 높은순, 면적 넓은순)
 const currentSort = ref('RECOMMENDED');
@@ -13,6 +15,21 @@ const sortOptions = [
   { key: 'SAFETY_DESC', label: '안전점수 높은순' },
   { key: 'AREA_DESC', label: '면적 넓은순' },
 ];
+
+// 퀵 필터 바 반응형 상태
+const filterState = ref({
+  destination: '세종대학교',
+  tradeType: 'MONTHLY',
+  maxDeposit: 5000,
+  maxRent: 100,
+  minSafetyScore: 0,
+  transportMode: 'WALK',
+  showIsochrone: true,
+  selectedAmenities: [],
+});
+
+// 좌측 아코디언/패널 편의시설 필터 열림 상태
+const showAmenityFilter = ref(false);
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
@@ -114,9 +131,19 @@ const properties = ref([
   },
 ]);
 
-// 5종 정렬 로직 적용
+// 퀵버튼 필터 + 5종 정렬 연동 로직
 const sortedProperties = computed(() => {
-  const list = [...properties.value];
+  let list = properties.value.filter((p) => {
+    // 보증금 필터
+    if (p.deposit > filterState.value.maxDeposit) return false;
+    // 월세 필터
+    if (filterState.value.tradeType !== 'JEONSE' && p.monthlyRent > filterState.value.maxRent) return false;
+    // 안전 점수 필터
+    if (p.safetyScore < filterState.value.minSafetyScore) return false;
+    return true;
+  });
+
+  // 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
     return list.sort(
       (a, b) =>
@@ -151,15 +178,20 @@ const handleToggleBookmark = (id) => {
     item.isBookmarked = !item.isBookmarked;
   }
 };
+
+// 편의시설 적용 핸들러
+const handleApplyAmenities = (selectedList) => {
+  filterState.value.selectedAmenities = selectedList.map(a => a.amenityType);
+};
 </script>
 
 <template>
-  <div class="relative w-full h-screen overflow-hidden flex flex-col md:flex-row bg-slate-100">
-    <!-- 1. 좌측 380px 고정 매물 탐색 사이드바 (모바일 대응: flex-col / md:flex-row) -->
+  <div class="relative w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100">
+    <!-- 1. 매물 탐색 사이드바 (모바일: flex-col-reverse 하단배치 / PC: md:flex-row 좌측배치) -->
     <aside
-      class="w-full md:w-[380px] h-1/3 md:h-full bg-white border-b md:border-b-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-lg"
+      class="w-full md:w-[380px] h-1/3 md:h-full bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-lg"
     >
-      <!-- 사이드바 상단 헤더 & 5종 정렬 탭 -->
+      <!-- 사이드바 상단 헤더 & 편의시설 필터 & 5종 정렬 탭 -->
       <div class="p-4 border-b border-slate-200 bg-white space-y-3">
         <div class="flex items-center justify-between">
           <h1 class="font-black text-slate-900 text-lg flex items-center gap-2">
@@ -167,10 +199,29 @@ const handleToggleBookmark = (id) => {
             <span>살고싶오 매물 탐색</span>
           </h1>
           <span
-            class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full"
+            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
           >
             총 {{ sortedProperties.length }}개 매물
           </span>
+        </div>
+
+        <!-- 좌측 사이드바 최상단 편의시설 필터 아코디언 토글 버튼 -->
+        <button
+          type="button"
+          class="w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all"
+          :class="showAmenityFilter ? 'bg-blue-50 border-blue-300 text-blue-700 font-black' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'"
+          @click="showAmenityFilter = !showAmenityFilter"
+        >
+          <span class="flex items-center gap-1.5">
+            <span>🛍️</span>
+            <span>주변 편의시설 필터 연동</span>
+          </span>
+          <span>{{ showAmenityFilter ? '▲ 접기' : '▼ 펼치기' }}</span>
+        </button>
+
+        <!-- 편의시설 필터 컴포넌트 마운트 -->
+        <div v-if="showAmenityFilter" class="pt-2 border-t border-slate-100 max-h-60 overflow-y-auto">
+          <AmenityFilter @apply="handleApplyAmenities" />
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
@@ -211,9 +262,24 @@ const handleToggleBookmark = (id) => {
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
     <main class="flex-1 h-full relative z-10">
+      <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
+      <div class="absolute top-4 left-4 z-30 pointer-events-none">
+        <MapQuickFilterBar
+          v-model="filterState"
+          :total-count="sortedProperties.length"
+          class="pointer-events-auto"
+        />
+      </div>
+
       <NaverMap
         :properties="sortedProperties"
         :selected-property="selectedProperty"
+        :destination="{ name: filterState.destination + ' (주 목적지)', lat: 37.5502, lng: 127.0731 }"
+        :show-isochrone="filterState.showIsochrone"
+        :transport-mode="filterState.transportMode || 'WALK'"
+        :travel-time="filterState.travelTime || 15"
+        :walk-pace="filterState.walkPace || 'NORMAL'"
+        :flex-time="filterState.flexTime || 10"
         @select-property="handleSelectProperty"
       />
     </main>
