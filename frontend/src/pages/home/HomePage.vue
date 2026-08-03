@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 const isFilterOpen = ref(false);
+const appliedOnboardingFilters = ref(null);
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -14,6 +15,15 @@ const openFilter = () => {
 
 const closeFilter = () => {
   isFilterOpen.value = false;
+};
+
+const applyFilters = ({ onboarding }) => {
+  appliedOnboardingFilters.value = onboarding;
+  closeFilter();
+};
+
+const resetFilters = () => {
+  appliedOnboardingFilters.value = null;
 };
 
 const goMyPage = () => {
@@ -74,7 +84,13 @@ const goMyPage = () => {
     -->
 
     <Transition name="bottom-sheet">
-      <FilterPanel v-if="isFilterOpen" @close="closeFilter" />
+      <FilterPanel
+        v-if="isFilterOpen"
+        :applied-filters="appliedOnboardingFilters"
+        @close="closeFilter"
+        @apply="applyFilters"
+        @reset="resetFilters"
+      />
     </Transition>
   </main>
 </template>

@@ -7,8 +7,11 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  appliedFilters: {
+    type: Object,
+    default: null,
+  },
 });
-const emit = defineEmits(['select-destination']);
 
 const minSafetyScore = ref(40);
 const depositOptions = [
@@ -50,7 +53,6 @@ const selectDestination = (destination) => {
   searchKeyword.value = destination.destName;
   searchResults.value = [];
   searchError.value = '';
-  emit('select-destination', destination);
 };
 
 const clearSearch = () => {
@@ -85,20 +87,53 @@ watch(searchKeyword, (value) => {
 });
 
 watch(
-  () => props.onboarding,
-  (onboarding) => {
-    if (!onboarding) return;
+  [() => props.onboarding, () => props.appliedFilters],
+  ([onboarding, appliedFilters]) => {
+    const filters = appliedFilters ?? onboarding;
+    if (!filters) return;
 
-    const savedDepositIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
+    selectedDestination.value = appliedFilters?.destination ?? null;
+
+    const savedDepositIndex = depositOptions.indexOf(Number(filters.budgetDeposit));
     if (savedDepositIndex >= 0) depositIndex.value = savedDepositIndex;
 
-    maxRent.value = Number(onboarding.budgetRent);
-    minSafetyScore.value = Number(onboarding.minSafetyScore);
-    transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
-    travelTime.value = Number(onboarding.maxTravelTime);
+    maxRent.value = Number(filters.budgetRent);
+    minSafetyScore.value = Number(filters.minSafetyScore);
+    transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+    travelTime.value = Number(filters.maxTravelTime);
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
+
+const resetFilters = () => {
+  const onboarding = props.onboarding;
+
+  selectedDestination.value = null;
+  searchKeyword.value = '';
+  searchResults.value = [];
+  searchError.value = '';
+
+  if (!onboarding) return;
+
+  const savedDepositIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
+  if (savedDepositIndex >= 0) depositIndex.value = savedDepositIndex;
+
+  maxRent.value = Number(onboarding.budgetRent);
+  minSafetyScore.value = Number(onboarding.minSafetyScore);
+  transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+  travelTime.value = Number(onboarding.maxTravelTime);
+};
+
+const getFilters = () => ({
+  destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
+  transportMode: transportMode.value.toUpperCase(),
+  maxTravelTime: travelTime.value,
+  budgetDeposit: maxDeposit.value,
+  budgetRent: maxRent.value,
+  minSafetyScore: minSafetyScore.value,
+});
+
+defineExpose({ getFilters, resetFilters });
 
 onBeforeUnmount(() => clearTimeout(searchTimer));
 </script>

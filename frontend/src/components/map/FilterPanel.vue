@@ -7,12 +7,19 @@ import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
 import onboardingApi from '@/api/onboardingApi';
 
+const props = defineProps({
+  appliedFilters: {
+    type: Object,
+    default: null,
+  },
+});
+
 const activeTab = ref('all');
 const amenityFilterRef = ref(null);
+const onboardingFilterRef = ref(null);
 const onboarding = ref(null);
-const selectedDestination = ref(null);
 
-const emit = defineEmits(['close', 'apply']);
+const emit = defineEmits(['close', 'apply', 'reset']);
 
 const loadOnboardingSummary = async () => {
   try {
@@ -26,8 +33,15 @@ const loadOnboardingSummary = async () => {
 
 onMounted(loadOnboardingSummary);
 
-const handleReset = () => {
+const handleReset = async () => {
   activeTab.value = 'all';
+  emit('reset');
+
+  await loadOnboardingSummary();
+
+  if (onboardingFilterRef.value) {
+    onboardingFilterRef.value.resetFilters();
+  }
 
   if (amenityFilterRef.value) {
     amenityFilterRef.value.resetFilters();
@@ -35,11 +49,11 @@ const handleReset = () => {
 };
 
 const handleApply = () => {
-  const amenities = amenityFilterRef.value ? amenityFilterRef.value.getFilters() : [];
+  const amenities = amenityFilterRef.value?.getFilters?.() ?? [];
+  const onboardingFilters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
 
   emit('apply', {
-    // TODO: OnBoardingFilter가 필터 값을 expose하면 여기에서 수집해 전달한다.
-    onboarding: {},
+    onboarding: onboardingFilters,
     amenities,
   });
   emit('close');
@@ -51,12 +65,14 @@ const handleApply = () => {
     <div class="filter-panel">
       <div class="filter-content">
         <OnboardingSummary
-          :destination="selectedDestination?.destName ?? onboarding?.destination?.destName"
-          :transport-mode="onboarding?.transportMode"
-          :travel-time="onboarding?.maxTravelTime"
-          :max-deposit="onboarding?.budgetDeposit"
-          :max-rent="onboarding?.budgetRent"
-          :min-safety-score="onboarding?.minSafetyScore"
+          :destination="
+            props.appliedFilters?.destination?.destName ?? onboarding?.destination?.destName
+          "
+          :transport-mode="props.appliedFilters?.transportMode ?? onboarding?.transportMode"
+          :travel-time="props.appliedFilters?.maxTravelTime ?? onboarding?.maxTravelTime"
+          :max-deposit="props.appliedFilters?.budgetDeposit ?? onboarding?.budgetDeposit"
+          :max-rent="props.appliedFilters?.budgetRent ?? onboarding?.budgetRent"
+          :min-safety-score="props.appliedFilters?.minSafetyScore ?? onboarding?.minSafetyScore"
           @close="$emit('close')"
         />
 
@@ -64,8 +80,9 @@ const handleApply = () => {
 
         <OnBoardingFilter
           v-show="activeTab === 'all'"
+          ref="onboardingFilterRef"
           :onboarding="onboarding"
-          @select-destination="selectedDestination = $event"
+          :applied-filters="props.appliedFilters"
         />
         <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
