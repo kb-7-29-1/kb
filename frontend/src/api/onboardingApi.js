@@ -15,4 +15,9 @@ export default {
     const { data } = await axios.post(BASE_URL, onboarding);
     return data;
   },
+
+  async getOnboarding() {
+    const { data } = await axios.get(BASE_URL);
+    return data;
+  },
 };
