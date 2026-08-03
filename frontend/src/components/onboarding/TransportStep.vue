@@ -1,7 +1,15 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 
-const selectedTransport = ref('walk');
+const emit = defineEmits(['update:transport']);
+const props = defineProps({
+  transport: {
+    type: String,
+    default: 'walk',
+  },
+});
+
+const selectedTransport = ref(props.transport);
 
 const transportOptions = [
   {
@@ -19,6 +27,8 @@ const transportOptions = [
     timeLabel: '대중교통 15분 자동 설정',
   },
 ];
+
+watch(selectedTransport, (value) => emit('update:transport', value));
 </script>
 
 <template>

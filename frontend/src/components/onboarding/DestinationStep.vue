@@ -2,15 +2,19 @@
 import { onBeforeUnmount, ref, watch } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
 
-const emit = defineEmits(['select-destination']);
+const emit = defineEmits(['select-destination', 'update:purpose']);
 const props = defineProps({
+  purpose: {
+    type: String,
+    default: 'school',
+  },
   selectedDestination: {
     type: Object,
     default: null,
   },
 });
 
-const selectedPurpose = ref('school');
+const selectedPurpose = ref(props.purpose);
 const keyword = ref(props.selectedDestination?.destName ?? '');
 const destinations = ref([]);
 const selectedDestination = ref(props.selectedDestination);
@@ -30,6 +34,7 @@ const clearSearch = () => {
   destinations.value = [];
   selectedDestination.value = null;
   searchError.value = '';
+  emit('select-destination', null);
 };
 
 const selectDestination = (destination) => {
@@ -67,6 +72,8 @@ watch(keyword, (value) => {
   }, 300);
 });
 
+watch(selectedPurpose, (value) => emit('update:purpose', value));
+
 onBeforeUnmount(() => clearTimeout(searchTimer));
 </script>
 
@@ -102,7 +109,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
           v-model="keyword"
           type="text"
           autocomplete="off"
-          placeholder="예: 세종대학교, KB국민은행, 서울역"
+          placeholder="예: 세종대학교, KB국민은행"
         />
         <button
           v-if="keyword"
