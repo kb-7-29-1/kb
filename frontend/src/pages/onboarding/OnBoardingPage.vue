@@ -1,6 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import BudgetStep from '@/components/onboarding/BudgetStep.vue';
 import CompleteStep from '@/components/onboarding/CompleteStep.vue';
 import DestinationStep from '@/components/onboarding/DestinationStep.vue';
@@ -38,7 +38,11 @@ const getSavedStep = () => {
 
 const currentStep = ref(getSavedStep());
 const router = useRouter();
+const route = useRoute();
 const isSaving = ref(false);
+
+const returnPath = computed(() => (route.query.from === 'mypage' ? '/mypage' : '/'));
+const returnLabel = computed(() => (route.query.from === 'mypage' ? '마이페이지로' : '로그인 페이지로'));
 
 const onboardingData = reactive({
   ...defaultOnboardingData,
@@ -75,7 +79,11 @@ const goPrevious = () => {
     return;
   }
 
-  router.push('/');
+  router.push(returnPath.value);
+};
+
+const goReturn = () => {
+  router.push(returnPath.value);
 };
 
 const goNext = () => {
@@ -83,7 +91,7 @@ const goNext = () => {
 };
 
 const goLogin = () => {
-  router.push('/');
+  router.push(returnPath.value);
 };
 
 const clearOnboardingDraft = () => {
@@ -133,7 +141,12 @@ const setDestination = (destination) => {
   <main class="onboarding-page">
     <div class="onboarding-workspace">
       <div class="onboarding-flow">
-        <OnboardingHeader :current-step="currentStep" @back="goPrevious" @go-login="goLogin" />
+        <OnboardingHeader
+          :current-step="currentStep"
+          :return-label="returnLabel"
+          @back="goReturn"
+          @go-login="goLogin"
+        />
         <section class="onboarding-content">
           <component
             :is="currentComponent"
