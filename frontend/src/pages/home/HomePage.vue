@@ -2,6 +2,9 @@
 import { ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
+import {useRouter} from "vue-router";
+
+const router = useRouter();
 
 const isFilterOpen = ref(false);
 
@@ -12,12 +15,22 @@ const openFilter = () => {
 const closeFilter = () => {
   isFilterOpen.value = false;
 };
+
+const goMyPage = () => {
+  router.push({name:'mypage'})
+}
 </script>
 
 <template>
   <main class="home-page">
+    <header class="app-header">
+      <span class="logo">🛡️ 살고싶오</span>
+      <button class="mypage-btn" @click="goMyPage">마이페이지</button>
+    </header>
     <MapView @open-filter="openFilter" />
 
+    <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
+    <!--
     <button
       v-if="!isFilterOpen"
       type="button"
@@ -26,17 +39,34 @@ const closeFilter = () => {
       title="필터"
       @click="openFilter"
     >
-      <svg class="filter-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <!-- 첫 번째 선 -->
-        <path d="M5 8H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+      <svg
+        class="filter-icon"
+        viewBox="0 0 32 32"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M5 8H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="20" cy="8" r="3.2" fill="currentColor" />
 
-        <!-- 두 번째 선 -->
-        <path d="M5 16H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        <path
+          d="M5 16H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="11" cy="16" r="3.2" fill="currentColor" />
 
-        <!-- 세 번째 선 -->
-        <path d="M5 24H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+        <path
+          d="M5 24H27"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+        />
         <circle cx="22" cy="24" r="3.2" fill="currentColor" />
       </svg>
     </button>
@@ -44,6 +74,7 @@ const closeFilter = () => {
     <Transition name="bottom-sheet">
       <FilterPanel v-if="isFilterOpen" @close="closeFilter" />
     </Transition>
+    -->
   </main>
 </template>
 
@@ -53,11 +84,47 @@ const closeFilter = () => {
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
+  padding-top: 56px;
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.mypage-btn {
+  border: 1px solid #e5e7eb;
+  background: #f8f9ff;
+  color: #3f5bf6;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.mypage-btn:hover {
+  background: #eef1ff;
 }
 
 .filter-floating-button {
   position: fixed;
-  top: 20px;
+  top: 76px;
   left: 20px;
   z-index: 40;
 
