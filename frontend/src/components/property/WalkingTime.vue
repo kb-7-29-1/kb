@@ -20,8 +20,8 @@
     <!-- 편의시설 목록 -->
     <div v-if="isOpen" class="amenity-list">
       <div
-          v-for="amenity in amenities"
-          :key="amenity.type"
+          v-for="amenity in displayAmenities"
+          :key="`${amenity.type}-${amenity.name}`"
           class="amenity-item"
       >
         <!-- 편의시설 이름 -->
@@ -54,39 +54,50 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const isOpen = ref(true);
 
 const props = defineProps({
   amenities: {
     type: Array,
-    default: () => [
-      {
-        type: 'CONVENIENCE_STORE',
-        name: '편의점',
-        icon: '🏪',
-        walkingTime: 2,
-      },
-      {
-        type: 'CAFE',
-        name: '카페',
-        icon: '☕',
-        walkingTime: 4,
-      },
-      {
-        type: 'DAISO',
-        name: '다이소',
-        icon: '🛍️',
-        walkingTime: 9,
-      },
-    ],
+    default: () => [],
   },
 });
 
+watch(
+  () => props.amenities,
+  (amenities) => {
+    console.log('WalkingTime 받은 amenities:', amenities);
+    console.table(amenities);
+  },
+  { immediate: true, deep: true },
+);
+
+const amenityIcons = {
+  1: '🏪',
+  2: '☕',
+  3: '🏥',
+  4: '🏫',
+  5: '🛒',
+  6: '🏦',
+  7: '🏋️',
+};
+
+const displayAmenities = computed(() =>
+  props.amenities
+    .filter((amenity) => amenity.walkTimeMinutes != null || amenity.walkingTime != null)
+    .map((amenity) => ({
+      type: amenity.amenityType ?? amenity.type,
+      name: amenity.amenityName ?? amenity.name,
+      icon: amenityIcons[amenity.amenityType] ?? amenity.icon ?? '📍',
+      walkingTime: amenity.walkTimeMinutes ?? amenity.walkingTime,
+    })),
+);
+
 const getProgressWidth = (walkingTime) => {
   const maxTime = Math.max(
-      ...props.amenities.map((amenity) => amenity.walkingTime),
+      ...displayAmenities.value.map((amenity) => amenity.walkingTime),
       10
   );
 
