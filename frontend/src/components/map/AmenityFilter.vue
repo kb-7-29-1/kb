@@ -89,17 +89,20 @@ const resetFilters = () => {
 };
 
 // 적용완료 버튼 함수
-const applyFilters = () => {
-  const result = selectedAmenities.value.map(item => ({
+const getFilters = () => {
+  return selectedAmenities.value.map(item => ({
     amenityType: item.amenityType,
     walkTimeMinutes: Number(item.timeLimit)
   }));
+};
 
-  emit('apply', result);
+const applyFilters = () => {
+  emit('apply', getFilters());
 };
 defineExpose({
   resetFilters,
-  applyFilters
+  applyFilters,
+  getFilters,
 });
 </script>
 
