@@ -4,6 +4,27 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.onboarding.mapper.OnboardingMapper">
+    <resultMap id="onboardingResultMap" type="com.salgosipo.onboarding.dto.OnboardingDTO">
+        <id property="userId" column="user_id" />
+        <result property="destinationId" column="destination_id" />
+        <result property="destinationType" column="destination_type" />
+        <result property="transportMode" column="transport_mode" />
+        <result property="maxTravelTime" column="max_travel_time" />
+        <result property="budgetDeposit" column="budget_deposit" />
+        <result property="budgetRent" column="budget_rent" />
+        <result property="minSafetyScore" column="min_safety_score" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+
+        <association property="destination" javaType="com.salgosipo.destination.dto.DestinationDTO">
+            <id property="destinationId" column="destination_id" />
+            <result property="destLatitude" column="dest_latitude" />
+            <result property="destLongitude" column="dest_longitude" />
+            <result property="destName" column="dest_name" />
+            <result property="destAddress" column="dest_address" />
+        </association>
+    </resultMap>
+
     <insert id="insertOnboarding"
             parameterType="com.salgosipo.onboarding.domain.OnboardingVO">
         INSERT INTO onboardings (
@@ -35,4 +56,10 @@
             min_safety_score = VALUES(min_safety_score)
     </insert>
 
+    <select id="findByUserId" resultMap="onboardingResultMap">
+        SELECT *
+        FROM onboardings o INNER JOIN destinations d
+            ON o.destination_id = d.destination_id
+        WHERE o.user_id = #{userId}
+    </select>
 </mapper>

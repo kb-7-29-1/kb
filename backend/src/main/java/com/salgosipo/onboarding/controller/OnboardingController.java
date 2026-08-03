@@ -4,6 +4,7 @@ import com.salgosipo.onboarding.dto.OnboardingDTO;
 import com.salgosipo.onboarding.service.OnboardingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,5 +20,16 @@ public class OnboardingController {
     public ResponseEntity<Void> saveOnboarding(@RequestBody OnboardingDTO onboardingDTO) {
         onboardingService.saveOnboarding(1, onboardingDTO); // 임시 userId
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping
+    public ResponseEntity<OnboardingDTO> getOnboarding() {
+        OnboardingDTO onboarding = onboardingService.getOnboarding(1); // 임시 userId
+
+        if (onboarding == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(onboarding);
     }
 }
