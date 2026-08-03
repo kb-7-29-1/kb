@@ -1,10 +1,8 @@
-import axios from 'axios';
-
-const BASE_URL = '/api/onboarding';
+import api from '@/api/api';
 
 export default {
   async searchDestinations(keyword) {
-    const { data } = await axios.get('/api/destinations/search', {
+    const { data } = await api.get('/destinations/search', {
       params: { keyword },
     });
 
@@ -12,7 +10,12 @@ export default {
   },
 
   async saveOnboarding(onboarding) {
-    const { data } = await axios.post(BASE_URL, onboarding);
+    const { data } = await api.post('/onboarding', onboarding);
+    return data;
+  },
+
+  async getOnboarding() {
+    const { data } = await api.get('/onboarding');
     return data;
   },
 };

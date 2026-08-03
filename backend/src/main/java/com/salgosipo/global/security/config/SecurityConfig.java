@@ -116,7 +116,7 @@ public class SecurityConfig  extends WebSecurityConfigurerAdapter {
 
         http.authorizeRequests() // 경로별 접근권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login", "/api/onboarding").permitAll() // 회원가입/로그인
+                .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
                 .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search").permitAll()
                 .antMatchers(HttpMethod.POST, "/api/amenities/filter").permitAll()
                 .antMatchers("/api/auth/**").permitAll()

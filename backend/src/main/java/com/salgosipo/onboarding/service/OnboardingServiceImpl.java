@@ -31,6 +31,12 @@ public class OnboardingServiceImpl implements OnboardingService {
         onboardingMapper.insertOnboarding(onboarding.toVO());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public OnboardingDTO getOnboarding(Integer userId) {
+        return onboardingMapper.findByUserId(userId);
+    }
+
     private void validateDestination(DestinationDTO destination) {
         if (destination == null
                 || destination.getDestLatitude() == null
