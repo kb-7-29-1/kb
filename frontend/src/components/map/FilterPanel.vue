@@ -79,6 +79,7 @@ const handleApply = () => {
   bottom: 0;
   left: 0;
   z-index: 50;
+  overflow: hidden;
   background: #fff;
 }
 
@@ -86,7 +87,9 @@ const handleApply = () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100dvh - var(--map-header-height));
+  height: calc(100dvh - var(--map-header-height));
+  min-height: 0;
+  overflow: hidden;
   background: #fff;
 }
 
@@ -95,5 +98,7 @@ const handleApply = () => {
   min-height: 0;
   padding: 24px 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 </style>
