@@ -8,6 +8,10 @@ defineProps({
     type: Number,
     default: 5,
   },
+  isSaving: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 defineEmits(['previous', 'next', 'complete']);
@@ -35,7 +39,13 @@ defineEmits(['previous', 'next', 'complete']);
       <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
     </button>
 
-    <button v-else type="button" class="primary-button" @click="$emit('complete')">
+    <button
+      v-else
+      type="button"
+      class="primary-button"
+      :disabled="isSaving"
+      @click="$emit('complete')"
+    >
       지도에서 매물 보기
       <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
     </button>
@@ -92,5 +102,10 @@ button i {
 
 button:active {
   transform: scale(0.99);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 </style>

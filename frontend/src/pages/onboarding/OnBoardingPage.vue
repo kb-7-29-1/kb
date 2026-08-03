@@ -8,6 +8,7 @@ import OnboardingBottom from '@/components/onboarding/OnboardingBottom.vue';
 import OnboardingHeader from '@/components/onboarding/OnboardingHeader.vue';
 import SafetyStep from '@/components/onboarding/SafetyStep.vue';
 import TransportStep from '@/components/onboarding/TransportStep.vue';
+import onboardingApi from '@/api/onboardingApi';
 
 const ONBOARDING_DRAFT_KEY = 'salgosipo-onboarding-draft';
 
@@ -37,6 +38,7 @@ const getSavedStep = () => {
 
 const currentStep = ref(getSavedStep());
 const router = useRouter();
+const isSaving = ref(false);
 
 const onboardingData = reactive({
   ...defaultOnboardingData,
@@ -80,8 +82,42 @@ const goNext = () => {
   if (currentStep.value < 5) currentStep.value += 1;
 };
 
-const goMap = () => {
-  router.push('/map');
+const clearOnboardingDraft = () => {
+  localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+  localStorage.removeItem(`${ONBOARDING_DRAFT_KEY}-step`);
+};
+
+const goMap = async () => {
+  if (isSaving.value) return;
+
+  if (!onboardingData.destination) {
+    alert('목적지를 선택해 주세요.');
+    currentStep.value = 1;
+    return;
+  }
+
+  const requestData = {
+    destination: onboardingData.destination,
+    destinationType: onboardingData.purpose.toUpperCase(),
+    transportMode: onboardingData.transport.toUpperCase(),
+    maxTravelTime: 15,
+    budgetDeposit: onboardingData.deposit,
+    budgetRent: onboardingData.monthlyRent,
+    minSafetyScore: onboardingData.safety === 'high' ? 80 : 60,
+  };
+
+  isSaving.value = true;
+
+  try {
+    await onboardingApi.saveOnboarding(requestData);
+    clearOnboardingDraft();
+    router.push('/map');
+  } catch (error) {
+    console.error('ONBOARDING SAVE ERROR: ', error);
+    alert('설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
+  } finally {
+    isSaving.value = false;
+  }
 };
 
 const setDestination = (destination) => {
@@ -111,6 +147,7 @@ const setDestination = (destination) => {
     </section>
     <OnboardingBottom
       :current-step="currentStep"
+      :is-saving="isSaving"
       @previous="goPrevious"
       @next="goNext"
       @complete="goMap"
