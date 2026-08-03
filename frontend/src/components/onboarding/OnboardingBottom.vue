@@ -108,4 +108,23 @@ button:disabled {
   cursor: wait;
   opacity: 0.7;
 }
+
+@media (min-width: 768px) {
+  .onboarding-bottom {
+    position: static;
+    min-height: 0;
+    padding: 0 0 32px;
+    border-top: 0;
+    background: transparent;
+  }
+
+  button {
+    height: 54px;
+    font-size: 14px;
+  }
+
+  .secondary-button {
+    flex-basis: 96px;
+  }
+}
 </style>

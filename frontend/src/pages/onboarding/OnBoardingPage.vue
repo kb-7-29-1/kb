@@ -82,6 +82,10 @@ const goNext = () => {
   if (currentStep.value < 5) currentStep.value += 1;
 };
 
+const goLogin = () => {
+  router.push('/');
+};
+
 const clearOnboardingDraft = () => {
   localStorage.removeItem(ONBOARDING_DRAFT_KEY);
   localStorage.removeItem(`${ONBOARDING_DRAFT_KEY}-step`);
@@ -127,44 +131,91 @@ const setDestination = (destination) => {
 
 <template>
   <main class="onboarding-page">
-    <OnboardingHeader :current-step="currentStep" @back="goPrevious" />
-    <section class="onboarding-content">
-      <component
-        :is="currentComponent"
-        :selected-destination="onboardingData.destination"
-        :purpose="onboardingData.purpose"
-        :transport="onboardingData.transport"
-        :deposit="onboardingData.deposit"
-        :monthly-rent="onboardingData.monthlyRent"
-        :safety="onboardingData.safety"
-        @select-destination="setDestination"
-        @update:purpose="onboardingData.purpose = $event"
-        @update:transport="onboardingData.transport = $event"
-        @update:deposit="onboardingData.deposit = $event"
-        @update:monthly-rent="onboardingData.monthlyRent = $event"
-        @update:safety="onboardingData.safety = $event"
-      />
-    </section>
-    <OnboardingBottom
-      :current-step="currentStep"
-      :is-saving="isSaving"
-      @previous="goPrevious"
-      @next="goNext"
-      @complete="goMap"
-    />
+    <div class="onboarding-workspace">
+      <div class="onboarding-flow">
+        <OnboardingHeader :current-step="currentStep" @back="goPrevious" @go-login="goLogin" />
+        <section class="onboarding-content">
+          <component
+            :is="currentComponent"
+            :selected-destination="onboardingData.destination"
+            :purpose="onboardingData.purpose"
+            :transport="onboardingData.transport"
+            :deposit="onboardingData.deposit"
+            :monthly-rent="onboardingData.monthlyRent"
+            :safety="onboardingData.safety"
+            @select-destination="setDestination"
+            @update:purpose="onboardingData.purpose = $event"
+            @update:transport="onboardingData.transport = $event"
+            @update:deposit="onboardingData.deposit = $event"
+            @update:monthly-rent="onboardingData.monthlyRent = $event"
+            @update:safety="onboardingData.safety = $event"
+          />
+        </section>
+        <OnboardingBottom
+          :current-step="currentStep"
+          :is-saving="isSaving"
+          @previous="goPrevious"
+          @next="goNext"
+          @complete="goMap"
+        />
+      </div>
+    </div>
   </main>
 </template>
 
 <style scoped>
 .onboarding-page {
+  min-height: 100dvh;
+  background: #f8fafc;
+}
+
+.onboarding-workspace,
+.onboarding-flow {
+  min-width: 0;
+}
+
+.onboarding-flow {
   display: flex;
   flex-direction: column;
   min-height: 100dvh;
-  background: #f8fafc;
 }
 
 .onboarding-content {
   flex: 1;
   padding: 24px 20px 110px;
+}
+
+@media (min-width: 768px) {
+  .onboarding-page {
+    min-height: calc(100vh - 32px);
+    margin: 16px;
+    background: #f8fafc;
+  }
+
+  .onboarding-workspace {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - 32px);
+    padding: 32px 28px;
+    box-sizing: border-box;
+  }
+
+  .onboarding-flow {
+    width: min(100%, 460px);
+    min-height: 0;
+  }
+
+  .onboarding-content {
+    flex: 0 0 auto;
+    padding: 16px 0 12px;
+    margin: 10px 0px;
+  }
+
+  @media (max-height: 760px) {
+    .onboarding-workspace {
+      align-items: flex-start;
+    }
+  }
 }
 </style>
