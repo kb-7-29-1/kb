@@ -1,7 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-const selectedSafety = ref('high');
+const emit = defineEmits(['update:safety']);
+const props = defineProps({
+  safety: {
+    type: String,
+    default: 'high',
+  },
+});
+
+const selectedSafety = ref(props.safety);
 
 const safetyOptions = [
   {
@@ -25,6 +33,8 @@ const safetyOptions = [
 const selectedOption = computed(() =>
   safetyOptions.find((option) => option.id === selectedSafety.value),
 );
+
+watch(selectedSafety, (value) => emit('update:safety', value));
 </script>
 
 <template>

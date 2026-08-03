@@ -1,13 +1,28 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+
+const emit = defineEmits(['update:deposit', 'update:monthly-rent']);
+const props = defineProps({
+  deposit: {
+    type: Number,
+    default: 3000,
+  },
+  monthlyRent: {
+    type: Number,
+    default: 70,
+  },
+});
 
 const depositOptions = [
   100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
 ];
-const depositIndex = ref(depositOptions.indexOf(3000));
-const monthlyRent = ref(70);
+const depositIndex = ref(Math.max(0, depositOptions.indexOf(props.deposit)));
+const monthlyRent = ref(props.monthlyRent);
 
 const deposit = computed(() => depositOptions[depositIndex.value]);
+
+watch(deposit, (value) => emit('update:deposit', value));
+watch(monthlyRent, (value) => emit('update:monthly-rent', value));
 
 const depositLabel = computed(() => {
   if (deposit.value === 10000) return '1억원';
