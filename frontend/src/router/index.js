@@ -10,7 +10,8 @@ const router = createRouter({
     { path: '/', name: 'login', component: AuthPage },
     { path: '/signup', name: 'signup', component: AuthPage },
     { path: '/onboarding', name: 'onboarding', component: OnBoardingPage },
-    { path: '/home', name: 'home', component: HomePage },
+    { path: '/home', name: 'home', component: HomePage, alias: '/map' },
+    { path: '/map', name: 'map', component: HomePage },
     { path: '/mypage', name: 'mypage', component: MyPagePage },
   ],
 });

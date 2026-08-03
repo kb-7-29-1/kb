@@ -149,6 +149,7 @@ const goMap = async () => {
   isSaving.value = true;
 
   try {
+    localStorage.setItem('salgosipo-onboarding-result', JSON.stringify(requestData));
     await onboardingApi.saveOnboarding(requestData);
     clearOnboardingDraft();
     router.push('/home');
