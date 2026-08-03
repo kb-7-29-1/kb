@@ -18,7 +18,7 @@
     </update>
 
     <update id="withdraw">
-        update users set del_yn ='Y' where user_id = #{userId}
+        update users set del_yn ='Y', login_id = CONCAT(login_id, '_withdrawn_', user_id) where user_id = #{userId}
     </update>
 
     <select id="findByLoginId" resultType="com.salgosipo.user.domain.UserVO">
