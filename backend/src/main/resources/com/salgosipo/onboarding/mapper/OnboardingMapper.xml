@@ -4,5 +4,35 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.onboarding.mapper.OnboardingMapper">
+    <insert id="insertOnboarding"
+            parameterType="com.salgosipo.onboarding.domain.OnboardingVO">
+        INSERT INTO onboardings (
+            user_id,
+            destination_id,
+            destination_type,
+            transport_mode,
+            max_travel_time,
+            budget_deposit,
+            budget_rent,
+            min_safety_score
+        ) VALUES (
+            #{userId},
+            #{destinationId},
+            #{destinationType},
+            #{transportMode},
+            #{maxTravelTime},
+            #{budgetDeposit},
+            #{budgetRent},
+            #{minSafetyScore}
+        )
+        ON DUPLICATE KEY UPDATE
+            destination_id = VALUES(destination_id),
+            destination_type = VALUES(destination_type),
+            transport_mode = VALUES(transport_mode),
+            max_travel_time = VALUES(max_travel_time),
+            budget_deposit = VALUES(budget_deposit),
+            budget_rent = VALUES(budget_rent),
+            min_safety_score = VALUES(min_safety_score)
+    </insert>
 
 </mapper>
