@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
-import {useRouter} from "vue-router";
+import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
@@ -17,8 +17,8 @@ const closeFilter = () => {
 };
 
 const goMyPage = () => {
-  router.push({name:'mypage'})
-}
+  router.push({ name: 'mypage' });
+};
 </script>
 
 <template>
@@ -71,10 +71,11 @@ const goMyPage = () => {
       </svg>
     </button>
 
+    -->
+
     <Transition name="bottom-sheet">
       <FilterPanel v-if="isFilterOpen" @close="closeFilter" />
     </Transition>
-    -->
   </main>
 </template>
 

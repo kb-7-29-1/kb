@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
-import MobileFilterBottomSheet from './MobileFilterBottomSheet.vue';
 
 const props = defineProps({
   modelValue: {
@@ -26,7 +25,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:modelValue', 'reset', 'apply']);
+const emit = defineEmits(['update:modelValue', 'reset', 'apply', 'open-filter']);
 
 // 로컬 반응형 상태
 const filters = ref({
@@ -38,15 +37,6 @@ const filters = ref({
 });
 
 // 모바일 바텀시트 모달 상태
-const isMobileModalOpen = ref(false);
-// 모바일 바텀시트 모달 활성 탭 상태 ('general' | 'amenity')
-const activeMobileTab = ref('general');
-
-const openMobileFilter = (tab = 'general') => {
-  activeMobileTab.value = tab;
-  isMobileModalOpen.value = true;
-};
-
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
 
@@ -632,36 +622,16 @@ const safetyThumbColor = computed(() => {
         class="filter-floating-button-circle"
         aria-label="필터 열기"
         title="필터"
-        @click="openMobileFilter('general')"
+        @click="emit('open-filter')"
       >
-        <svg
-          class="filter-icon"
-          viewBox="0 0 32 32"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 8H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+        <svg class="filter-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M5 8H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="20" cy="8" r="3.2" fill="currentColor" />
 
-          <path
-            d="M5 16H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+          <path d="M5 16H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="11" cy="16" r="3.2" fill="currentColor" />
 
-          <path
-            d="M5 24H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+          <path d="M5 24H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="22" cy="24" r="3.2" fill="currentColor" />
         </svg>
       </button>
@@ -684,15 +654,6 @@ const safetyThumbColor = computed(() => {
     <!-- ======================================================== -->
     <!-- 3. 모바일 전용 필터 바텀시트 모달 (분리 컴포넌트 마운트) -->
     <!-- ======================================================== -->
-    <MobileFilterBottomSheet
-      v-model:is-open="isMobileModalOpen"
-      v-model="filters"
-      :initial-tab="activeMobileTab"
-      :total-count="totalCount"
-      :safety-thumb-color="safetyThumbColor"
-      @reset="handleReset"
-      @update-filters="updateFilters"
-    />
   </div>
 </template>
 
