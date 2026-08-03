@@ -1,15 +1,29 @@
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
 import FilterBottomBar from './FilterBottomBar.vue';
 import FilterTabs from './FilterTabs.vue';
 import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
+import onboardingApi from '@/api/onboardingApi';
 
 const activeTab = ref('all');
 const amenityFilterRef = ref(null);
+const onboarding = ref(null);
 
 const emit = defineEmits(['close', 'apply']);
+
+const loadOnboardingSummary = async () => {
+  try {
+    onboarding.value = await onboardingApi.getOnboarding();
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      console.error('ONBOARDING SUMMARY LOAD ERROR: ', error);
+    }
+  }
+};
+
+onMounted(loadOnboardingSummary);
 
 const handleReset = () => {
   activeTab.value = 'all';
@@ -20,9 +34,7 @@ const handleReset = () => {
 };
 
 const handleApply = () => {
-  const amenities = amenityFilterRef.value
-    ? amenityFilterRef.value.getFilters()
-    : [];
+  const amenities = amenityFilterRef.value ? amenityFilterRef.value.getFilters() : [];
 
   emit('apply', {
     // TODO: OnBoardingFilter가 필터 값을 expose하면 여기에서 수집해 전달한다.
@@ -37,21 +49,23 @@ const handleApply = () => {
   <section class="filter-overlay">
     <div class="filter-panel">
       <div class="filter-content">
-        <OnboardingSummary @close="$emit('close')" />
+        <OnboardingSummary
+          :destination="onboarding?.destination?.destName"
+          :transport-mode="onboarding?.transportMode"
+          :travel-time="onboarding?.maxTravelTime"
+          :max-deposit="onboarding?.budgetDeposit"
+          :max-rent="onboarding?.budgetRent"
+          :min-safety-score="onboarding?.minSafetyScore"
+          @close="$emit('close')"
+        />
 
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
         <OnBoardingFilter v-show="activeTab === 'all'" />
-        <AmenityFilter
-            v-show="activeTab === 'amenity'"
-            ref="amenityFilterRef"
-        />
+        <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
 
-      <FilterBottomBar
-          @reset="handleReset"
-          @apply="handleApply"
-      />
+      <FilterBottomBar @reset="handleReset" @apply="handleApply" />
     </div>
   </section>
 </template>
