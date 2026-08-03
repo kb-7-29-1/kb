@@ -1,11 +1,71 @@
 <script setup>
-const summaryItems = [
-  { icon: 'fa-location-dot', label: '주 목적지', value: '세종대학교', tone: 'blue' },
-  { icon: 'fa-person-walking', label: '이동 수단', value: '도보 (최대 15분)', tone: 'orange' },
-  { icon: 'fa-wallet', label: '보증금', value: '3,000만 원', tone: 'purple' },
-  { icon: 'fa-won-sign', label: '월세', value: '70만 원 이하', tone: 'blue' },
-  { icon: 'fa-shield-heart', label: '안전 기준', value: '매우 안전한 곳만', tone: 'green' },
-];
+import { computed } from 'vue';
+
+const props = defineProps({
+  selectedDestination: {
+    type: Object,
+    default: null,
+  },
+  transport: {
+    type: String,
+    default: 'walk',
+  },
+  deposit: {
+    type: Number,
+    default: 3000,
+  },
+  monthlyRent: {
+    type: Number,
+    default: 70,
+  },
+  safety: {
+    type: String,
+    default: 'high',
+  },
+});
+
+const formatDeposit = (amount) => {
+  if (amount >= 10000) {
+    const eok = Math.floor(amount / 10000);
+    const remainder = amount % 10000;
+    return remainder ? `${eok}억 ${remainder.toLocaleString()}만원` : `${eok}억원`;
+  }
+
+  return `${amount.toLocaleString()}만원`;
+};
+
+const summaryItems = computed(() => [
+  {
+    icon: 'fa-location-dot',
+    label: '주 목적지',
+    value: props.selectedDestination?.destName ?? '목적지를 선택해 주세요',
+    tone: 'blue',
+  },
+  {
+    icon: props.transport === 'walk' ? 'fa-person-walking' : 'fa-bus',
+    label: '이동 수단',
+    value: props.transport === 'walk' ? '도보 (최대 15분)' : '대중교통 (최대 15분)',
+    tone: 'orange',
+  },
+  {
+    icon: 'fa-wallet',
+    label: '보증금',
+    value: `${formatDeposit(props.deposit)} 이하`,
+    tone: 'purple',
+  },
+  {
+    icon: 'fa-won-sign',
+    label: '월세',
+    value: props.monthlyRent === 0 ? '전세' : `${props.monthlyRent.toLocaleString()}만원 이하`,
+    tone: 'blue',
+  },
+  {
+    icon: 'fa-shield-heart',
+    label: '안전 기준',
+    value: props.safety === 'high' ? '매우 안전한 곳만 (80점 이상)' : '안전한 곳 위주 (60점 이상)',
+    tone: 'green',
+  },
+]);
 </script>
 
 <template>
