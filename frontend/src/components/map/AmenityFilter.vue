@@ -48,6 +48,14 @@
         </div>
       </div>
     </div>
+
+    <button
+        type="button"
+        class="apply-button"
+        @click="applyFilters"
+    >
+      적용하기
+    </button>
   </div>
 </template>
 
@@ -118,6 +126,19 @@ defineExpose({
   flex: 1;
   overflow-y: auto;
   padding: 0 20px;
+}
+
+.apply-button {
+  width: calc(100% - 40px);
+  margin: 16px 20px 20px;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: #3d55f6;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* 공통 섹션 스타일 */
