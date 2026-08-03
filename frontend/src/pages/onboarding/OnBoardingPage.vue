@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import BudgetStep from '@/components/onboarding/BudgetStep.vue';
 import CompleteStep from '@/components/onboarding/CompleteStep.vue';
@@ -36,18 +36,46 @@ const getSavedStep = () => {
   return Number.isInteger(savedStep) && savedStep >= 1 && savedStep <= 5 ? savedStep : 1;
 };
 
-const currentStep = ref(getSavedStep());
 const router = useRouter();
 const route = useRoute();
+const isEditingFromMyPage = route.query.from === 'mypage';
+const currentStep = ref(isEditingFromMyPage ? 1 : getSavedStep());
 const isSaving = ref(false);
 
+if (isEditingFromMyPage) {
+  localStorage.setItem(`${ONBOARDING_DRAFT_KEY}-step`, '1');
+}
+
 const returnPath = computed(() => (route.query.from === 'mypage' ? '/mypage' : '/'));
-const returnLabel = computed(() => (route.query.from === 'mypage' ? '마이페이지로' : '로그인 페이지로'));
+const returnLabel = computed(() =>
+  route.query.from === 'mypage' ? '마이페이지로' : '로그인 페이지로',
+);
 
 const onboardingData = reactive({
   ...defaultOnboardingData,
   ...getSavedOnboardingData(),
 });
+
+const loadSavedOnboarding = async () => {
+  if (!isEditingFromMyPage) return;
+
+  try {
+    const savedOnboarding = await onboardingApi.getOnboarding();
+
+    Object.assign(onboardingData, {
+      purpose: savedOnboarding.destinationType?.toLowerCase() ?? defaultOnboardingData.purpose,
+      destination: savedOnboarding.destination ?? null,
+      transport: savedOnboarding.transportMode?.toLowerCase() ?? defaultOnboardingData.transport,
+      deposit: Number(savedOnboarding.budgetDeposit),
+      monthlyRent: Number(savedOnboarding.budgetRent),
+      safety: Number(savedOnboarding.minSafetyScore) >= 80 ? 'high' : 'normal',
+    });
+  } catch (error) {
+    console.error('ONBOARDING LOAD ERROR: ', error);
+  }
+};
+
+onMounted(loadSavedOnboarding);
 
 watch(
   onboardingData,
