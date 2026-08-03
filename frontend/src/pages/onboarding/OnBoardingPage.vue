@@ -1,6 +1,6 @@
 <script setup>
-import { computed, reactive, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import BudgetStep from '@/components/onboarding/BudgetStep.vue';
 import CompleteStep from '@/components/onboarding/CompleteStep.vue';
 import DestinationStep from '@/components/onboarding/DestinationStep.vue';
@@ -36,14 +36,46 @@ const getSavedStep = () => {
   return Number.isInteger(savedStep) && savedStep >= 1 && savedStep <= 5 ? savedStep : 1;
 };
 
-const currentStep = ref(getSavedStep());
 const router = useRouter();
+const route = useRoute();
+const isEditingFromMyPage = route.query.from === 'mypage';
+const currentStep = ref(isEditingFromMyPage ? 1 : getSavedStep());
 const isSaving = ref(false);
+
+if (isEditingFromMyPage) {
+  localStorage.setItem(`${ONBOARDING_DRAFT_KEY}-step`, '1');
+}
+
+const returnPath = computed(() => (route.query.from === 'mypage' ? '/mypage' : '/'));
+const returnLabel = computed(() =>
+  route.query.from === 'mypage' ? '마이페이지로' : '로그인 페이지로',
+);
 
 const onboardingData = reactive({
   ...defaultOnboardingData,
   ...getSavedOnboardingData(),
 });
+
+const loadSavedOnboarding = async () => {
+  if (!isEditingFromMyPage) return;
+
+  try {
+    const savedOnboarding = await onboardingApi.getOnboarding();
+
+    Object.assign(onboardingData, {
+      purpose: savedOnboarding.destinationType?.toLowerCase() ?? defaultOnboardingData.purpose,
+      destination: savedOnboarding.destination ?? null,
+      transport: savedOnboarding.transportMode?.toLowerCase() ?? defaultOnboardingData.transport,
+      deposit: Number(savedOnboarding.budgetDeposit),
+      monthlyRent: Number(savedOnboarding.budgetRent),
+      safety: Number(savedOnboarding.minSafetyScore) >= 80 ? 'high' : 'normal',
+    });
+  } catch (error) {
+    console.error('ONBOARDING LOAD ERROR: ', error);
+  }
+};
+
+onMounted(loadSavedOnboarding);
 
 watch(
   onboardingData,
@@ -75,7 +107,11 @@ const goPrevious = () => {
     return;
   }
 
-  router.push('/');
+  router.push(returnPath.value);
+};
+
+const goReturn = () => {
+  router.push(returnPath.value);
 };
 
 const goNext = () => {
@@ -83,7 +119,7 @@ const goNext = () => {
 };
 
 const goLogin = () => {
-  router.push('/');
+  router.push(returnPath.value);
 };
 
 const clearOnboardingDraft = () => {
@@ -115,7 +151,7 @@ const goMap = async () => {
   try {
     await onboardingApi.saveOnboarding(requestData);
     clearOnboardingDraft();
-    router.push('/map');
+    router.push('/home');
   } catch (error) {
     console.error('ONBOARDING SAVE ERROR: ', error);
     alert('설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
@@ -133,7 +169,12 @@ const setDestination = (destination) => {
   <main class="onboarding-page">
     <div class="onboarding-workspace">
       <div class="onboarding-flow">
-        <OnboardingHeader :current-step="currentStep" @back="goPrevious" @go-login="goLogin" />
+        <OnboardingHeader
+          :current-step="currentStep"
+          :return-label="returnLabel"
+          @back="goReturn"
+          @go-login="goLogin"
+        />
         <section class="onboarding-content">
           <component
             :is="currentComponent"
