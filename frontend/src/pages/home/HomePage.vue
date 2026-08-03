@@ -1,7 +1,7 @@
-<script setup>
-import MapView from './MapView.vue';
-</script>
+<script setup></script>
 
 <template>
-  <MapView />
+  <main class="home">
+    <h1>살고싶오</h1>
+  </main>
 </template>

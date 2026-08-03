@@ -1,6 +1,5 @@
 package com.salgosipo.global.exception;
 
-import lombok.extern.log4j.Log4j2;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +9,6 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 
 @RestControllerAdvice
 @Order(2)
-@Log4j2
 public class ApiExceptionAdvice {
 
     //404, 500 어노테이션별로 메서드 정의해서 설정
@@ -30,7 +28,7 @@ public class ApiExceptionAdvice {
 
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .header("Content-Type", "text/plain;charset=UTF-8")
-                .body("서버 내부 오류가 발생했습니다." + e.getMessage());
+                .body("서버 내부 오류가 발생했습니다.");
 
     }
 }
