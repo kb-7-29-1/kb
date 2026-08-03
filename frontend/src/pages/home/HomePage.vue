@@ -2,6 +2,9 @@
 import { ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
+import {useRouter} from "vue-router";
+
+const router = useRouter();
 
 const isFilterOpen = ref(false);
 
@@ -12,10 +15,18 @@ const openFilter = () => {
 const closeFilter = () => {
   isFilterOpen.value = false;
 };
+
+const goMyPage = () => {
+  router.push({name:'mypage'})
+}
 </script>
 
 <template>
   <main class="home-page">
+    <header class="app-header">
+      <span class="logo">🛡️ 살고싶오</span>
+      <button class="mypage-btn" @click="goMyPage">마이페이지</button>
+    </header>
     <MapView @open-filter="openFilter" />
 
     <button
@@ -53,11 +64,47 @@ const closeFilter = () => {
   width: 100%;
   min-height: 100dvh;
   overflow: hidden;
+  padding-top: 56px;
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.logo {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.mypage-btn {
+  border: 1px solid #e5e7eb;
+  background: #f8f9ff;
+  color: #3f5bf6;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+}
+
+.mypage-btn:hover {
+  background: #eef1ff;
 }
 
 .filter-floating-button {
   position: fixed;
-  top: 20px;
+  top: 76px;
   left: 20px;
   z-index: 40;
 
