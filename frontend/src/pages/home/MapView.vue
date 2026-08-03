@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
@@ -253,10 +254,19 @@ const handleSelectProperty = (property) => {
 };
 
 // 찜 토글
-const handleToggleBookmark = (id) => {
+const handleToggleBookmark = async (id) => {
   const item = properties.value.find((p) => p.propertyId === id);
-  if (item) {
+  if (!item) return;
+
+  try {
+    if (item.isBookmarked) {
+      await api.delete(`/bookmark/${id}`);
+    } else {
+      await api.post('/bookmark', { propertyId: id });
+    }
     item.isBookmarked = !item.isBookmarked;
+  } catch (error) {
+    console.error('BOOKMARK TOGGLE ERROR: ', error);
   }
 };
 
