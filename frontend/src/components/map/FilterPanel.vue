@@ -9,18 +9,27 @@ import OnboardingSummary from './OnboardingSummary.vue';
 const activeTab = ref('all');
 const amenityFilterRef = ref(null);
 
-defineEmits(['close']);
+const emit = defineEmits(['close', 'apply']);
 
 const handleReset = () => {
+  activeTab.value = 'all';
+
   if (amenityFilterRef.value) {
     amenityFilterRef.value.resetFilters();
   }
 };
 
 const handleApply = () => {
-  if (amenityFilterRef.value) {
-    amenityFilterRef.value.applyFilters();
-  }
+  const amenities = amenityFilterRef.value
+    ? amenityFilterRef.value.getFilters()
+    : [];
+
+  emit('apply', {
+    // TODO: OnBoardingFilter가 필터 값을 expose하면 여기에서 수집해 전달한다.
+    onboarding: {},
+    amenities,
+  });
+  emit('close');
 };
 </script>
 
@@ -32,11 +41,10 @@ const handleApply = () => {
 
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-        <OnBoardingFilter v-if="activeTab === 'all'" />
+        <OnBoardingFilter v-show="activeTab === 'all'" />
         <AmenityFilter
-            v-else
+            v-show="activeTab === 'amenity'"
             ref="amenityFilterRef"
-            @apply="handleAmenityResult"
         />
       </div>
 
@@ -56,7 +64,7 @@ const handleApply = () => {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 10;
+  z-index: 50;
   background: #fff;
 }
 
