@@ -1,6 +1,7 @@
 <script setup>
-import { ref, shallowRef, onMounted, watch } from 'vue';
+import { createApp, ref, shallowRef, onMounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
+import AmenityPin from './AmenityPin.vue';
 
 const props = defineProps({
   properties: {
@@ -10,6 +11,10 @@ const props = defineProps({
   selectedProperty: {
     type: Object,
     default: null,
+  },
+  amenities: {
+    type: Array,
+    default: () => [],
   },
   destination: {
     type: Object,
@@ -46,6 +51,15 @@ const emit = defineEmits(['select-property']);
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
 const markersMap = ref([]);
+
+const renderAmenityPin = (amenity) => {
+  const container = document.createElement('div');
+  const pinApp = createApp(AmenityPin, { amenity });
+  pinApp.mount(container);
+  const content = container.innerHTML;
+  pinApp.unmount();
+  return content;
+};
 
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀) 렌더링
 const renderMarkers = () => {
@@ -113,6 +127,23 @@ const renderMarkers = () => {
 
     markersMap.value.push(propMarker);
   });
+
+  props.amenities.forEach((amenity) => {
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+
+    const amenityMarker = new window.naver.maps.Marker({
+      position: new window.naver.maps.LatLng(
+        amenity.amenityLatitude,
+        amenity.amenityLongitude,
+      ),
+      map: mapInstance.value,
+      icon: {
+        content: renderAmenityPin(amenity),
+      },
+    });
+
+    markersMap.value.push(amenityMarker);
+  });
 };
 
 // 순수 네이버 지도 SDK 초기화
@@ -142,6 +173,7 @@ watch(
     () => props.properties,
     () => props.destination,
     () => props.selectedProperty,
+    () => props.amenities,
   ],
   () => {
     renderMarkers();
