@@ -23,7 +23,7 @@ const handleLogin = async () => {
 
     try {
       await onboardingApi.getOnboarding();
-      router.push({ name: 'map' });
+      router.push({ name: 'home' });
     } catch (onboardingError) {
       if (onboardingError.response?.status === 404) {
         router.push({ name: 'onboarding' });

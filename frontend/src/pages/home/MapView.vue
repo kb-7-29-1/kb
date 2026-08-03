@@ -133,7 +133,8 @@ const sortedProperties = computed(() => {
     // 보증금 필터
     if (p.deposit > filterState.value.maxDeposit) return false;
     // 월세 필터
-    if (filterState.value.tradeType !== 'JEONSE' && p.monthlyRent > filterState.value.maxRent) return false;
+    if (filterState.value.tradeType !== 'JEONSE' && p.monthlyRent > filterState.value.maxRent)
+      return false;
     // 안전 점수 필터
     if (p.safetyScore < filterState.value.minSafetyScore) return false;
     return true;
@@ -141,16 +142,10 @@ const sortedProperties = computed(() => {
 
   // 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -183,11 +178,12 @@ const handleToggleBookmark = async (id) => {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
   }
 };
-
 </script>
 
 <template>
-  <div class="relative w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100">
+  <div
+    class="relative w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100"
+  >
     <!-- 1. 매물 탐색 사이드바 (모바일: flex-col-reverse 하단배치 / PC: md:flex-row 좌측배치) -->
     <aside
       class="w-full md:w-[380px] h-1/3 md:h-full bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-lg"
@@ -199,17 +195,13 @@ const handleToggleBookmark = async (id) => {
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span
-            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
-          >
+          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
             총 {{ sortedProperties.length }}개 매물
           </span>
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div
-          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
-        >
+        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -233,9 +225,7 @@ const handleToggleBookmark = async (id) => {
           v-for="prop in sortedProperties"
           :key="prop.propertyId"
           :property="prop"
-          :is-selected="
-            selectedProperty && selectedProperty.propertyId === prop.propertyId
-          "
+          :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
           @select="handleSelectProperty"
           @toggle-bookmark="handleToggleBookmark"
         />
@@ -256,7 +246,11 @@ const handleToggleBookmark = async (id) => {
       <NaverMap
         :properties="sortedProperties"
         :selected-property="selectedProperty"
-        :destination="{ name: filterState.destination + ' (주 목적지)', lat: 37.5502, lng: 127.0731 }"
+        :destination="{
+          name: filterState.destination + ' (주 목적지)',
+          lat: 37.5502,
+          lng: 127.0731,
+        }"
         :show-isochrone="filterState.showIsochrone"
         :transport-mode="filterState.transportMode || 'WALK'"
         :travel-time="filterState.travelTime || 15"

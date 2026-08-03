@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
+import OnboardingSummary from './OnboardingSummary.vue';
 
 const props = defineProps({
   isOpen: {
@@ -30,9 +31,12 @@ const emit = defineEmits(['update:isOpen', 'update:modelValue', 'reset', 'update
 // 현재 바텀시트 내부 활성 탭 ('general' = 전체 조건 / 'amenity' = 편의시설 필터)
 const activeTab = ref(props.initialTab || 'general');
 
-watch(() => props.initialTab, (newTab) => {
-  if (newTab) activeTab.value = newTab;
-});
+watch(
+  () => props.initialTab,
+  (newTab) => {
+    if (newTab) activeTab.value = newTab;
+  },
+);
 
 // 로컬 양방향 바인딩 래퍼
 const filters = computed({
@@ -55,10 +59,7 @@ const notifyUpdate = () => {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="isOpen"
-      class="fixed inset-0 z-50 flex items-end justify-center md:hidden"
-    >
+    <div v-if="isOpen" class="fixed inset-0 z-50 flex items-end justify-center md:hidden">
       <!-- Dimmed 배경 오버레이 -->
       <div
         class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm transition-opacity"
@@ -69,17 +70,23 @@ const notifyUpdate = () => {
       <div
         class="relative w-full max-h-[85vh] bg-white rounded-t-3xl shadow-2xl flex flex-col z-10 overflow-hidden animate-slide-up"
       >
-        <!-- 1. 바텀시트 상단 드래그 핸들 & 닫기 버튼 -->
-        <div class="px-4 pt-3 pb-1 flex items-center justify-between bg-white relative">
-          <span class="w-8 h-1 bg-slate-200 rounded-full mx-auto absolute top-2 left-1/2 -translate-x-1/2"></span>
-          <div class="text-sm font-black text-slate-900 mt-2">필터 상세 설정</div>
-          <button
-            type="button"
-            class="w-7 h-7 rounded-full bg-slate-100 text-slate-500 font-bold flex items-center justify-center text-xs hover:bg-slate-200 transition-colors mt-1"
-            @click="close"
-          >
-            ✕
-          </button>
+        <!-- 1. 바텀시트 상단 드래그 핸들 -->
+        <div class="h-5 bg-white relative">
+          <span
+            class="w-28 h-1 bg-slate-200 rounded-full mx-auto absolute top-5 left-1/2 -translate-x-1/2"
+          ></span>
+        </div>
+
+        <div class="px-4 pt-3 pb-3 border-b border-slate-100">
+          <OnboardingSummary
+            :destination="filters.destination"
+            :transport-mode="filters.transportMode"
+            :travel-time="filters.travelTime"
+            :max-deposit="filters.maxDeposit"
+            :max-rent="filters.maxRent"
+            :min-safety-score="filters.minSafetyScore"
+            @close="close"
+          />
         </div>
 
         <!-- 2. [ 🎨 전체 조건 필터 ] vs [ 🛍️ 편의시설 필터 ] 2종 구분 탭바 -->
@@ -87,18 +94,29 @@ const notifyUpdate = () => {
           <button
             type="button"
             class="flex-1 py-3 text-xs font-bold transition-all relative flex items-center justify-center gap-1.5"
-            :class="activeTab === 'general' ? 'text-blue-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'"
+            :class="
+              activeTab === 'general'
+                ? 'text-blue-600 font-extrabold'
+                : 'text-slate-500 hover:text-slate-800'
+            "
             @click="activeTab = 'general'"
           >
             <span>🎨</span>
             <span>전체 조건 필터</span>
-            <div v-if="activeTab === 'general'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"></div>
+            <div
+              v-if="activeTab === 'general'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
+            ></div>
           </button>
 
           <button
             type="button"
             class="flex-1 py-3 text-xs font-bold transition-all relative flex items-center justify-center gap-1.5"
-            :class="activeTab === 'amenity' ? 'text-blue-600 font-extrabold' : 'text-slate-500 hover:text-slate-800'"
+            :class="
+              activeTab === 'amenity'
+                ? 'text-blue-600 font-extrabold'
+                : 'text-slate-500 hover:text-slate-800'
+            "
             @click="activeTab = 'amenity'"
           >
             <span>🛍️</span>
@@ -109,7 +127,10 @@ const notifyUpdate = () => {
             >
               {{ filters.selectedAmenities.length }}
             </span>
-            <div v-if="activeTab === 'amenity'" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"></div>
+            <div
+              v-if="activeTab === 'amenity'"
+              class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full"
+            ></div>
           </button>
         </div>
 
@@ -125,13 +146,7 @@ const notifyUpdate = () => {
               </label>
               <div class="flex flex-wrap gap-2">
                 <button
-                  v-for="dest in [
-                    '세종대학교',
-                    '건국대학교',
-                    '강남역',
-                    '역삼역',
-                    '성수역',
-                  ]"
+                  v-for="dest in ['세종대학교', '건국대학교', '강남역', '역삼역', '성수역']"
                   :key="dest"
                   type="button"
                   class="px-3 py-2 rounded-xl text-xs font-bold transition-all border"
@@ -153,9 +168,7 @@ const notifyUpdate = () => {
             <!-- 섹션 2: 최저 안전점수 게이지 슬라이더 (주 목적지 바로 아래 2순위 배치) -->
             <div class="space-y-3">
               <div class="flex items-center justify-between">
-                <label
-                  class="text-xs font-black text-slate-800 flex items-center gap-1.5"
-                >
+                <label class="text-xs font-black text-slate-800 flex items-center gap-1.5">
                   <span>🛡️</span>
                   <span>최저 안심 귀갓길 점수</span>
                 </label>
@@ -163,9 +176,7 @@ const notifyUpdate = () => {
                   class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200"
                 >
                   {{
-                    filters.minSafetyScore === 0
-                      ? '전체 보기'
-                      : `${filters.minSafetyScore}점 이상`
+                    filters.minSafetyScore === 0 ? '전체 보기' : `${filters.minSafetyScore}점 이상`
                   }}
                 </span>
               </div>
@@ -187,9 +198,7 @@ const notifyUpdate = () => {
                   }"
                   @input="notifyUpdate"
                 />
-                <div
-                  class="flex justify-between text-[11px] font-bold text-slate-400"
-                >
+                <div class="flex justify-between text-[11px] font-bold text-slate-400">
                   <span>0점</span>
                   <span>50점</span>
                   <span>100점</span>
@@ -276,13 +285,9 @@ const notifyUpdate = () => {
 
               <!-- 슬라이더 1: 원하는 이동 시간 -->
               <div class="space-y-1.5 pt-1">
-                <div
-                  class="flex justify-between text-xs font-bold text-slate-800"
-                >
+                <div class="flex justify-between text-xs font-bold text-slate-800">
                   <span>🎯 원하는 이동 시간</span>
-                  <span class="text-blue-600 font-extrabold"
-                    >{{ filters.travelTime }}분</span
-                  >
+                  <span class="text-blue-600 font-extrabold">{{ filters.travelTime }}분</span>
                 </div>
                 <input
                   type="range"
@@ -293,24 +298,15 @@ const notifyUpdate = () => {
                   class="w-full accent-blue-600 cursor-pointer"
                   @input="notifyUpdate"
                 />
-                <div
-                  class="flex justify-between text-[11px] font-bold text-slate-400"
-                >
-                  <span>{{
-                    filters.transportMode === 'WALK' ? '5분' : '10분'
-                  }}</span>
+                <div class="flex justify-between text-[11px] font-bold text-slate-400">
+                  <span>{{ filters.transportMode === 'WALK' ? '5분' : '10분' }}</span>
                   <span>60분</span>
                 </div>
               </div>
 
               <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
-              <div
-                v-if="filters.transportMode === 'WALK'"
-                class="space-y-2 pt-1"
-              >
-                <div
-                  class="flex justify-between text-xs font-bold text-slate-800"
-                >
+              <div v-if="filters.transportMode === 'WALK'" class="space-y-2 pt-1">
+                <div class="flex justify-between text-xs font-bold text-slate-800">
                   <span>🚶‍♂️ 걸음 속도</span>
                   <span class="text-blue-600 font-extrabold text-xs">
                     {{
@@ -322,9 +318,7 @@ const notifyUpdate = () => {
                     }}
                   </span>
                 </div>
-                <div
-                  class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl"
-                >
+                <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
                   <button
                     v-for="pace in [
                       { key: 'SLOW', label: '🐢 천천히' },
@@ -356,13 +350,9 @@ const notifyUpdate = () => {
 
               <!-- 🚌 [대중교통 모드]: 앞뒤 여유 시간 슬라이더 -->
               <div v-else class="space-y-1.5">
-                <div
-                  class="flex justify-between text-xs font-bold text-slate-800"
-                >
+                <div class="flex justify-between text-xs font-bold text-slate-800">
                   <span>⏳ 앞뒤 여유 시간</span>
-                  <span class="text-amber-500 font-extrabold"
-                    >±{{ filters.flexTime }}분</span
-                  >
+                  <span class="text-amber-500 font-extrabold">±{{ filters.flexTime }}분</span>
                 </div>
                 <input
                   type="range"
@@ -373,9 +363,7 @@ const notifyUpdate = () => {
                   class="w-full accent-amber-500 cursor-pointer"
                   @input="notifyUpdate"
                 />
-                <div
-                  class="flex justify-between text-[11px] font-bold text-slate-400"
-                >
+                <div class="flex justify-between text-[11px] font-bold text-slate-400">
                   <span>±5분</span>
                   <span>±20분</span>
                 </div>
@@ -384,9 +372,7 @@ const notifyUpdate = () => {
 
             <!-- 섹션 4: 거래 유형 및 조건 (월세 vs 전세 2종) -->
             <div class="space-y-3">
-              <label
-                class="text-xs font-black text-slate-800 flex items-center gap-1.5"
-              >
+              <label class="text-xs font-black text-slate-800 flex items-center gap-1.5">
                 <span>💰</span>
                 <span>보증금 및 월세 제한</span>
               </label>
@@ -415,18 +401,12 @@ const notifyUpdate = () => {
 
               <!-- 보증금 슬라이더 -->
               <div class="space-y-1">
-                <div
-                  class="flex justify-between text-xs font-bold text-slate-700"
-                >
+                <div class="flex justify-between text-xs font-bold text-slate-700">
                   <span>{{
-                    filters.tradeType === 'JEONSE'
-                      ? '최대 전세 보증금'
-                      : '최대 월세 보증금'
+                    filters.tradeType === 'JEONSE' ? '최대 전세 보증금' : '최대 월세 보증금'
                   }}</span>
                   <span class="text-blue-600 font-extrabold">{{
-                    filters.maxDeposit >= 5000
-                      ? '제한없음'
-                      : `${filters.maxDeposit} 만원`
+                    filters.maxDeposit >= 5000 ? '제한없음' : `${filters.maxDeposit} 만원`
                   }}</span>
                 </div>
                 <input
@@ -442,14 +422,10 @@ const notifyUpdate = () => {
 
               <!-- 월세 슬라이더 -->
               <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1">
-                <div
-                  class="flex justify-between text-xs font-bold text-slate-700"
-                >
+                <div class="flex justify-between text-xs font-bold text-slate-700">
                   <span>최대 월세</span>
                   <span class="text-blue-600 font-extrabold">{{
-                    filters.maxRent >= 100
-                      ? '제한없음'
-                      : `${filters.maxRent} 만원`
+                    filters.maxRent >= 100 ? '제한없음' : `${filters.maxRent} 만원`
                   }}</span>
                 </div>
                 <input
@@ -467,7 +443,9 @@ const notifyUpdate = () => {
 
           <!-- 탭 2: 🛍️ 주변 편의시설 필터 (AmenityFilter.vue 단독 탭 전구역) -->
           <div v-else class="space-y-4">
-            <div class="p-3 bg-blue-50/80 rounded-2xl border border-blue-200/80 text-xs text-blue-900 font-bold flex items-center gap-2">
+            <div
+              class="p-3 bg-blue-50/80 rounded-2xl border border-blue-200/80 text-xs text-blue-900 font-bold flex items-center gap-2"
+            >
               <span>🛍️</span>
               <span>7종 편의시설 도보 제한 시간을 개별 조절하여 매물을 추천받으세요.</span>
             </div>
@@ -483,9 +461,7 @@ const notifyUpdate = () => {
         </div>
 
         <!-- 바텀시트 하단 스티키 고정 하단바 -->
-        <div
-          class="p-4 border-t border-slate-100 bg-white flex items-center gap-3"
-        >
+        <div class="p-4 border-t border-slate-100 bg-white flex items-center gap-3">
           <button
             type="button"
             class="px-4 py-3.5 rounded-2xl bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-all flex items-center gap-1 shrink-0"
@@ -530,7 +506,10 @@ const notifyUpdate = () => {
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .safety-range-input::-webkit-slider-thumb:hover {
@@ -546,6 +525,9 @@ const notifyUpdate = () => {
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 </style>

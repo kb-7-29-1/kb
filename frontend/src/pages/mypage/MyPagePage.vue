@@ -16,15 +16,18 @@ const onboarding = ref(null);
 
 const formatAmount = (amount) => {
   const value = Number(amount);
+
   if (!Number.isFinite(value)) return '설정 정보 없음';
   if (value >= 10000)
     return value % 10000 === 0 ? `${value / 10000}억원 이하` : `${value.toLocaleString()}만원 이하`;
+
   return `${value.toLocaleString()}만원 이하`;
 };
 
 const destination = computed(() => onboarding.value?.destination?.destName ?? '설정 정보 없음');
 const transport = computed(() => {
   if (!onboarding.value) return '설정 정보 없음';
+
   const label = onboarding.value.transportMode === 'WALK' ? '도보' : '대중교통';
   return `${label} (최대 ${onboarding.value.maxTravelTime}분)`;
 });
@@ -100,7 +103,7 @@ onMounted(loadOnboarding);
 <template>
   <div class="max-w-md mx-auto px-4 py-6">
     <div class="relative flex items-center justify-center mb-6">
-      <button @click="router.push({ name: 'map' })" class="absolute left-0 text-gray-600 text-xl">
+      <button @click="router.push({ name: 'home' })" class="absolute left-0 text-gray-600 text-xl">
         ←
       </button>
       <h1 class="text-xl font-bold">마이페이지</h1>

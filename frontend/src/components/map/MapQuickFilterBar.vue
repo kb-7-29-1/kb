@@ -176,13 +176,7 @@ const safetyThumbColor = computed(() => {
           <div class="text-xs font-black text-slate-700">주 목적지 변경</div>
           <div class="space-y-1">
             <button
-              v-for="dest in [
-                '세종대학교',
-                '건국대학교',
-                '강남역',
-                '역삼역',
-                '성수역',
-              ]"
+              v-for="dest in ['세종대학교', '건국대학교', '강남역', '역삼역', '성수역']"
               :key="dest"
               type="button"
               class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between"
@@ -219,9 +213,7 @@ const safetyThumbColor = computed(() => {
           <span class="flex items-center gap-1">
             <span>🛡️</span>
             <span class="whitespace-nowrap">{{
-              filters.minSafetyScore > 0
-                ? `안전 ${filters.minSafetyScore}점+`
-                : '안전점수'
+              filters.minSafetyScore > 0 ? `안전 ${filters.minSafetyScore}점+` : '안전점수'
             }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
@@ -235,7 +227,9 @@ const safetyThumbColor = computed(() => {
           <!-- 헤더 및 실시간 점수 배지 -->
           <div class="flex items-center justify-between">
             <span class="text-xs font-black text-slate-800">🛡️ 최저 안전점수</span>
-            <span class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+            <span
+              class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200"
+            >
               {{ filters.minSafetyScore === 0 ? '전체 보기' : `${filters.minSafetyScore}점 이상` }}
             </span>
           </div>
@@ -251,9 +245,10 @@ const safetyThumbColor = computed(() => {
               class="w-full h-3.5 rounded-lg appearance-none cursor-pointer border border-slate-200 shadow-inner transition-all safety-range-input"
               :style="{
                 '--thumb-color': safetyThumbColor,
-                background: filters.minSafetyScore > 0
-                  ? `linear-gradient(to right, #f59e0b 0%, #10b981 ${filters.minSafetyScore / 2}%, #3b82f6 ${filters.minSafetyScore}%, #e2e8f0 ${filters.minSafetyScore}%, #e2e8f0 100%)`
-                  : '#e2e8f0'
+                background:
+                  filters.minSafetyScore > 0
+                    ? `linear-gradient(to right, #f59e0b 0%, #10b981 ${filters.minSafetyScore / 2}%, #3b82f6 ${filters.minSafetyScore}%, #e2e8f0 ${filters.minSafetyScore}%, #e2e8f0 100%)`
+                    : '#e2e8f0',
               }"
               @input="updateFilters"
             />
@@ -274,9 +269,12 @@ const safetyThumbColor = computed(() => {
               :class="[
                 filters.minSafetyScore === score
                   ? 'bg-amber-500 text-white border-amber-500 font-black shadow-sm'
-                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100',
               ]"
-              @click="filters.minSafetyScore = score; updateFilters();"
+              @click="
+                filters.minSafetyScore = score;
+                updateFilters();
+              "
             >
               {{ score }}점+
             </button>
@@ -302,9 +300,7 @@ const safetyThumbColor = computed(() => {
           type="button"
           class="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border min-w-[125px]"
           :class="[
-            filters.maxDeposit < 5000 ||
-            filters.maxRent < 100 ||
-            filters.tradeType === 'JEONSE'
+            filters.maxDeposit < 5000 || filters.maxRent < 100 || filters.tradeType === 'JEONSE'
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 border-slate-200',
           ]"
@@ -322,9 +318,7 @@ const safetyThumbColor = computed(() => {
           v-if="activePopover === 'price'"
           class="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-40 space-y-4"
         >
-          <div
-            class="text-xs font-black text-slate-800 flex justify-between items-center"
-          >
+          <div class="text-xs font-black text-slate-800 flex justify-between items-center">
             <span>가격 & 거래 조건</span>
             <button
               type="button"
@@ -363,14 +357,10 @@ const safetyThumbColor = computed(() => {
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>{{
-                filters.tradeType === 'JEONSE'
-                  ? '최대 전세 보증금'
-                  : '최대 월세 보증금'
+                filters.tradeType === 'JEONSE' ? '최대 전세 보증금' : '최대 월세 보증금'
               }}</span>
               <span class="text-blue-600 font-extrabold">{{
-                filters.maxDeposit >= 5000
-                  ? '제한없음'
-                  : `${filters.maxDeposit} 만원`
+                filters.maxDeposit >= 5000 ? '제한없음' : `${filters.maxDeposit} 만원`
               }}</span>
             </div>
             <input
@@ -508,13 +498,9 @@ const safetyThumbColor = computed(() => {
 
           <!-- 슬라이더 1: 🎯 원하는 이동 시간 (도보 최소 5분 / 대중교통 최소 10분) -->
           <div class="space-y-1.5 pt-1">
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🎯 원하는 이동 시간</span>
-              <span class="text-blue-600 font-extrabold text-sm"
-                >{{ filters.travelTime }}분</span
-              >
+              <span class="text-blue-600 font-extrabold text-sm">{{ filters.travelTime }}분</span>
             </div>
             <input
               type="range"
@@ -525,21 +511,15 @@ const safetyThumbColor = computed(() => {
               class="w-full accent-blue-600 cursor-pointer"
               @input="updateFilters"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
-              <span>{{
-                filters.transportMode === 'WALK' ? '5분' : '10분'
-              }}</span>
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+              <span>{{ filters.transportMode === 'WALK' ? '5분' : '10분' }}</span>
               <span>60분</span>
             </div>
           </div>
 
           <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
           <div v-if="filters.transportMode === 'WALK'" class="space-y-2 pt-1">
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🚶‍♂️ 걸음 속도</span>
               <span class="text-blue-600 font-extrabold text-xs">
                 {{
@@ -585,13 +565,9 @@ const safetyThumbColor = computed(() => {
 
           <!-- 🚌 [대중교통 모드]: 앞뒤 여유 시간 슬라이더 -->
           <div v-else class="space-y-1.5 pt-1">
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>⏳ 앞뒤 여유 시간</span>
-              <span class="text-amber-500 font-extrabold text-sm"
-                >±{{ filters.flexTime }}분</span
-              >
+              <span class="text-amber-500 font-extrabold text-sm">±{{ filters.flexTime }}분</span>
             </div>
             <input
               type="range"
@@ -602,9 +578,7 @@ const safetyThumbColor = computed(() => {
               class="w-full accent-amber-500 cursor-pointer"
               @input="updateFilters"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>±5분</span>
               <span>±20분</span>
             </div>
@@ -659,19 +633,21 @@ const safetyThumbColor = computed(() => {
         class="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-900 text-white rounded-full shadow-xl text-xs font-black transition-transform active:scale-95 border border-slate-700"
         @click="openMobileFilter('general')"
       >
-        <span>🎨 조건 필터</span>
+        <span>🎨 전체 필터</span>
       </button>
 
       <!-- 모바일 버튼 2: [🛍️ 편의시설 (N)] -->
       <button
         type="button"
         class="flex items-center gap-1.5 px-3.5 py-2.5 bg-white text-slate-900 rounded-full shadow-xl text-xs font-bold transition-transform active:scale-95 border border-slate-200"
-        :class="{ 'border-blue-500 font-black text-blue-600 bg-blue-50': filters.selectedAmenities?.length > 0 }"
+        :class="{
+          'border-blue-500 font-black text-blue-600 bg-blue-50':
+            filters.selectedAmenities?.length > 0,
+        }"
         @click="openMobileFilter('amenity')"
       >
         <span>🛍️ 편의시설</span>
-        <span
-        >
+        <span>
           {{ activeFilterCount }}
         </span>
       </button>
@@ -697,6 +673,7 @@ const safetyThumbColor = computed(() => {
     <MobileFilterBottomSheet
       v-model:is-open="isMobileModalOpen"
       v-model="filters"
+      :initial-tab="activeMobileTab"
       :total-count="totalCount"
       :safety-thumb-color="safetyThumbColor"
       @reset="handleReset"
@@ -716,7 +693,10 @@ const safetyThumbColor = computed(() => {
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 
 .safety-range-input::-webkit-slider-thumb:hover {
@@ -732,6 +712,9 @@ const safetyThumbColor = computed(() => {
   border: 2.5px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
 </style>

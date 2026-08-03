@@ -35,7 +35,7 @@ const conditions = computed(() => [
   { icon: '🛡️', label: '안전 점수', value: props.safety },
 ]);
 
-const goOnboarding = () => router.push('/onboarding');
+const goOnboarding = () => router.push({ path: '/onboarding', query: { from: 'mypage' } });
 </script>
 
 <template>
