@@ -1,5 +1,44 @@
 <script setup>
+import { computed } from 'vue';
+
+const props = defineProps({
+  destination: {
+    type: String,
+    default: '세종대학교',
+  },
+  transportMode: {
+    type: String,
+    default: 'WALK',
+  },
+  travelTime: {
+    type: Number,
+    default: 15,
+  },
+  maxDeposit: {
+    type: Number,
+    default: 3000,
+  },
+  maxRent: {
+    type: Number,
+    default: 70,
+  },
+  minSafetyScore: {
+    type: Number,
+    default: 0,
+  },
+  showClose: {
+    type: Boolean,
+    default: true,
+  },
+});
+
 defineEmits(['close']);
+
+const transportLabel = computed(() => (props.transportMode === 'TRANSIT' ? '대중교통' : '도보'));
+const priceLabel = computed(() => {
+  if (props.maxRent === 0) return `전세 ${props.maxDeposit.toLocaleString()}만 이하`;
+  return `보증 ${props.maxDeposit.toLocaleString()}만 · 월세 ${props.maxRent}만 이하`;
+});
 </script>
 
 <template>
@@ -9,19 +48,25 @@ defineEmits(['close']);
         <p class="summary-label">목적지</p>
         <div class="summary-title">
           <span class="location-icon">⌖</span>
-          <strong>세종대학교</strong>
+          <strong>{{ destination }}</strong>
         </div>
       </div>
 
-      <button class="close-button" type="button" aria-label="필터 닫기" @click="$emit('close')">
+      <button
+        v-if="showClose"
+        class="close-button"
+        type="button"
+        aria-label="필터 닫기"
+        @click="$emit('close')"
+      >
         ×
       </button>
     </div>
 
     <div class="condition-chips">
-      <span>도보 15분</span>
-      <span>보증 3,000만 이하</span>
-      <span>위반건축물 제외</span>
+      <span>{{ transportLabel }} {{ travelTime }}분</span>
+      <span>{{ priceLabel }}</span>
+      <span v-if="minSafetyScore > 0">안전 {{ minSafetyScore }}점 이상</span>
     </div>
   </section>
 </template>
@@ -30,7 +75,7 @@ defineEmits(['close']);
 .summary {
   position: relative;
   padding-right: 42px;
-  margin-bottom: 20px;
+  margin: 20px 0px 10px;
 }
 
 .summary-top {
@@ -69,7 +114,7 @@ defineEmits(['close']);
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #8b95a7;
+  color: #7d8797;
   font-size: 26px;
   line-height: 1;
   cursor: pointer;

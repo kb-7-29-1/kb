@@ -8,6 +8,10 @@ defineProps({
     type: Number,
     default: 5,
   },
+  returnLabel: {
+    type: String,
+    default: '로그인 페이지로',
+  },
 });
 
 defineEmits(['back', 'go-login']);
@@ -28,7 +32,7 @@ defineEmits(['back', 'go-login']);
     <div class="desktop-header">
       <button type="button" class="desktop-login-link" @click="$emit('go-login')">
         <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
-        로그인 페이지로
+        {{ returnLabel }}
       </button>
 
       <p class="desktop-logo">
