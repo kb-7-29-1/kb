@@ -4,7 +4,6 @@ import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
-import AmenityFilter from '@/components/map/AmenityFilter.vue';
 
 // 5종 정렬 필터 옵션 (스펙: 추천순, 가격 낮은순, 가격 높은순, 안전점수 높은순, 면적 넓은순)
 const currentSort = ref('RECOMMENDED');
@@ -25,11 +24,7 @@ const filterState = ref({
   minSafetyScore: 0,
   transportMode: 'WALK',
   showIsochrone: true,
-  selectedAmenities: [],
 });
-
-// 좌측 아코디언/패널 편의시설 필터 열림 상태
-const showAmenityFilter = ref(false);
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
@@ -179,10 +174,6 @@ const handleToggleBookmark = (id) => {
   }
 };
 
-// 편의시설 적용 핸들러
-const handleApplyAmenities = (selectedList) => {
-  filterState.value.selectedAmenities = selectedList.map(a => a.amenityType);
-};
 </script>
 
 <template>
@@ -191,7 +182,7 @@ const handleApplyAmenities = (selectedList) => {
     <aside
       class="w-full md:w-[380px] h-1/3 md:h-full bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-lg"
     >
-      <!-- 사이드바 상단 헤더 & 편의시설 필터 & 5종 정렬 탭 -->
+      <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
       <div class="p-4 border-b border-slate-200 bg-white space-y-3">
         <div class="flex items-center justify-between">
           <h1 class="font-black text-slate-900 text-lg flex items-center gap-2">
@@ -203,25 +194,6 @@ const handleApplyAmenities = (selectedList) => {
           >
             총 {{ sortedProperties.length }}개 매물
           </span>
-        </div>
-
-        <!-- 좌측 사이드바 최상단 편의시설 필터 아코디언 토글 버튼 -->
-        <button
-          type="button"
-          class="w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all"
-          :class="showAmenityFilter ? 'bg-blue-50 border-blue-300 text-blue-700 font-black' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'"
-          @click="showAmenityFilter = !showAmenityFilter"
-        >
-          <span class="flex items-center gap-1.5">
-            <span>🛍️</span>
-            <span>주변 편의시설 필터 연동</span>
-          </span>
-          <span>{{ showAmenityFilter ? '▲ 접기' : '▼ 펼치기' }}</span>
-        </button>
-
-        <!-- 편의시설 필터 컴포넌트 마운트 -->
-        <div v-if="showAmenityFilter" class="pt-2 border-t border-slate-100 max-h-60 overflow-y-auto">
-          <AmenityFilter @apply="handleApplyAmenities" />
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
