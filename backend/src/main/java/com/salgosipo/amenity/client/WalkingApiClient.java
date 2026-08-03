@@ -2,33 +2,38 @@ package com.salgosipo.amenity.client;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Log4j2
-@Component
-@RequiredArgsConstructor
 public class WalkingApiClient {
 
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
+    public record WalkingRoute(Integer walkTimeMinutes, Integer distanceMeters) {
+    }
 
-    @Value("${tmap.api.key}")
-    private String tmapApiKey;
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final String tmapApiKey;
+
+    public WalkingApiClient(String tmapApiKey) {
+        this.tmapApiKey = tmapApiKey;
+    }
 
     // 1. TMAP 보행자 API: 출발지에서 도착지까지의 최소 도보 시간(분) 계산
     public Integer calculateWalkingTime(Double startLat, Double startLng, Double endLat, Double endLng) {
+        WalkingRoute route = calculateWalkingRoute(startLat, startLng, endLat, endLng);
+        return route == null ? null : route.walkTimeMinutes();
+    }
+
+    public WalkingRoute calculateWalkingRoute(Double startLat, Double startLng, Double endLat, Double endLng) {
         String url = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
 
         HttpHeaders headers = new HttpHeaders();
@@ -52,7 +57,8 @@ public class WalkingApiClient {
             JsonNode propertiesNode = rootNode.path("features").get(0).path("properties");
             int totalTimeSeconds = propertiesNode.path("totalTime").asInt();
 
-            return totalTimeSeconds / 60;
+            int totalDistanceMeters = propertiesNode.path("totalDistance").asInt();
+            return new WalkingRoute(totalTimeSeconds / 60, totalDistanceMeters);
 
         } catch (Exception e) {
             log.error("TMAP 보행자 길찾기 API 호출 실패: {}", e.getMessage());

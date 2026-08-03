@@ -23,6 +23,8 @@ public class PropertyAmenityVO {
 
     private Double amenityLongitude;
 
+    private Integer distanceMeters;
+
     private Integer walkTimeMinutes;
 
     private LocalDateTime createdAt;

@@ -6,8 +6,8 @@ import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
 import com.salgosipo.property.mapper.PropertyMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -15,12 +15,21 @@ import java.util.List;
 
 @Log4j2
 @Service
-@RequiredArgsConstructor
 public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
     private final PropertyMapper propertyMapper;
+
+    public AmenityServiceImpl(
+            AmenityMapper amenityMapper,
+            PropertyMapper propertyMapper,
+            @Value("${TMAP_API_KEY}") String tmapApiKey
+    ) {
+        this.amenityMapper = amenityMapper;
+        this.propertyMapper = propertyMapper;
+        this.walkingApiClient = new WalkingApiClient(tmapApiKey);
+    }
 
     @Override
     public List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request) {
@@ -68,10 +77,14 @@ public class AmenityServiceImpl implements AmenityService {
                 Double endLng = nearestPlaceCoords[1];
 
                 // 3-3. 출발지(매물)에서 도착지(편의시설)까지의 도보 시간 계산
-                Integer walkTime = walkingApiClient.calculateWalkingTime(startLat, startLng, endLat, endLng);
+                WalkingApiClient.WalkingRoute route = walkingApiClient.calculateWalkingRoute(
+                        startLat, startLng, endLat, endLng
+                );
+                Integer walkTime = route == null ? null : route.walkTimeMinutes();
 
                 // 3-4. 계산된 도보 시간이 유저가 설정한 최대 시간(maxWalkTime) 이하인 경우에만 추가
-                if (walkTime != null && walkTime <= maxWalkTime) {
+                if (route != null && walkTime != null && route.distanceMeters() != null
+                        && walkTime <= maxWalkTime) {
 
                     // 3-5. 응답 DTO 생성 (DB 저장을 위해 먼저 생성해야 합니다)
                     AmenityResponseDTO responseDTO = AmenityResponseDTO.builder()
@@ -80,6 +93,7 @@ public class AmenityServiceImpl implements AmenityService {
                             .amenityName(keyword)
                             .amenityLatitude(endLat)
                             .amenityLongitude(endLng)
+                            .distanceMeters(route.distanceMeters())
                             .walkTimeMinutes(walkTime)
                             .build();
 

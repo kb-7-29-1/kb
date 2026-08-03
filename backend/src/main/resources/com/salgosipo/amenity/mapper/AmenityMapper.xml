@@ -5,21 +5,20 @@
 
 <mapper namespace="com.salgosipo.amenity.mapper.AmenityMapper">
     <insert id="insertAmenity" parameterType="com.salgosipo.amenity.dto.AmenityResponseDTO">
-        INSERT INTO property_amenity (
-            property_id,
-            amenity_type,
-            amenity_name,
-            amenity_latitude,
-            amenity_longitude,
-            walk_time_minutes
-        ) VALUES (
-                     #{propertyId},
-                     #{amenityType},
-                     #{amenityName},
-                     #{amenityLatitude},
-                     #{amenityLongitude},
-                     #{walkTimeMinutes}
-                 )
+        INSERT INTO property_amenities (property_id,
+                                        amenity_type,
+                                        amenity_name,
+                                        amenity_latitude,
+                                        amenity_longitude,
+                                        distance_meters,
+                                        walk_time_minutes)
+        VALUES (#{propertyId},
+                #{amenityType},
+                #{amenityName},
+                #{amenityLatitude},
+                #{amenityLongitude},
+                #{distanceMeters},
+                #{walkTimeMinutes})
     </insert>
 
     <select id="getAmenitiesByFilter" resultType="com.salgosipo.amenity.dto.AmenityResponseDTO">
@@ -28,6 +27,7 @@
                amenity_name,
                amenity_latitude,
                amenity_longitude,
+               distance_meters,
                walk_time_minutes
         FROM property_amenities
         WHERE property_id = #{propertyId}
