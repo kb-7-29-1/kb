@@ -61,7 +61,7 @@ const handleApply = () => {
 
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-        <OnBoardingFilter v-show="activeTab === 'all'" />
+        <OnBoardingFilter v-show="activeTab === 'all'" :onboarding="onboarding" />
         <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
 

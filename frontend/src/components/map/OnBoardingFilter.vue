@@ -1,5 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+
+const props = defineProps({
+  onboarding: {
+    type: Object,
+    default: null,
+  },
+});
 
 const minSafetyScore = ref(40);
 const depositOptions = [
@@ -25,12 +32,31 @@ const depositLabel = computed(() =>
 );
 const rentLabel = computed(() => `${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
+const destinationName = computed(() => props.onboarding?.destination?.destName ?? '세종대학교');
+
+watch(
+  () => props.onboarding,
+  (onboarding) => {
+    if (!onboarding) return;
+
+    const savedDepositIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
+    if (savedDepositIndex >= 0) depositIndex.value = savedDepositIndex;
+
+    maxRent.value = Number(onboarding.budgetRent);
+    minSafetyScore.value = Number(onboarding.minSafetyScore);
+    transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+    travelTime.value = Number(onboarding.maxTravelTime);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
   <section class="onboarding-filter" aria-label="전체 조건 필터">
     <div class="filter-section destination-section">
-      <p class="section-label">목적지 <strong>세종대학교</strong></p>
+      <p class="section-label">
+        목적지 <strong>{{ destinationName }}</strong>
+      </p>
       <label class="search-field">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input type="text" placeholder="예: 연세대학교, 삼성전자 서초사옥" />
