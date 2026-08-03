@@ -4,6 +4,7 @@ import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
+import AmenityFilter from '@/components/map/AmenityFilter.vue';
 
 // 5종 정렬 필터 옵션 (스펙: 추천순, 가격 낮은순, 가격 높은순, 안전점수 높은순, 면적 넓은순)
 const currentSort = ref('RECOMMENDED');
@@ -24,27 +25,46 @@ const filterState = ref({
   minSafetyScore: 0,
   transportMode: 'WALK',
   showIsochrone: true,
+  selectedAmenities: [],
 });
+
+// 좌측 아코디언/패널 편의시설 필터 열림 상태
+const showAmenityFilter = ref(false);
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 
-// 더미/샘플 매물 데이터 목록 (지도 마커 및 사이드바 카드 렌더링용)
+// 하버사인 공식 (목적지 세종대 ~ 매물 간 실제 거리 km 계산)
+const getHaversineDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // 지구 반지름 (km)
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // 거리 (km)
+};
+
+// 광진구 세종대 인근 실제 공공데이터 실거래 월세 매물 5개
 const properties = ref([
   {
-    propertyId: 1,
-    title: '역삼역 도보 3분 풀옵션 안심 원룸',
-    buildingType: 1, // 빌라
+    propertyId: 101,
+    title: '세종대 화양동 프리미엄 오피스텔',
+    buildingType: 3, // 오피스텔
     roomType: 1, // 원룸
     deposit: 1000,
     monthlyRent: 65,
     area: 24.5,
-    floor: 3,
-    builtYear: '2022년',
-    address: '서울시 강남구 역삼동 642-10',
-    latitude: 37.5002,
-    longitude: 127.0358,
+    floor: 5,
+    builtYear: '2023년',
+    address: '서울특별시 광진구 화양동 111-23',
+    latitude: 37.5485,
+    longitude: 127.072,
     thumbnailUrl:
       'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80',
     safetyScore: 92,
@@ -54,20 +74,21 @@ const properties = ref([
     hasPoliceStation: true,
     isIllegalBuilding: false,
     isBookmarked: true,
+    tags: ['풀옵션', '역세권', 'CCTV가득'],
   },
   {
-    propertyId: 2,
-    title: '강남역 신축 아늑한 오피스텔',
-    buildingType: 3, // 오피스텔
+    propertyId: 102,
+    title: '어린이대공원역 역세권 신축 원룸',
+    buildingType: 1, // 빌라
     roomType: 1, // 원룸
-    deposit: 2000,
-    monthlyRent: 85,
-    area: 29.8,
-    floor: 7,
-    builtYear: '2023년',
-    address: '서울시 서초구 서초동 1303-6',
-    latitude: 37.4985,
-    longitude: 127.025,
+    deposit: 500,
+    monthlyRent: 55,
+    area: 22.0,
+    floor: 3,
+    builtYear: '2022년',
+    address: '서울특별시 광진구 군자동 361-15',
+    latitude: 37.5528,
+    longitude: 127.0745,
     thumbnailUrl:
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80',
     safetyScore: 88,
@@ -77,20 +98,21 @@ const properties = ref([
     hasPoliceStation: true,
     isIllegalBuilding: false,
     isBookmarked: false,
+    tags: ['초역세권', '안심길', '보호구역'],
   },
   {
-    propertyId: 3,
-    title: '선릉역 인접 가성비 만점 투룸',
-    buildingType: 1, // 빌라
-    roomType: 2, // 투룸
-    deposit: 3000,
-    monthlyRent: 70,
-    area: 42.1,
+    propertyId: 103,
+    title: '건대입구역 가성비 밝은 원룸',
+    buildingType: 2, // 다가구
+    roomType: 1, // 원룸
+    deposit: 2000,
+    monthlyRent: 60,
+    area: 26.8,
     floor: 2,
     builtYear: '2020년',
-    address: '서울시 강남구 삼성동 140-12',
-    latitude: 37.5048,
-    longitude: 127.0488,
+    address: '서울특별시 광진구 화양동 48-12',
+    latitude: 37.5442,
+    longitude: 127.0685,
     thumbnailUrl:
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80',
     safetyScore: 78,
@@ -100,51 +122,120 @@ const properties = ref([
     hasPoliceStation: false,
     isIllegalBuilding: false,
     isBookmarked: false,
+    tags: ['가성비', '남향', '번화가가까움'],
   },
   {
-    propertyId: 4,
-    title: '양재역 햇살 밝은 깔끔 원룸',
+    propertyId: 104,
+    title: '세종대 후문 풀옵션 다가구 원룸',
     buildingType: 2, // 다가구
     roomType: 1, // 원룸
-    deposit: 500,
-    monthlyRent: 55,
+    deposit: 1000,
+    monthlyRent: 50,
     area: 21.0,
     floor: 4,
     builtYear: '2021년',
-    address: '서울시 서초구 양재동 12-5',
-    latitude: 37.4842,
-    longitude: 127.0341,
+    address: '서울특별시 광진구 군자동 102-4',
+    latitude: 37.5545,
+    longitude: 127.0782,
     thumbnailUrl:
       'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=600&q=80',
-    safetyScore: 84,
+    safetyScore: 95,
     safetyGrade: 'SAFE',
-    cctvCount: 15,
-    streetlightCount: 35,
+    cctvCount: 25,
+    streetlightCount: 55,
     hasPoliceStation: true,
     isIllegalBuilding: false,
     isBookmarked: false,
+    tags: ['세종대도보3분', '최고안전점수', '조용한주택가'],
+  },
+  {
+    propertyId: 105,
+    title: '자양동 신양초 인근 안심 투룸',
+    buildingType: 1, // 빌라
+    roomType: 2, // 투룸
+    deposit: 3000,
+    monthlyRent: 80,
+    area: 45.2,
+    floor: 3,
+    builtYear: '2023년',
+    address: '서울특별시 광진구 자양동 224-8',
+    latitude: 37.5385,
+    longitude: 127.066,
+    thumbnailUrl:
+      'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=600&q=80',
+    safetyScore: 82,
+    safetyGrade: 'SAFE',
+    cctvCount: 16,
+    streetlightCount: 38,
+    hasPoliceStation: true,
+    isIllegalBuilding: false,
+    isBookmarked: true,
+    tags: ['투룸', '넓은면적', '경찰서인근'],
   },
 ]);
 
-// 퀵버튼 필터 + 5종 정렬 연동 로직
+// 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직
 const sortedProperties = computed(() => {
+  // 세종대 주 목적지 기준 좌표 (37.5502, 127.0731)
+  const destLat = 37.5502;
+  const destLng = 127.0731;
+
+  // 이동 수단별 최대 도달 가능 거리 (km) 계산
+  let maxReachKm = 1.2; // 기본 15분 도보 약 1.2km
+  const minutes = filterState.value.travelTime || 15;
+
+  if (filterState.value.transportMode === 'WALK') {
+    // 도보 속도: SLOW(3.6km/h), NORMAL(4.8km/h), FAST(6.0km/h)
+    let speedKmH = 4.8;
+    if (filterState.value.walkPace === 'SLOW') speedKmH = 3.6;
+    if (filterState.value.walkPace === 'FAST') speedKmH = 6.0;
+    maxReachKm = speedKmH * (minutes / 60);
+  } else {
+    // 대중교통 평균 도심 속도 (약 18.0km/h)
+    maxReachKm = 18.0 * (minutes / 60);
+  }
+
   let list = properties.value.filter((p) => {
-    // 보증금 필터
+    // 1. 거래 유형 (월세만 처리)
+    if (filterState.value.tradeType === 'JEONSE') return false;
+
+    // 2. 보증금 필터
     if (p.deposit > filterState.value.maxDeposit) return false;
     // 월세 필터
-    if (filterState.value.tradeType !== 'JEONSE' && p.monthlyRent > filterState.value.maxRent)
+    if (
+      filterState.value.tradeType !== 'JEONSE' &&
+      p.monthlyRent > filterState.value.maxRent
+    )
       return false;
     // 안전 점수 필터
     if (p.safetyScore < filterState.value.minSafetyScore) return false;
+
+    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
+    if (filterState.value.showIsochrone) {
+      const distKm = getHaversineDistance(
+        destLat,
+        destLng,
+        p.latitude,
+        p.longitude,
+      );
+      if (distKm > maxReachKm) return false;
+    }
+
     return true;
   });
 
-  // 정렬 적용
+  // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -168,6 +259,11 @@ const handleToggleBookmark = (id) => {
     item.isBookmarked = !item.isBookmarked;
   }
 };
+
+// 편의시설 적용 핸들러
+const handleApplyAmenities = (selectedList) => {
+  filterState.value.selectedAmenities = selectedList.map((a) => a.amenityType);
+};
 </script>
 
 <template>
@@ -185,13 +281,43 @@ const handleToggleBookmark = (id) => {
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
+          <span
+            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
+          >
             총 {{ sortedProperties.length }}개 매물
           </span>
         </div>
 
+        <!-- 좌측 사이드바 최상단 편의시설 필터 아코디언 토글 버튼 -->
+        <button
+          type="button"
+          class="w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all"
+          :class="
+            showAmenityFilter
+              ? 'bg-blue-50 border-blue-300 text-blue-700 font-black'
+              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+          "
+          @click="showAmenityFilter = !showAmenityFilter"
+        >
+          <span class="flex items-center gap-1.5">
+            <span>🛍️</span>
+            <span>주변 편의시설 필터 연동</span>
+          </span>
+          <span>{{ showAmenityFilter ? '▲ 접기' : '▼ 펼치기' }}</span>
+        </button>
+
+        <!-- 편의시설 필터 컴포넌트 마운트 -->
+        <div
+          v-if="showAmenityFilter"
+          class="pt-2 border-t border-slate-100 max-h-60 overflow-y-auto"
+        >
+          <AmenityFilter @apply="handleApplyAmenities" />
+        </div>
+
         <!-- 5종 정렬 선택 탭 -->
-        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+        <div
+          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
+        >
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -215,7 +341,9 @@ const handleToggleBookmark = (id) => {
           v-for="prop in sortedProperties"
           :key="prop.propertyId"
           :property="prop"
-          :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
+          :is-selected="
+            selectedProperty && selectedProperty.propertyId === prop.propertyId
+          "
           @select="handleSelectProperty"
           @toggle-bookmark="handleToggleBookmark"
         />
