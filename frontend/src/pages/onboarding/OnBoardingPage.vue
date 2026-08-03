@@ -151,7 +151,7 @@ const goMap = async () => {
   try {
     await onboardingApi.saveOnboarding(requestData);
     clearOnboardingDraft();
-    router.push('/map');
+    router.push('/home');
   } catch (error) {
     console.error('ONBOARDING SAVE ERROR: ', error);
     alert('설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
