@@ -52,6 +52,7 @@ const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
 const markersMap = ref([]);
 
+// 편의시설 마커 핀
 const renderAmenityPin = (amenity) => {
   const container = document.createElement('div');
   const pinApp = createApp(AmenityPin, { amenity });
