@@ -25,12 +25,15 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
+    private final AmenityCalculationQueue amenityCalculationQueue;
 
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
+            AmenityCalculationQueue amenityCalculationQueue,
             @Value("${TMAP_API_KEY}") String tmapApiKey
     ) {
         this.amenityMapper = amenityMapper;
+        this.amenityCalculationQueue = amenityCalculationQueue;
         this.walkingApiClient = new WalkingApiClient(tmapApiKey);
     }
 
@@ -114,6 +117,14 @@ public class AmenityServiceImpl implements AmenityService {
     }
 
     @Override
+    public List<AmenityResponseDTO> getCachedAmenities(Integer propertyId) {
+        if (propertyId == null) {
+            return Collections.emptyList();
+        }
+        return amenityMapper.getCachedAmenities(propertyId);
+    }
+
+    @Override
     @Transactional
     public Map<Integer, List<AmenityResponseDTO>> getAmenitiesByProperties(List<AmenityRequestDTO> requests) {
         if (requests == null || requests.isEmpty()) {
@@ -123,6 +134,21 @@ public class AmenityServiceImpl implements AmenityService {
         Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
         for (AmenityRequestDTO request : requests) {
             if (!isValidRequest(request)) {
+                continue;
+            }
+            if (request.getPropertyId() != null) {
+                List<AmenityResponseDTO> cachedAmenities = getCachedAmenities(request.getPropertyId());
+                Set<Integer> cachedTypes = new HashSet<>();
+                cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
+
+                List<AmenityFilter> missingFilters = request.getAmenities().stream()
+                        .filter(filter -> !cachedTypes.contains(filter.getAmenityType()))
+                        .toList();
+                amenityCalculationQueue.enqueue(request.getPropertyId(), missingFilters);
+                amenitiesByProperty.put(
+                        request.getPropertyId(),
+                        filterByRequest(cachedAmenities, request.getAmenities())
+                );
                 continue;
             }
             try {
