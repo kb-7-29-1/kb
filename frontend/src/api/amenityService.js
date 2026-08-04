@@ -3,6 +3,11 @@ import axios from 'axios';
 const BASE_URL = '/api/amenities';
 
 export default {
+  async getCachedAmenities(propertyId) {
+    const { data } = await axios.get(`${BASE_URL}/properties/${propertyId}`);
+    return data;
+  },
+
   async filterAmenities(propertyId, amenities) {
     const { data } = await axios.post(`${BASE_URL}/filter`, {
       propertyId,
@@ -16,6 +21,17 @@ export default {
     const requests = propertyIds.map((propertyId) => ({ propertyId, amenities }));
     const { data } = await axios.post(`${BASE_URL}/filter/properties`, requests);
 
+    return data;
+  },
+
+  async startCalculationJob(propertyIds, amenities) {
+    const requests = propertyIds.map((propertyId) => ({ propertyId, amenities }));
+    const { data } = await axios.post(`${BASE_URL}/filter/jobs`, requests);
+    return data;
+  },
+
+  async getCalculationJob(jobId) {
+    const { data } = await axios.get(`${BASE_URL}/filter/jobs/${jobId}`);
     return data;
   },
 };

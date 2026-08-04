@@ -10,6 +10,8 @@ public interface AmenityMapper {
 
     List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request);
 
+    List<AmenityResponseDTO> getCachedAmenities(Integer propertyId);
+
     // 편의시설 계산에 필요한 매물 좌표만 조회
     AmenityPropertyCoordinateDTO getPropertyCoordinates(Integer propertyId);
 
