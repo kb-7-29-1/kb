@@ -7,6 +7,7 @@ import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
+import AmenityWalkingTimeFilter from '@/components/map/AmenityWalkingTimeFilter.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
@@ -45,7 +46,18 @@ const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
 const isQuickFilterReady = ref(false);
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
-const showAmenityFilter = ref(false);
+const amenityFilterRef = ref(null);
+const isAmenityDetailFilterOpen = ref(false);
+const amenityDetailFilters = ref([]);
+const activeAmenityFilters = ref([]);
+
+watch(
+  () => props.appliedAmenityFilters,
+  (filters = []) => {
+    activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+  },
+  { immediate: true, deep: true },
+);
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
@@ -163,7 +175,7 @@ watch(() => props.filterResetVersion, handleResetFilters);
 
 const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
-  const filters = props.appliedAmenityFilters;
+  const filters = activeAmenityFilters.value;
   const propertyIds = properties.value
     .map((property) => property.propertyId)
     .filter((propertyId) => propertyId != null);
@@ -191,7 +203,7 @@ const loadAmenitiesForProperties = async () => {
   }
 };
 
-watch([() => props.appliedAmenityFilters, properties], loadAmenitiesForProperties, { deep: true });
+watch([activeAmenityFilters, properties], loadAmenitiesForProperties, { deep: true });
 
 onUnmounted(() => {
   amenityRequestSequence += 1;
@@ -311,13 +323,13 @@ const sortedProperties = computed(() => {
       }
     }
 
-    if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
+    if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
       const matchedTypes = new Set(
         propertyAmenities.map((amenity) => amenity.amenityType),
       );
       const requiredTypes = new Set(
-        props.appliedAmenityFilters.map((filter) => filter.amenityType),
+        activeAmenityFilters.value.map((filter) => filter.amenityType),
       );
       if (![...requiredTypes].every((type) => matchedTypes.has(type)))
         return false;
@@ -357,7 +369,7 @@ const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
 
-  if (!props.appliedAmenityFilters.length) {
+  if (!activeAmenityFilters.value.length) {
     selectedPropertyDetailAmenities.value = [];
     return;
   }
@@ -365,7 +377,7 @@ const handleSelectProperty = async (property) => {
   try {
     const amenities = await amenityService.filterAmenities(
       property.propertyId,
-      props.appliedAmenityFilters,
+      activeAmenityFilters.value,
     );
 
     if (selectedProperty.value?.propertyId === property.propertyId) {
@@ -420,7 +432,7 @@ watch(
 const selectedPropertyAmenities = computed(() => {
   // 상세 패널과 지도 핀은 같은 선택 매물의 편의시설 결과를 사용한다.
   if (!selectedProperty.value) return [];
-  if (!props.appliedAmenityFilters.length) return [];
+  if (!activeAmenityFilters.value.length) return [];
 
   const propertyId = selectedProperty.value.propertyId;
   return amenitiesByProperty.value[propertyId]
@@ -428,7 +440,7 @@ const selectedPropertyAmenities = computed(() => {
 });
 
 watch(
-  () => props.appliedAmenityFilters.length,
+  () => activeAmenityFilters.value.length,
   (length) => {
     if (!length) selectedPropertyDetailAmenities.value = [];
   },
@@ -453,8 +465,29 @@ const handleToggleBookmark = async (id) => {
 
 // 편의시설 적용 핸들러
 const handleApplyAmenities = (selectedList) => {
-  filterState.value.selectedAmenities = selectedList.map((a) => a.amenityType);
-  emit('apply-amenity-filters', selectedList);
+  activeAmenityFilters.value = selectedList.map((filter) => ({ ...filter }));
+  filterState.value.selectedAmenities = selectedList.map((filter) => filter.amenityType);
+  emit('apply-amenity-filters', activeAmenityFilters.value);
+};
+
+const openAmenityDetailFilter = () => {
+  amenityDetailFilters.value = amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
+  isAmenityDetailFilterOpen.value = true;
+};
+
+const applyAmenityDetailFilters = () => {
+  handleApplyAmenities(
+    amenityDetailFilters.value.map((item) => ({
+      amenityType: item.amenityType,
+      walkTimeMinutes: Number(item.timeLimit),
+    })),
+  );
+  isAmenityDetailFilterOpen.value = false;
+};
+
+const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
+  const item = amenityDetailFilters.value.find((filter) => filter.id === id);
+  if (item) item.timeLimit = timeLimit;
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
@@ -512,34 +545,78 @@ const {
           </span>
         </div>
 
-        <!-- 좌측 사이드바 최상단 편의시설 필터 아코디언 토글 버튼 -->
-        <button
-          type="button"
-          class="w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-between transition-all"
-          :class="
-            showAmenityFilter
-              ? 'bg-blue-50 border-blue-300 text-blue-700 font-black'
-              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-          "
-          @click="showAmenityFilter = !showAmenityFilter"
-        >
-          <span class="flex items-center gap-1.5">
-            <span>🛍️</span>
-            <span>주변 편의시설 필터 연동</span>
-          </span>
-          <span>{{ showAmenityFilter ? '▲ 접기' : '▼ 펼치기' }}</span>
-        </button>
+        <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
+        <section class="relative !mt-5 hidden border-t border-slate-100 md:block">
+          <div class="flex w-full items-center justify-between mb-1">
+            <h2 class="text-[17px] font-black text-slate-700">
+              편의시설 필터
+            </h2>
 
-        <!-- 편의시설 필터 컴포넌트 마운트 -->
-        <div
-          v-if="showAmenityFilter"
-          class="pt-2 border-t border-slate-100 max-h-60 overflow-y-auto"
-        >
+            <button
+                type="button"
+                class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+                @click="openAmenityDetailFilter"
+            >
+              <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+              >
+                <path d="M4 5h16l-6.5 7.2V18l-3 1.5v-7.3L4 5z" />
+              </svg>
+
+              <span>상세 필터</span>
+            </button>
+          </div>
+
           <AmenityFilter
-            :applied-filters="props.appliedAmenityFilters"
+            ref="amenityFilterRef"
+            :applied-filters="activeAmenityFilters"
+            :show-walking-time="false"
             @apply="handleApplyAmenities"
+            @selection-change="openAmenityDetailFilter"
           />
-        </div>
+
+          <div
+            v-if="isAmenityDetailFilterOpen"
+            class="absolute left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-3 md:w-80 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-sm font-black text-slate-900">상세 필터</h3>
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                aria-label="상세 필터 닫기"
+                @click="isAmenityDetailFilterOpen = false"
+              >
+                ×
+              </button>
+            </div>
+            <p v-if="!amenityDetailFilters.length" class="text-xs text-slate-500">
+              먼저 아래에서 편의시설을 선택해 주세요.
+            </p>
+            <div v-else class="space-y-3">
+              <AmenityWalkingTimeFilter
+                :amenities="amenityDetailFilters"
+                @update-time-limit="updateAmenityDetailTimeLimit"
+              />
+              <button
+                type="button"
+                class="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
+                @click="applyAmenityDetailFilters"
+              >
+                상세 조건 적용
+              </button>
+            </div>
+          </div>
+        </section>
 
         <!-- 5종 정렬 선택 탭 -->
         <div

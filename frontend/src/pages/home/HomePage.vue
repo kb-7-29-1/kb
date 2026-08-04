@@ -28,6 +28,10 @@ const applyFilters = ({ onboarding, amenities }) => {
   closeFilter();
 };
 
+const applyAmenityFilters = (amenities) => {
+  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
+};
+
 const resetFilters = () => {
   appliedOnboardingFilters.value = null;
   appliedAmenityFilters.value = [];
@@ -55,6 +59,7 @@ const goMyPage = () => {
       :applied-amenity-filters="appliedAmenityFilters"
       :filter-reset-version="filterResetVersion"
       @open-filter="openFilter"
+      @apply-amenity-filters="applyAmenityFilters"
     />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
