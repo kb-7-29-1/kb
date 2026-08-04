@@ -21,4 +21,7 @@ public interface PropertyMapper {
 
     // 매물 댓글 태그 목록 조회
     List<String> selectPropertyTags(@Param("propertyId") Long propertyId);
+
+    // 공공데이터 API 수집 매물 DB 배치 저장
+    int insertBatchPublicProperties(@Param("list") List<PropertyListDTO> list);
 }
