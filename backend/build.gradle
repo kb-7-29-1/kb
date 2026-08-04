@@ -99,6 +99,9 @@ dependencies {
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+    testImplementation "org.junit.platform:junit-platform-commons:1.9.2"
+    testImplementation "org.junit.platform:junit-platform-launcher:1.9.2"
+    testImplementation "org.junit.platform:junit-platform-engine:1.9.2"
 }
 
 // Jetty 및 Tomcat에서 웹 애플리케이션을 실행하기 위한 고급 Gradle 플러그인
