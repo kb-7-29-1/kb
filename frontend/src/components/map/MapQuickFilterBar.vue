@@ -148,17 +148,14 @@ const activeFilterCount = computed(() => {
 // 가격 요약 텍스트
 const priceSummaryText = computed(() => {
   if (filters.value.tradeType === 'JEONSE') {
-    return filters.value.maxDeposit >= 5000
-      ? '전세 전체'
-      : `전세 보증금 ${filters.value.maxDeposit}만`;
+    return filters.value.maxDeposit >= 5000 ? '전세: 전체' : `전세: ${filters.value.maxDeposit}`;
   }
   if (filters.value.maxDeposit >= 5000 && filters.value.maxRent >= 100) {
-    return '월세 전체';
+    return '월세: 전체';
   }
-  let text = '월세 ';
-  if (filters.value.maxDeposit < 5000) text += `${filters.value.maxDeposit}만`;
-  if (filters.value.maxRent < 100) text += `/${filters.value.maxRent}만`;
-  return text;
+  const deposit = filters.value.maxDeposit >= 5000 ? '전체' : filters.value.maxDeposit;
+  const rent = filters.value.maxRent >= 100 ? '전체' : filters.value.maxRent;
+  return `월세: ${deposit}/${rent}`;
 });
 
 // 안전점수 동적 콩나물 핸들(Thumb) 색상 (점수 구간별 변색)
@@ -176,19 +173,17 @@ const safetyThumbColor = computed(() => {
     <!-- ======================================================== -->
     <!-- 1. PC 전용 상단 6종 부유형(Floating) 퀵버튼 바 (md:inline-flex w-fit) -->
     <!-- ======================================================== -->
-    <div
-      class="hidden md:inline-flex w-fit items-center gap-2 px-3 py-2 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/80 text-slate-800 z-30"
-    >
+    <div class="hidden md:inline-flex w-fit items-center gap-2 text-slate-800 z-30">
       <!-- 📍 퀵버튼 1: 목적지 (고정 너비 min-w-[115px]) -->
-      <div class="relative">
+      <div class="relative order-1">
         <button
           type="button"
-          class="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all bg-slate-100 hover:bg-slate-200/80 text-slate-900 border border-slate-200 min-w-[115px]"
+          class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 shadow-sm min-w-[140px]"
           @click="togglePopover('destination')"
         >
           <span class="flex items-center gap-1">
-            <span class="text-blue-600">⌖</span>
-            <span class="whitespace-nowrap">{{ filters.destination }}</span>
+            <span class="text-blue-600">📍</span>
+            <span class="whitespace-nowrap">목적지: {{ filters.destination }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
         </button>
@@ -220,21 +215,21 @@ const safetyThumbColor = computed(() => {
       </div>
 
       <!-- 🛡️ 퀵버튼 2: 안전 점수 설정 (목적지 바로 옆 2순위 배치, 고정 너비 min-w-[102px]) -->
-      <div class="relative">
+      <div class="relative order-3">
         <button
           type="button"
-          class="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border min-w-[102px]"
+          class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[124px]"
           :class="[
             filters.minSafetyScore > 0
               ? 'bg-amber-50 text-amber-700 border-amber-300 font-extrabold'
-              : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 border-slate-200',
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
           @click="togglePopover('safety')"
         >
           <span class="flex items-center gap-1">
             <span>🛡️</span>
             <span class="whitespace-nowrap">{{
-              filters.minSafetyScore > 0 ? `안전 ${filters.minSafetyScore}점+` : '안전점수'
+              filters.minSafetyScore > 0 ? `안전: ${filters.minSafetyScore}점 이상` : '안전: 무관'
             }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
@@ -316,14 +311,14 @@ const safetyThumbColor = computed(() => {
       </div>
 
       <!-- 💰 퀵버튼 3: 보증금 + 월세/전세 (고정 너비 min-w-[125px]) -->
-      <div class="relative">
+      <div class="relative order-2">
         <button
           type="button"
-          class="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border min-w-[125px]"
+          class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
             filters.maxDeposit < 5000 || filters.maxRent < 100 || filters.tradeType === 'JEONSE'
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
-              : 'bg-slate-100 hover:bg-slate-200/80 text-slate-700 border-slate-200',
+              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
           @click="togglePopover('price')"
         >
@@ -427,19 +422,19 @@ const safetyThumbColor = computed(() => {
       </div>
 
       <!-- 🚶‍♂️/🚌 퀵버튼 4: 이동 시간 & 수단 (고정 너비 min-w-[155px]) -->
-      <div class="relative">
+      <div class="relative order-4">
         <button
           type="button"
-          class="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm min-w-[155px]"
+          class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[158px]"
           :class="[
             filters.transportMode === 'WALK'
-              ? 'bg-emerald-500 text-white border-emerald-500 font-black'
+              ? 'bg-blue-600 text-white border-blue-600 font-black'
               : 'bg-blue-600 text-white border-blue-600 font-black',
           ]"
           @click="togglePopover('travel')"
         >
           <span class="whitespace-nowrap"
-            >{{ filters.transportMode === 'WALK' ? '🚶‍♂️ 도보' : '🚌 대중교통' }}
+            >{{ filters.transportMode === 'WALK' ? '🚶 도보' : '🚌 대중교통' }}:
             {{ filters.travelTime }}분 이내</span
           >
           <span class="text-[10px] opacity-80">▼</span>
@@ -619,11 +614,11 @@ const safetyThumbColor = computed(() => {
       <!-- ⭕ 퀵버튼 5: 이소크론 원형 영역 토글 -->
       <button
         type="button"
-        class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border"
+        class="order-5 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm"
         :class="[
           filters.showIsochrone
             ? 'bg-indigo-50 text-indigo-700 border-indigo-300 font-black'
-            : 'bg-slate-100 text-slate-400 border-slate-200 line-through',
+            : 'bg-white text-slate-500 border-slate-200',
         ]"
         @click="toggleIsochrone"
       >
@@ -633,11 +628,12 @@ const safetyThumbColor = computed(() => {
       <!-- 🔄 퀵버튼 6: 초기화 -->
       <button
         type="button"
-        class="p-2 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200"
+        class="order-6 flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-all border border-slate-200 shadow-sm"
         title="필터 초기화"
         @click="handleReset"
       >
-        <span>🔄</span>
+        <span>↻</span>
+        <span>초기화</span>
       </button>
     </div>
 
