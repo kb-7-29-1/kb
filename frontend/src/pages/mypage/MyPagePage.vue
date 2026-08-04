@@ -133,6 +133,7 @@ onMounted(loadOnboarding);
         @click="router.push({ name: 'home' })"
       >
         <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        <span class="mypage-back-label">지도 화면으로</span>
       </button>
       <h1>마이페이지</h1>
     </header>
@@ -330,6 +331,10 @@ onMounted(loadOnboarding);
   color: #6d7480;
   font-size: 16px;
   cursor: pointer;
+}
+
+.mypage-back-label {
+  display: none;
 }
 
 .mypage-content {
@@ -559,27 +564,82 @@ onMounted(loadOnboarding);
 }
 
 @media (min-width: 768px) {
+  :global(html),
+  :global(body),
+  :global(#app) {
+    height: auto;
+    min-height: 100%;
+    overflow-y: auto;
+  }
+
   .mypage-page {
-    padding: 24px 16px;
+    width: min(100%, 720px);
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    max-width: 720px;
+    padding: 0;
+    background: #f8fafc;
+    box-shadow: none;
   }
 
   .mypage-header {
-    height: auto;
-    padding: 0;
-    margin-bottom: 24px;
+    height: 108px;
+    padding: 0 28px;
+    margin: 10px 0 0;
     border: 0;
     background: transparent;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mypage-header h1 {
+    padding-left: 0;
+    font-size: 20px;
   }
 
   .mypage-back-button {
     top: 50%;
-    left: 0;
+    left: 28px;
     transform: translateY(-50%);
+    width: auto;
+    height: auto;
+    gap: 6px;
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .mypage-back-button i {
+    font-size: 11px;
+  }
+
+  .mypage-back-label {
+    display: inline;
   }
 
   .mypage-content {
-    overflow-y: auto;
-    padding: 0;
+    flex: 1 0 auto;
+    min-height: calc(100dvh - 108px);
+    overflow: visible;
+    justify-content: flex-start;
+    gap: 18px;
+    padding: 32px 28px 48px;
+  }
+}
+
+/* 화면 높이가 낮을 때는 첫 카드가 헤더 아래에 가려지지 않도록 위에서부터 배치한다. */
+@media (min-width: 768px) and (max-height: 800px) {
+  .mypage-header {
+    height: 76px;
+  }
+
+  .mypage-content {
+    justify-content: flex-start;
+    min-height: calc(100dvh - 76px);
+    padding-top: 16px;
   }
 }
 </style>
