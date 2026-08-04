@@ -7,7 +7,7 @@ import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
-import AmenityWalkingTimeFilter from '@/components/map/AmenityWalkingTimeFilter.vue';
+import AmenityDetailFilterPanel from '@/components/map/AmenityDetailFilterPanel.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
@@ -475,7 +475,24 @@ const openAmenityDetailFilter = (selectedFilters) => {
     ?? amenityFilterRef.value?.getSelectedAmenities?.()
     ?? [];
   amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
-  isAmenityDetailFilterOpen.value = amenityDetailFilters.value.length > 0;
+  isAmenityDetailFilterOpen.value = true;
+};
+
+const syncAmenityDetailFilter = (selectedFilters) => {
+  if (!isAmenityDetailFilterOpen.value) return;
+  amenityDetailFilters.value = selectedFilters.map((filter) => {
+    const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+    return {
+      ...filter,
+      timeLimit: existingFilter?.timeLimit ?? filter.timeLimit,
+    };
+  });
+};
+
+const resetAmenityDetailFilters = () => {
+  amenityFilterRef.value?.resetFilters?.();
+  amenityDetailFilters.value = [];
+  handleApplyAmenities([]);
 };
 
 const applyAmenityDetailFilters = () => {
@@ -558,7 +575,7 @@ const {
             <button
                 type="button"
                 class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                @click="openAmenityDetailFilter"
+                @click="openAmenityDetailFilter()"
             >
               <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -584,41 +601,17 @@ const {
             :applied-filters="activeAmenityFilters"
             :show-walking-time="false"
             @apply="handleApplyAmenities"
-            @selection-change="openAmenityDetailFilter"
+            @selection-change="syncAmenityDetailFilter"
           />
 
-          <div
+          <AmenityDetailFilterPanel
             v-if="isAmenityDetailFilterOpen"
-            class="absolute left-0 top-full mt-2 w-full xl:left-full xl:top-0 xl:mt-0 xl:ml-3 xl:w-80 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
-          >
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="text-sm font-black text-slate-900">상세 필터</h3>
-              <button
-                type="button"
-                class="w-7 h-7 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                aria-label="상세 필터 닫기"
-                @click="isAmenityDetailFilterOpen = false"
-              >
-                ×
-              </button>
-            </div>
-            <p v-if="!amenityDetailFilters.length" class="text-xs text-slate-500">
-              먼저 아래에서 편의시설을 선택해 주세요.
-            </p>
-            <div v-else class="space-y-3">
-              <AmenityWalkingTimeFilter
-                :amenities="amenityDetailFilters"
-                @update-time-limit="updateAmenityDetailTimeLimit"
-              />
-              <button
-                type="button"
-                class="w-full py-2 rounded-lg bg-blue-600 text-white text-xs font-bold hover:bg-blue-700"
-                @click="applyAmenityDetailFilters"
-              >
-                상세 조건 적용
-              </button>
-            </div>
-          </div>
+            :amenities="amenityDetailFilters"
+            @apply="applyAmenityDetailFilters"
+            @close="isAmenityDetailFilterOpen = false"
+            @reset="resetAmenityDetailFilters"
+            @update-time-limit="updateAmenityDetailTimeLimit"
+          />
         </section>
 
         <!-- 5종 정렬 선택 탭 -->
