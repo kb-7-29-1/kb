@@ -41,14 +41,20 @@ const maskPolygonInstance = shallowRef(null);
 let boundsListener = null;
 
 // 고해상도 측지선 원형 경로 정점 생성 (128정점 - 확대 시 찌그러짐 방지)
-const createCirclePath = (centerLat, centerLng, radiusMeters, numPoints = 128) => {
+const createCirclePath = (
+  centerLat,
+  centerLng,
+  radiusMeters,
+  numPoints = 128,
+) => {
   if (!window.naver || !window.naver.maps) return [];
   const points = [];
   const latRad = (centerLat * Math.PI) / 180;
   const earthRadius = 6378137; // 지구 반지름 (m)
 
   const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI);
-  const lngOffset = ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
+  const lngOffset =
+    ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
 
   // Polygon Hole 구멍 생성을 위해 역순(Counter-Clockwise) 생성
   for (let i = numPoints; i >= 0; i--) {
@@ -81,30 +87,13 @@ const updateIsochroneOverlays = () => {
     props.destination.lng || 127.0731,
   );
 
-  // 화면 뷰포트 기준 15배 확장한 동적 외곽 사각형
-  let outerBoxPath = [
+  // 전역 좌표계 기반 고정 외곽 사각형 (지도 확대/축소 시 재계산 파괴 방지)
+  const outerBoxPath = [
     new window.naver.maps.LatLng(85, -180),
     new window.naver.maps.LatLng(85, 180),
     new window.naver.maps.LatLng(-85, 180),
     new window.naver.maps.LatLng(-85, -180),
   ];
-
-  try {
-    const bounds = props.mapInstance.getBounds();
-    const sw = bounds.getSW();
-    const ne = bounds.getNE();
-    const latSpan = Math.abs(ne.lat() - sw.lat()) * 15;
-    const lngSpan = Math.abs(ne.lng() - sw.lng()) * 15;
-
-    outerBoxPath = [
-      new window.naver.maps.LatLng(ne.lat() + latSpan, sw.lng() - lngSpan),
-      new window.naver.maps.LatLng(ne.lat() + latSpan, ne.lng() + lngSpan),
-      new window.naver.maps.LatLng(sw.lat() - latSpan, ne.lng() + lngSpan),
-      new window.naver.maps.LatLng(sw.lat() - latSpan, sw.lng() - lngSpan),
-    ];
-  } catch (e) {
-    // fallback
-  }
 
   let outerBoundaryMeters = 900;
 
@@ -199,13 +188,6 @@ watch(
   ],
   ([newMap]) => {
     if (newMap && window.naver && window.naver.maps) {
-      if (!boundsListener) {
-        boundsListener = window.naver.maps.Event.addListener(
-          newMap,
-          'bounds_changed',
-          updateIsochroneOverlays,
-        );
-      }
       updateIsochroneOverlays();
     }
   },

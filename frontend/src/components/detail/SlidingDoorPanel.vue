@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from "@/components/detail/CommentSection.vue";
 
@@ -23,13 +24,10 @@ const emit = defineEmits(['close', 'toggle-bookmark']);
 // 가격 포맷팅
 const formattedPrice = computed(() => {
   if (!props.property) return '';
-  const deposit = props.property.deposit
-    ? props.property.deposit.toLocaleString()
-    : '0';
-  if (!props.property.monthlyRent || props.property.monthlyRent === 0) {
-    return `전세 ${deposit}만원`;
-  }
-  return `보증금 ${deposit}만 / 월세 ${props.property.monthlyRent}만원`;
+  return formatPropertyPriceDetail(
+    props.property.deposit,
+    props.property.monthlyRent,
+  );
 });
 
 // 안전점수 색상
@@ -203,7 +201,7 @@ const safetyScoreClass = computed(() => {
             >
             <span
               >경찰서/파출소:
-              <strong class="text-emerald-400">도보 3분 내 위치</strong></span
+              <strong class="text-emerald-400">도보 0분 내 위치</strong></span
             >
           </div>
         </div>

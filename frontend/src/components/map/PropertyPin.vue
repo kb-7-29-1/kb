@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { formatPropertyPrice } from '@/utils/priceFormatter';
 
 const props = defineProps({
   property: {
@@ -12,15 +13,8 @@ const props = defineProps({
   },
 });
 
-const depositNum = computed(() =>
-  props.property.deposit ? Math.round(props.property.deposit / 1000) : 0,
-);
-
 const priceText = computed(() => {
-  if (props.property.monthlyRent) {
-    return `${depositNum.value}천/${props.property.monthlyRent}`;
-  }
-  return `전세 ${depositNum.value}천`;
+  return formatPropertyPrice(props.property.deposit, props.property.monthlyRent);
 });
 </script>
 
