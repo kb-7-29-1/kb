@@ -35,16 +35,9 @@ const formattedPrice = computed(() => {
 // 안전점수 색상 클래스
 const safetyScoreClass = computed(() => {
   const score = props.property.safetyScore || 0;
-  if (score >= 80) return 'bg-emerald-500/10 text-emerald-600 border-emerald-300';
-  if (score >= 60) return 'bg-amber-500/10 text-amber-600 border-amber-300';
-  return 'bg-rose-500/10 text-rose-600 border-rose-300';
-});
-
-const safetyGradeText = computed(() => {
-  const score = props.property.safetyScore || 0;
-  if (score >= 80) return '안심 🟢';
-  if (score >= 60) return '보통 🟡';
-  return '주의 🔴';
+  if (score >= 80) return 'bg-emerald-500/10 text-emerald-600';
+  if (score >= 60) return 'bg-amber-500/10 text-amber-600';
+  return 'bg-rose-500/10 text-rose-600';
 });
 </script>
 
@@ -70,20 +63,10 @@ const safetyGradeText = computed(() => {
         :alt="property.title"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
       />
-      <!-- 찜 버튼 -->
-      <button
-        type="button"
-        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors md:w-7 md:h-7"
-        @click.stop="emit('toggle-bookmark', property.propertyId)"
-      >
-        <span class="text-xs" :class="{ 'text-rose-500': property.isBookmarked }">
-          {{ property.isBookmarked ? '❤️' : '🤍' }}
-        </span>
-      </button>
     </div>
 
     <!-- 매물 정보 -->
-    <div class="flex-1 flex flex-col justify-between min-w-0">
+    <div class="flex-1 flex flex-col justify-between min-w-0 pr-7 md:pr-8">
       <div>
         <div class="flex items-center gap-1.5 mb-1">
           <span
@@ -97,15 +80,16 @@ const safetyGradeText = computed(() => {
             {{ property.dataSource === 'DB' ? '🗄️ DB' : '🌐 공공' }}
           </span>
           <span
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 md:text-[11px]"
+            class="inline-flex items-center rounded-md bg-[#eef1ff] px-1.5 py-0.5 text-[10px] font-bold text-[#4767f7] md:text-[11px]"
           >
             {{ buildingTypeText }} · {{ roomTypeText }}
           </span>
           <span
-            class="px-1.5 py-0.5 rounded text-[10px] font-semibold border md:text-[11px]"
+            class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold md:text-[11px]"
             :class="safetyScoreClass"
           >
-            안전 {{ property.safetyScore || 85 }}점 ({{ safetyGradeText }})
+            <i class="fa-solid fa-shield-halved text-[9px]" aria-hidden="true"></i>
+            {{ property.safetyScore || 85 }}점
           </span>
         </div>
 
@@ -120,15 +104,26 @@ const safetyGradeText = computed(() => {
         </p>
       </div>
 
-      <div
-        class="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 md:mt-2 md:text-[11px]"
-      >
+      <div class="text-[10px] text-slate-500 mt-1.5 md:mt-2 md:text-[11px]">
         <span
           >{{ property.floor ? `${property.floor}층` : '3층' }} ·
           {{ property.area ? `${property.area}m²` : '24.5m²' }}</span
         >
-        <span class="text-slate-400 truncate max-w-[120px]">{{ property.address }}</span>
       </div>
     </div>
+
+    <!-- 찜 버튼 -->
+    <button
+      type="button"
+      class="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-[15px] transition-transform hover:scale-110 md:right-3.5 md:top-3.5"
+      :class="property.isBookmarked ? 'text-[#dc4b5d]' : 'text-[#94a3b8] hover:text-[#64748b]'"
+      :aria-label="property.isBookmarked ? '관심 매물 해제' : '관심 매물 등록'"
+      @click.stop="emit('toggle-bookmark', property.propertyId)"
+    >
+      <i
+        :class="property.isBookmarked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'"
+        aria-hidden="true"
+      ></i>
+    </button>
   </div>
 </template>
