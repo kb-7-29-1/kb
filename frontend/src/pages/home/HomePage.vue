@@ -3,12 +3,15 @@ import { ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/useAuthStore.js';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 const isFilterOpen = ref(false);
 const appliedOnboardingFilters = ref(null);
 const appliedAmenityFilters = ref([]);
+const filterResetVersion = ref(0);
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -27,6 +30,7 @@ const applyFilters = ({ onboarding, amenities }) => {
 const resetFilters = () => {
   appliedOnboardingFilters.value = null;
   appliedAmenityFilters.value = [];
+  filterResetVersion.value += 1;
 };
 
 const goMyPage = () => {
@@ -37,10 +41,20 @@ const goMyPage = () => {
 <template>
   <main class="home-page">
     <header class="app-header">
-      <span class="logo">🛡️ 살고싶오</span>
-      <button class="mypage-btn" @click="goMyPage">마이페이지</button>
+      <span class="logo">
+        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+        살고싶오
+      </span>
+      <button class="profile-button" type="button" aria-label="마이페이지로 이동" @click="goMyPage">
+        {{ authStore.user?.name?.charAt(0) || '나' }}
+      </button>
     </header>
-    <MapView :applied-amenity-filters="appliedAmenityFilters" @open-filter="openFilter" />
+    <MapView
+      :applied-onboarding-filters="appliedOnboardingFilters"
+      :applied-amenity-filters="appliedAmenityFilters"
+      :filter-reset-version="filterResetVersion"
+      @open-filter="openFilter"
+    />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
     <!--
@@ -90,28 +104,29 @@ const goMyPage = () => {
       <FilterPanel
         v-if="isFilterOpen"
         :applied-filters="appliedOnboardingFilters"
+        :applied-amenity-filters="appliedAmenityFilters"
         @close="closeFilter"
         @apply="applyFilters"
         @reset="resetFilters"
       />
     </Transition>
     <footer class="app-footer">
-      This footer 바닥 확인용 문구에요 | 세로 스크롤이 생기는지 , 넘치는 현상이
-      있는지 확인하고 추후 지워질 예정이에요 | 바닥 확인용 문구에요 | 세로
-      스크롤이 생기는지 , 넘치는 현상이 있는지 확인하고 추후 지워질 예정이에요
-      footer This
+      This footer 바닥 확인용 문구에요 | 세로 스크롤이 생기는지 , 넘치는 현상이 있는지 확인하고 추후
+      지워질 예정이에요 | 바닥 확인용 문구에요 | 세로 스크롤이 생기는지 , 넘치는 현상이 있는지
+      확인하고 추후 지워질 예정이에요 footer This
     </footer>
   </main>
 </template>
 
 <style scoped>
 .home-page {
+  --app-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
   position: relative;
   width: 100%;
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
-  padding-top: 56px;
+  padding-top: var(--app-header-height);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -123,33 +138,48 @@ const goMyPage = () => {
   left: 0;
   right: 0;
   z-index: 50;
-  height: 56px;
+  box-sizing: border-box;
+  height: var(--app-header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: max(60px, calc(env(safe-area-inset-top) + 22px)) 20px 0;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #4058f5;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
 }
 
-.mypage-btn {
-  border: 1px solid #e5e7eb;
-  background: #f8f9ff;
-  color: #3f5bf6;
+.logo i {
+  font-size: 12px;
+}
+
+.profile-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #4058f5;
+  color: #fff;
   font-size: 13px;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 20px;
+  font-weight: 700;
   cursor: pointer;
 }
 
-.mypage-btn:hover {
-  background: #eef1ff;
+.profile-button:active {
+  transform: scale(0.96);
 }
 
 .filter-floating-button {
@@ -230,5 +260,15 @@ const goMyPage = () => {
   border-top: 1px solid #e2e8f0;
   letter-spacing: -0.02em;
   z-index: 30;
+}
+
+@media (min-width: 768px) {
+  .home-page {
+    --app-header-height: 56px;
+  }
+
+  .app-header {
+    padding: 0 20px;
+  }
 }
 </style>

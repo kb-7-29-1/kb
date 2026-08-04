@@ -181,8 +181,7 @@ const renderMarkers = () => {
 
   // 4. 편의시설 마커
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
-      return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
 
     const amenityLatLng = new window.naver.maps.LatLng(
       amenity.amenityLatitude,
@@ -264,13 +263,7 @@ watch(
 watch(
   () => props.destination,
   (newDest) => {
-    if (
-      mapInstance.value &&
-      window.naver &&
-      window.naver.maps &&
-      newDest?.lat &&
-      newDest?.lng
-    ) {
+    if (mapInstance.value && window.naver && window.naver.maps && newDest?.lat && newDest?.lng) {
       const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
       mapInstance.value.panTo(newCenter, {
         duration: 800,
@@ -332,11 +325,11 @@ onUnmounted(() => {
 
     <!-- 3. 지도 줌 오버레이 컨트롤 (z-20) -->
     <div
-      class="absolute right-6 top-6 z-20 flex flex-col gap-1.5 bg-white rounded-xl shadow-lg border border-slate-200 p-1"
+      class="absolute right-4 top-4 z-20 flex flex-col gap-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-md"
     >
       <button
         type="button"
-        class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+        class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
         title="확대"
         @click="zoomLevel++"
       >
@@ -345,7 +338,7 @@ onUnmounted(() => {
       <div class="h-px bg-slate-200"></div>
       <button
         type="button"
-        class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-slate-700 hover:bg-slate-100 transition-colors"
+        class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
         title="축소"
         @click="zoomLevel--"
       >

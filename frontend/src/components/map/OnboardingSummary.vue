@@ -4,7 +4,7 @@ import { computed } from 'vue';
 const props = defineProps({
   destination: {
     type: String,
-    default: '세종대학교',
+    default: '',
   },
   transportMode: {
     type: String,
@@ -35,6 +35,7 @@ const props = defineProps({
 defineEmits(['close']);
 
 const transportLabel = computed(() => (props.transportMode === 'TRANSIT' ? '대중교통' : '도보'));
+const destinationLabel = computed(() => props.destination?.trim() || '목적지를 설정해 주세요');
 const priceLabel = computed(() => {
   if (props.maxRent === 0) return `전세 ${props.maxDeposit.toLocaleString()}만 이하`;
   return `보증 ${props.maxDeposit.toLocaleString()}만 · 월세 ${props.maxRent}만 이하`;
@@ -48,7 +49,7 @@ const priceLabel = computed(() => {
         <p class="summary-label">목적지</p>
         <div class="summary-title">
           <i class="fa-solid fa-location-dot location-icon" aria-hidden="true"></i>
-          <strong>{{ destination }}</strong>
+          <strong>{{ destinationLabel }}</strong>
         </div>
       </div>
 
@@ -109,14 +110,33 @@ const priceLabel = computed(() => {
   position: absolute;
   top: 0;
   right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: #7d8797;
-  font-size: 30px;
+  color: #94a3b8;
+  font-size: 0;
   line-height: 1;
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.close-button::after {
+  content: '×';
+  font-size: 23px;
+  line-height: 1;
+}
+
+.close-button:hover {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .condition-chips {
