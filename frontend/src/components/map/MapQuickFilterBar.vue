@@ -307,6 +307,7 @@ const safetyThumbColor = computed(() => {
             class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-1"
             @click="
               updateFilters();
+              emit('apply');
               activePopover = null;
             "
           >
@@ -418,6 +419,7 @@ const safetyThumbColor = computed(() => {
             class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-2"
             @click="
               updateFilters();
+              emit('apply');
               activePopover = null;
             "
           >

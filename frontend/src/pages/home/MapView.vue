@@ -41,20 +41,36 @@ const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 
 // 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
-const properties = ref([...mockProperties]);
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
 
-// 백엔드 실제 DB 매물 API 조회 (실패 시 mockProperties 백업 자동 유지)
+// 매물 목록 데이터 (백엔드 DB 연동)
+const properties = ref([]);
+const isPropertyApiError = ref(false);
+
+// 데이터 출처 계산 (DB vs PUBLIC_API)
+const currentDataSource = computed(() => {
+  return properties.value[0]?.dataSource || 'PUBLIC_API';
+});
+
+// 백엔드 실제 DB 매물 API 조회 (/api/properties)
 const fetchPropertiesFromBackend = async () => {
   try {
-    const res = await api.get('/properties');
-    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+    const res = await api.get('/properties', {
+      params: {
+        lat: destinationConfig.value.lat,
+        lng: destinationConfig.value.lng,
+      },
+    });
+    if (res.data && Array.isArray(res.data)) {
       properties.value = res.data;
+      isPropertyApiError.value = false;
     }
   } catch (error) {
-    console.log('Backend DB API connection status: Using mock properties fallback.', error);
+    console.error('Backend DB API connection failed:', error);
+    properties.value = [];
+    isPropertyApiError.value = true;
   }
 };
 
@@ -69,6 +85,7 @@ const appliedFilterState = ref({ ...filterState.value });
 
 const handleApplyFilters = () => {
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  fetchPropertiesFromBackend();
 };
 
 const loadAmenitiesForProperties = async () => {
@@ -123,18 +140,21 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
-        if (
-          status === window.naver.maps.Service.Status.OK &&
-          response.v2 &&
-          response.v2.addresses &&
-          response.v2.addresses.length > 0
-        ) {
-          const item = response.v2.addresses[0];
-          filterState.value.destinationLat = Number(item.y);
-          filterState.value.destinationLng = Number(item.x);
-        }
-      });
+      window.naver.maps.Service.geocode(
+        { query: searchQuery },
+        (status, response) => {
+          if (
+            status === window.naver.maps.Service.Status.OK &&
+            response.v2 &&
+            response.v2.addresses &&
+            response.v2.addresses.length > 0
+          ) {
+            const item = response.v2.addresses[0];
+            filterState.value.destinationLat = Number(item.y);
+            filterState.value.destinationLng = Number(item.x);
+          }
+        },
+      );
     }
   },
   { immediate: true },
@@ -177,30 +197,44 @@ const sortedProperties = computed(() => {
   }
 
   let list = properties.value.filter((p) => {
-    // 1. 거래 유형 (월세만 처리)
-    if (currentFilters.tradeType === 'JEONSE') return false;
+    // 1. 거래 유형 필터 (전세/월세)
+    if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0) return false;
 
-    // 2. 보증금 필터
-    if (p.deposit > currentFilters.maxDeposit) return false;
-    // 월세 필터
-    if (currentFilters.tradeType !== 'JEONSE' && p.monthlyRent > currentFilters.maxRent)
+    // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원)
+    if (currentFilters.maxDeposit < 5000 && p.deposit > currentFilters.maxDeposit) return false;
+
+    // 3. 월세 필터 (maxRent 단위: 만원)
+    if (
+      currentFilters.tradeType === 'MONTHLY' &&
+      currentFilters.maxRent < 100 &&
+      p.monthlyRent > currentFilters.maxRent
+    )
       return false;
-    // 안전 점수 필터
+
+    // 4. 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
     if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
+      const distKm = getHaversineDistance(
+        destLat,
+        destLng,
+        p.latitude,
+        p.longitude,
+      );
       if (distKm > maxReachKm) return false;
     }
 
     if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+      const matchedTypes = new Set(
+        propertyAmenities.map((amenity) => amenity.amenityType),
+      );
       const requiredTypes = new Set(
         props.appliedAmenityFilters.map((filter) => filter.amenityType),
       );
-      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
+      if (![...requiredTypes].every((type) => matchedTypes.has(type)))
+        return false;
     }
 
     return true;
@@ -208,10 +242,16 @@ const sortedProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -257,8 +297,13 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
-  useMobilePanelDrag();
+const {
+  mobilePanelHeight,
+  isDragging,
+  dragPixelHeight,
+  toggleMobilePanel,
+  startDrag,
+} = useMobilePanelDrag();
 </script>
 
 <template>
@@ -270,7 +315,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-1/3 md:h-full',
+        mobilePanelHeight === 'EXPANDED'
+          ? 'h-[80vh] md:h-full'
+          : 'h-1/3 md:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -283,7 +330,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       >
         <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
         <span class="text-[10px] font-bold text-slate-400">
-          {{ mobilePanelHeight === 'EXPANDED' ? '▼ 접고 지도 보기' : '▲ 올리고 목록 더보기' }}
+          {{
+            mobilePanelHeight === 'EXPANDED'
+              ? '▼ 접고 지도 보기'
+              : '▲ 올리고 목록 더보기'
+          }}
         </span>
       </div>
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
@@ -293,7 +344,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
+          <span
+            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
+          >
             총 {{ sortedProperties.length }}개 매물
           </span>
         </div>
@@ -325,7 +378,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+        <div
+          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
+        >
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -345,14 +400,31 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
-        <PropertyCard
-          v-for="prop in sortedProperties"
-          :key="prop.propertyId"
-          :property="prop"
-          :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
-          @select="handleSelectProperty"
-          @toggle-bookmark="handleToggleBookmark"
-        />
+        <template v-if="sortedProperties.length > 0">
+          <PropertyCard
+            v-for="prop in sortedProperties"
+            :key="prop.propertyId"
+            :property="prop"
+            :is-selected="
+              selectedProperty &&
+              selectedProperty.propertyId === prop.propertyId
+            "
+            @select="handleSelectProperty"
+            @toggle-bookmark="handleToggleBookmark"
+          />
+        </template>
+        <div
+          v-else
+          class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
+        >
+          <span class="text-3xl mb-2">🏠</span>
+          <p class="text-sm font-bold text-slate-600">
+            조건에 맞는 매물이 없습니다.
+          </p>
+          <p class="text-xs text-slate-400 mt-1">
+            필터 조건을 변경하거나 검색어를 재설정해 보세요.
+          </p>
+        </div>
       </div>
     </aside>
 
@@ -382,6 +454,22 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         :flex-time="filterState.flexTime || 10"
         @select-property="handleSelectProperty"
       />
+
+      <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
+      <div
+        v-if="isPropertyApiError"
+        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
+      >
+        <span>⚠️</span>
+        <span>백엔드 매물 데이터를 불러오는 데 실패했습니다.</span>
+        <button
+          type="button"
+          class="underline ml-2 hover:text-red-200"
+          @click="fetchPropertiesFromBackend"
+        >
+          재시도
+        </button>
+      </div>
     </main>
 
     <!-- 3. 우측 560px Slide-Over 매물 상세 패널 -->
