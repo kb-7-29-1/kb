@@ -53,7 +53,7 @@ const safetyGradeText = computed(() => {
 
 <template>
   <div
-    class="group relative flex gap-3 p-3.5 rounded-xl bg-white border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5"
+    class="group relative flex gap-3 p-3 rounded-xl bg-white border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 md:p-3.5"
     :class="[
       isSelected
         ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/30'
@@ -62,16 +62,21 @@ const safetyGradeText = computed(() => {
     @click="emit('select', property)"
   >
     <!-- 매물 썸네일 -->
-    <div class="relative w-28 h-28 rounded-lg overflow-hidden bg-slate-100 shrink-0">
+    <div
+      class="relative w-20 h-20 rounded-lg overflow-hidden bg-slate-100 shrink-0 md:w-28 md:h-28"
+    >
       <img
-        :src="property.thumbnailUrl || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80'"
+        :src="
+          property.thumbnailUrl ||
+          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80'
+        "
         :alt="property.title"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
       />
       <!-- 찜 버튼 -->
       <button
         type="button"
-        class="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors"
+        class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/40 backdrop-blur-md flex items-center justify-center text-white hover:bg-black/60 transition-colors md:w-7 md:h-7"
         @click.stop="emit('toggle-bookmark', property.propertyId)"
       >
         <span class="text-xs" :class="{ 'text-rose-500': property.isBookmarked }">
@@ -85,7 +90,7 @@ const safetyGradeText = computed(() => {
       <div>
         <div class="flex items-center gap-1.5 mb-1">
           <span
-            class="px-1.5 py-0.5 rounded text-[11px] font-bold"
+            class="hidden md:inline-flex px-1.5 py-0.5 rounded text-[11px] font-bold"
             :class="
               property.dataSource === 'DB'
                 ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
@@ -94,28 +99,37 @@ const safetyGradeText = computed(() => {
           >
             {{ property.dataSource === 'DB' ? '🗄️ DB' : '🌐 공공' }}
           </span>
-          <span class="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">
+          <span
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 md:text-[11px]"
+          >
             {{ buildingTypeText }} · {{ roomTypeText }}
           </span>
           <span
-            class="px-1.5 py-0.5 rounded text-[11px] font-semibold border"
+            class="px-1.5 py-0.5 rounded text-[10px] font-semibold border md:text-[11px]"
             :class="safetyScoreClass"
           >
             안전 {{ property.safetyScore || 85 }}점 ({{ safetyGradeText }})
           </span>
         </div>
 
-        <h3 class="font-bold text-slate-900 text-base group-hover:text-blue-600 transition-colors truncate">
+        <h3
+          class="font-bold text-slate-900 text-[15px] group-hover:text-blue-600 transition-colors truncate md:text-base"
+        >
           {{ formattedPrice }}
         </h3>
-        
+
         <p class="text-xs text-slate-500 truncate mt-0.5">
           {{ property.title || property.address }}
         </p>
       </div>
 
-      <div class="flex items-center justify-between text-[11px] text-slate-500 mt-2">
-        <span>{{ property.floor ? `${property.floor}층` : '3층' }} · {{ property.area ? `${property.area}m²` : '24.5m²' }}</span>
+      <div
+        class="flex items-center justify-between text-[10px] text-slate-500 mt-1.5 md:mt-2 md:text-[11px]"
+      >
+        <span
+          >{{ property.floor ? `${property.floor}층` : '3층' }} ·
+          {{ property.area ? `${property.area}m²` : '24.5m²' }}</span
+        >
         <span class="text-slate-400 truncate max-w-[120px]">{{ property.address }}</span>
       </div>
     </div>

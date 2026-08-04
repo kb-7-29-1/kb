@@ -382,27 +382,46 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
+      class="mobile-aside-panel w-full md:w-[380px] rounded-t-[22px] md:rounded-none bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out overflow-hidden"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-1/3 md:h-full',
+        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-[250px] md:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full py-2 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing md:hidden select-none touch-none shrink-0 border-b border-slate-100"
+        class="w-full pb-2 pt-3 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing md:hidden select-none touch-none shrink-0"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
       >
-        <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
-        <span class="text-[10px] font-bold text-slate-400">
-          {{ mobilePanelHeight === 'EXPANDED' ? '▼ 접고 지도 보기' : '▲ 올리고 목록 더보기' }}
-        </span>
+        <span class="w-20 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
-      <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div class="p-4 border-b border-slate-200 bg-white space-y-3">
+
+      <!-- 모바일: 하단 시트용 간결한 목록 헤더 -->
+      <div class="md:hidden px-4 pb-3 pt-1 bg-white shrink-0 space-y-2">
+        <p class="m-0 text-[13px] font-bold text-slate-700">{{ sortedProperties.length }}개 매물</p>
+        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-0.5">
+          <button
+            v-for="opt in sortOptions"
+            :key="opt.key"
+            type="button"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+            :class="
+              currentSort === opt.key
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                : 'border-slate-200 bg-white text-slate-500'
+            "
+            @click="currentSort = opt.key"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
+
+      <!-- PC: 사이드바 상단 헤더 및 5종 정렬 탭 -->
+      <div class="hidden md:block p-4 border-b border-slate-200 bg-white space-y-3">
         <div class="flex items-center justify-between">
           <h1 class="font-black text-slate-900 text-lg flex items-center gap-2">
             <span>🛡️</span>
@@ -542,3 +561,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
     />
   </div>
 </template>
+
+<style scoped>
+.mobile-sort-options {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mobile-sort-options::-webkit-scrollbar {
+  display: none;
+}
+</style>
