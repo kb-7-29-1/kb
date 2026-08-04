@@ -278,7 +278,7 @@ const safetyAccentClass = computed(() => {
     <!-- ======================================================== -->
     <!-- 1. PC 전용 상단 6종 부유형(Floating) 퀵버튼 바 (md:inline-flex w-fit) -->
     <!-- ======================================================== -->
-    <div class="hidden md:inline-flex w-fit items-center gap-2 text-slate-800 z-30">
+    <div class="hidden xl:inline-flex w-fit items-center gap-2 text-slate-800 z-30">
       <!-- 📍 퀵버튼 1: 목적지 (고정 너비 min-w-[115px]) -->
       <div class="relative order-1">
         <button
@@ -787,7 +787,7 @@ const safetyAccentClass = computed(() => {
     <!-- ======================================================== -->
     <!-- 2. 모바일 전용 퀵 플로팅 버튼 (HomePage.vue 원형 필터 버튼) -->
     <!-- ======================================================== -->
-    <div class="flex md:hidden items-center gap-1.5 z-30">
+    <div class="flex xl:hidden items-center gap-1.5 z-30">
       <button
         type="button"
         class="filter-floating-button-circle"
@@ -834,8 +834,8 @@ const safetyAccentClass = computed(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 1px solid #e5e7eb;
   border-radius: 50%;
@@ -863,18 +863,18 @@ const safetyAccentClass = computed(() => {
 }
 
 .filter-icon {
-  width: 22px;
-  height: 22px;
+  width: 19px;
+  height: 19px;
 }
 
 .filter-floating-button-capsule {
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.625rem 0.875rem;
+  padding: 0.5rem 0.7rem;
   border-radius: 9999px;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   transition: all 0.15s ease-in-out;
   border-width: 1px;

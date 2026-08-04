@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -19,6 +20,7 @@ import org.springframework.web.client.RestTemplate;
 import javax.sql.DataSource;
 
 @Configuration
+@EnableScheduling
 @PropertySource({"classpath:/application.properties"})
 @MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
         "com.salgosipo.auth.mapper",

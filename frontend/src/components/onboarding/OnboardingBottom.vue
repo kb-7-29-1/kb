@@ -88,8 +88,8 @@ button i {
 
 .primary-button {
   flex: 1;
-  border: 1px solid #2a60f7;
-  background: #2a60f7;
+  border: 1px solid #4051db;
+  background: #4051db;
   color: #fff;
 }
 
@@ -119,7 +119,7 @@ button:disabled {
   }
 
   button {
-    height: 54px;
+    height: 60px;
     font-size: 14px;
   }
 
