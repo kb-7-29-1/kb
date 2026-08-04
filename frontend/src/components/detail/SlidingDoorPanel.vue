@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import WalkingTime from "@/components/property/WalkingTime.vue";
 
 const props = defineProps({
   isOpen: {
@@ -216,6 +217,7 @@ const safetyScoreClass = computed(() => {
             }}
           </p>
         </div>
+        <WalkingTime :amenities="amenities" />
       </div>
     </aside>
   </div>
