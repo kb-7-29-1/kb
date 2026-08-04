@@ -146,7 +146,7 @@ const handleApply = async () => {
 .filter-content {
   flex: 1;
   min-height: 0;
-  padding: 24px 20px;
+  padding: 12px 20px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
