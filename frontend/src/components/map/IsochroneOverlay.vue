@@ -156,13 +156,13 @@ const updateIsochroneOverlays = () => {
       strokeOpacity: 0.9,
     });
 
-    // 2) 내접원 (Inner Circle - 기본 권역 테두리)
+    // 2) 내접원 (Inner Circle - 기본 권역 테두리 & 외접원 바깥과 동일한 베이스 톤)
     const innerCircle = new window.naver.maps.Circle({
       map: props.mapInstance,
       center: destLatLng,
       radius: transitBaseRadius,
-      fillColor: 'transparent',
-      fillOpacity: 0,
+      fillColor: '#0f172a', // 외접원 바깥 암영과 동일한 슬레이트 베이스 색상
+      fillOpacity: 0.25,    // 반투명 음영
       strokeColor: '#2563eb', // Blue
       strokeWeight: 3,
       strokeOpacity: 0.95,

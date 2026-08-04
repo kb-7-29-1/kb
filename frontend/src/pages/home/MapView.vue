@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
@@ -46,26 +46,84 @@ const fetchPropertiesFromBackend = async () => {
   }
 };
 
-onMounted(() => {
-  loadOnboardingDefaultFilters();
-  fetchPropertiesFromBackend();
+onMounted(async () => {
+  await loadOnboardingDefaultFilters();
+  await fetchPropertiesFromBackend();
+  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
 });
 
-// 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직
+// 적용 버튼 클릭 시에만 갱신되는 매물 마커 전용 확정 필터 상태
+const appliedFilterState = ref({ ...filterState.value });
+
+const handleApplyFilters = () => {
+  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+};
+
+// 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
+watch(
+  () => [filterState.value.destination, filterState.value.destinationAddress],
+  ([newDest, newAddr]) => {
+    if (!newDest && !newAddr) return;
+
+    // 1. 이미 정확한 위경도 좌표가 온보딩이나 필터에서 직접 전달된 경우 (조회 생략)
+    if (filterState.value.destinationLat && filterState.value.destinationLng) {
+      return;
+    }
+
+    // 2. 좌표가 없는 경우 동명이인/유사 장소명 오류 방지를 위해 '풀 도로명/지번 주소' 우선 조회
+    const searchQuery = newAddr || newDest;
+
+    if (window.naver && window.naver.maps && window.naver.maps.Service) {
+      window.naver.maps.Service.geocode(
+        { query: searchQuery },
+        (status, response) => {
+          if (
+            status === window.naver.maps.Service.Status.OK &&
+            response.v2 &&
+            response.v2.addresses &&
+            response.v2.addresses.length > 0
+          ) {
+            const item = response.v2.addresses[0];
+            filterState.value.destinationLat = Number(item.y);
+            filterState.value.destinationLng = Number(item.x);
+          }
+        },
+      );
+    }
+  },
+  { immediate: true },
+);
+
+// 동적 목적지 명칭 및 실시간 실제 좌표 (lat, lng) 매핑
+const destinationConfig = computed(() => {
+  const name = filterState.value.destination || '세종대학교';
+  const lat = filterState.value.destinationLat || 37.5502;
+  const lng = filterState.value.destinationLng || 127.0731;
+
+  return {
+    name: `${name} (주 목적지)`,
+    lat,
+    lng,
+  };
+});
+
+// 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
 const sortedProperties = computed(() => {
-  // 세종대 주 목적지 기준 좌표 (37.5502, 127.0731)
-  const destLat = 37.5502;
-  const destLng = 127.0731;
+  // 실시간 주 목적지 좌표
+  const destLat = destinationConfig.value.lat;
+  const destLng = destinationConfig.value.lng;
+
+  const currentFilters = appliedFilterState.value || filterState.value;
 
   // 이동 수단별 최대 도달 가능 거리 (km) 계산
   let maxReachKm = 1.2; // 기본 15분 도보 약 1.2km
-  const minutes = filterState.value.travelTime || 15;
+  const minutes = currentFilters.travelTime || 15;
 
-  if (filterState.value.transportMode === 'WALK') {
+  if (currentFilters.transportMode === 'WALK') {
     // 도보 속도: SLOW(3.6km/h), NORMAL(4.8km/h), FAST(6.0km/h)
     let speedKmH = 4.8;
-    if (filterState.value.walkPace === 'SLOW') speedKmH = 3.6;
-    if (filterState.value.walkPace === 'FAST') speedKmH = 6.0;
+    if (currentFilters.walkPace === 'SLOW') speedKmH = 3.6;
+    if (currentFilters.walkPace === 'FAST') speedKmH = 6.0;
     maxReachKm = speedKmH * (minutes / 60);
   } else {
     // 대중교통 평균 도심 속도 (약 18.0km/h)
@@ -74,21 +132,21 @@ const sortedProperties = computed(() => {
 
   let list = properties.value.filter((p) => {
     // 1. 거래 유형 (월세만 처리)
-    if (filterState.value.tradeType === 'JEONSE') return false;
+    if (currentFilters.tradeType === 'JEONSE') return false;
 
     // 2. 보증금 필터
-    if (p.deposit > filterState.value.maxDeposit) return false;
+    if (p.deposit > currentFilters.maxDeposit) return false;
     // 월세 필터
     if (
-      filterState.value.tradeType !== 'JEONSE' &&
-      p.monthlyRent > filterState.value.maxRent
+      currentFilters.tradeType !== 'JEONSE' &&
+      p.monthlyRent > currentFilters.maxRent
     )
       return false;
     // 안전 점수 필터
-    if (p.safetyScore < filterState.value.minSafetyScore) return false;
+    if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
-    if (filterState.value.showIsochrone) {
+    if (currentFilters.showIsochrone) {
       const distKm = getHaversineDistance(
         destLat,
         destLng,
@@ -270,17 +328,15 @@ const {
           v-model="filterState"
           :total-count="sortedProperties.length"
           class="pointer-events-auto"
+          @apply="handleApplyFilters"
+          @update-filters="handleApplyFilters"
         />
       </div>
 
       <NaverMap
         :properties="sortedProperties"
         :selected-property="selectedProperty"
-        :destination="{
-          name: filterState.destination + ' (주 목적지)',
-          lat: 37.5502,
-          lng: 127.0731,
-        }"
+        :destination="destinationConfig"
         :show-isochrone="filterState.showIsochrone"
         :transport-mode="filterState.transportMode || 'WALK'"
         :travel-time="filterState.travelTime || 15"
