@@ -26,7 +26,7 @@
                 WHEN COALESCE(ps.safety_score, 85) >= 60 THEN 'WARNING'
                 ELSE 'DANGER'
             END AS safetyGrade,
-            CASE WHEN b.bookmark_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
+            CASE WHEN b.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
         LEFT JOIN property_safety ps ON p.property_id = ps.property_id
         LEFT JOIN bookmarks b ON p.property_id = b.property_id <if test="userId != null">AND b.user_id = #{userId}</if>
@@ -57,6 +57,10 @@
             <if test="cond.swLat != null and cond.swLng != null and cond.neLat != null and cond.neLng != null">
                 AND p.property_latitude BETWEEN #{cond.swLat} AND #{cond.neLat}
                 AND p.property_longitude BETWEEN #{cond.swLng} AND #{cond.neLng}
+            </if>
+            <!-- 중심점 및 반경 기반 위치 검색 -->
+            <if test="cond.lat != null and cond.lng != null and cond.radius != null">
+                AND (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) &lt;= #{cond.radius}
             </if>
         </if>
         <choose>
