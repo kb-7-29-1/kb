@@ -78,6 +78,9 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.4'
 
+    // xml 자동 피싱
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
+
     // 보안
     implementation("org.springframework.security:spring-security-web:${springSecurityVersion}")
     implementation("org.springframework.security:spring-security-config:${springSecurityVersion}")
