@@ -489,6 +489,27 @@ const syncAmenityDetailFilter = (selectedFilters) => {
   });
 };
 
+// PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
+const handleAmenitySelectionChange = (selectedFilters) => {
+  syncAmenityDetailFilter(selectedFilters);
+
+  const selectedTypes = new Set(
+    selectedFilters.map((filter) => Number(filter.amenityType)),
+  );
+  const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
+    (filter) => !selectedTypes.has(Number(filter.amenityType)),
+  );
+
+  if (hasRemovedAppliedFilter) {
+    handleApplyAmenities(
+      selectedFilters.map((filter) => ({
+        amenityType: filter.amenityType,
+        walkTimeMinutes: Number(filter.timeLimit),
+      })),
+    );
+  }
+};
+
 const resetAmenityDetailFilters = () => {
   amenityFilterRef.value?.resetFilters?.();
   amenityDetailFilters.value = [];
@@ -601,7 +622,7 @@ const {
             :applied-filters="activeAmenityFilters"
             :show-walking-time="false"
             @apply="handleApplyAmenities"
-            @selection-change="syncAmenityDetailFilter"
+            @selection-change="handleAmenitySelectionChange"
           />
 
           <AmenityDetailFilterPanel
