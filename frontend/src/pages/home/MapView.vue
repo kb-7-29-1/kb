@@ -201,7 +201,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
 <template>
   <div
-    class="relative w-full h-screen overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100"
+    class="relative w-full flex-1 min-h-0 h-full overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
