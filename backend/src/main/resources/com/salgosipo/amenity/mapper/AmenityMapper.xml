@@ -37,4 +37,14 @@
         FROM property_amenities
         WHERE property_id = #{propertyId}
     </select>
+
+    <!-- 편의시설 도보시간 계산의 출발점인 매물 좌표를 조회한다. -->
+    <select id="getPropertyCoordinates"
+            resultType="com.salgosipo.amenity.dto.AmenityPropertyCoordinateDTO">
+        SELECT property_latitude AS latitude,
+               property_longitude AS longitude
+        FROM properties
+        WHERE property_id = #{propertyId}
+          AND del_yn = 'N'
+    </select>
 </mapper>
