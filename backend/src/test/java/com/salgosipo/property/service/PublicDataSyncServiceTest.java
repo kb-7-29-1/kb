@@ -32,4 +32,15 @@ public class PublicDataSyncServiceTest {
         int totalInserted = publicDataSyncService.syncAllSeoulRecent3Months();
         log.info("Manual Batch Test Completed! Total Synced Properties: {}", totalInserted);
     }
+
+    /**
+     * DB 전체 기존 오피스텔 매물 주소를 네이버 지오코딩 API로 100% 정밀 GPS 위경도 일괄 갱신
+     * 실행 방법: cd backend; .\gradlew test --tests com.salgosipo.property.service.PublicDataSyncServiceTest.updateGeocodesTest
+     */
+    @Test
+    public void updateGeocodesTest() {
+        log.info("Starting Full DB Geocodes Update Test...");
+        int totalUpdated = publicDataSyncService.updateAllDbGeocodes();
+        log.info("Full DB Geocodes Update Completed! Total Updated Properties: {}", totalUpdated);
+    }
 }
