@@ -15,4 +15,8 @@ public interface AmenityService {
 
     // 목록의 매물별 편의시설을 조회하고, 캐시되지 않은 항목은 계산한다.
     Map<Integer, List<AmenityResponseDTO>> getAmenitiesByProperties(List<AmenityRequestDTO> requests);
+
+    String startCalculationJob(List<AmenityRequestDTO> requests);
+
+    String getCalculationStatus(String jobId);
 }

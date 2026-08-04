@@ -38,4 +38,15 @@ public class AmenityController {
     ) {
         return amenityService.getAmenitiesByProperties(requests);
     }
+
+    @PostMapping("/filter/jobs")
+    public Map<String, String> startCalculationJob(@RequestBody List<AmenityRequestDTO> requests) {
+        return Map.of("jobId", amenityService.startCalculationJob(requests));
+    }
+
+    @GetMapping("/filter/jobs/{jobId}")
+    public Map<String, String> getCalculationJob(@PathVariable String jobId) {
+        String status = amenityService.getCalculationStatus(jobId);
+        return status == null ? Map.of("status", "NOT_FOUND") : Map.of("status", status);
+    }
 }

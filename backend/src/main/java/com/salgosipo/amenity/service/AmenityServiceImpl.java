@@ -141,11 +141,7 @@ public class AmenityServiceImpl implements AmenityService {
                 Set<Integer> cachedTypes = new HashSet<>();
                 cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
 
-                List<AmenityFilter> missingFilters = request.getAmenities().stream()
-                        .filter(filter -> !cachedTypes.contains(filter.getAmenityType()))
-                        .toList();
-                amenityCalculationQueue.enqueue(request.getPropertyId(), missingFilters);
-                amenitiesByProperty.put(
+            amenitiesByProperty.put(
                         request.getPropertyId(),
                         filterByRequest(cachedAmenities, request.getAmenities())
                 );
@@ -160,6 +156,32 @@ public class AmenityServiceImpl implements AmenityService {
             }
         }
         return amenitiesByProperty;
+    }
+
+    @Override
+    public String startCalculationJob(List<AmenityRequestDTO> requests) {
+        List<AmenityCalculationQueue.Task> tasks = new ArrayList<>();
+        if (requests != null) {
+            for (AmenityRequestDTO request : requests) {
+                if (!isValidRequest(request)) continue;
+
+                Set<Integer> cachedTypes = new HashSet<>();
+                getCachedAmenities(request.getPropertyId())
+                        .forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
+
+                request.getAmenities().stream()
+                        .filter(filter -> !cachedTypes.contains(filter.getAmenityType()))
+                        .forEach(filter -> tasks.add(new AmenityCalculationQueue.Task(
+                                request.getPropertyId(), filter, null
+                        )));
+            }
+        }
+        return amenityCalculationQueue.createJob(tasks);
+    }
+
+    @Override
+    public String getCalculationStatus(String jobId) {
+        return amenityCalculationQueue.getJobStatus(jobId);
     }
 
     private boolean isValidRequest(AmenityRequestDTO request) {
