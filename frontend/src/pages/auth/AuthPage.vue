@@ -12,6 +12,13 @@ const showFindModal = ref(false);
 </script>
 <template>
   <div class="auth-page">
+    <aside class="auth-promo" aria-hidden="true">
+      <div>
+        <p>낯선 동네도<br />안심하고<br />이사하세요</p>
+        <span>건물 안전부터 귀갓길 안심 경로까지</span>
+        <span>대학생·사회초년생을 위한 안전한 주거 탐색</span>
+      </div>
+    </aside>
     <main class="auth-card" :class="{ 'auth-card--login': mode === 'login' }">
       <div class="auth-heading">
         <h1 class="auth-logo" @click="router.push({ name: 'login' })">
@@ -64,6 +71,10 @@ const showFindModal = ref(false);
   justify-content: center;
   padding: 24px;
   background: #f6f8fc;
+}
+
+.auth-promo {
+  display: none;
 }
 
 .auth-card {
@@ -184,6 +195,85 @@ const showFindModal = ref(false);
     right: 24px;
     left: 24px;
     margin-top: 0;
+  }
+}
+
+@media (min-width: 481px) {
+  .auth-page {
+    align-items: stretch;
+    justify-content: flex-start;
+    padding: 0;
+    background: #f7f9fc;
+  }
+
+  .auth-promo {
+    display: flex;
+    flex: 0 0 25%;
+    box-sizing: border-box;
+    align-items: center;
+    padding: clamp(32px, 3vw, 64px);
+    background: linear-gradient(180deg, #4058f5 0%, #364de0 100%);
+    color: #fff;
+  }
+
+  .auth-promo p {
+    margin: 0;
+    font-size: clamp(38px, 2.2vw, 50px);
+    font-weight: 800;
+    line-height: 1.5;
+    letter-spacing: -1.1px;
+    margin-bottom: 20px;
+  }
+
+  .auth-promo span {
+    display: block;
+    margin-top: 10px;
+    color: rgb(255 255 255 / 72%);
+    font-size: 14px;
+  }
+
+  .auth-card {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+    max-width: none;
+    padding: 56px 24px;
+    border: 0;
+    border-radius: 0;
+    background: #f7f9fc;
+    box-shadow: none;
+  }
+
+  .auth-card > .auth-heading,
+  .auth-card > :deep(.login-form),
+  .auth-card > :deep(.signup-form),
+  .auth-card > .auth-links {
+    width: min(100%, 400px);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .auth-card--login .auth-logo,
+  .auth-card--login .auth-greeting {
+    display: none;
+  }
+
+  .auth-card--login .auth-heading {
+    margin-bottom: 34px;
+  }
+
+  .auth-card--login .auth-heading::after {
+    color: #20283a;
+    font-size: 25px;
+    font-weight: 800;
+    letter-spacing: -0.6px;
+    content: '로그인';
+  }
+
+  .auth-links {
+    margin-top: 20px;
   }
 }
 </style>
