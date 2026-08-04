@@ -2,7 +2,9 @@ package com.salgosipo.destination.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salgosipo.destination.domain.DestinationVO;
 import com.salgosipo.destination.dto.DestinationDTO;
+import com.salgosipo.destination.mapper.DestinationMapper;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
@@ -16,6 +18,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -30,6 +33,7 @@ public class DestinationServiceImpl implements DestinationService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final DestinationMapper destinationMapper;
 
     @Value("${NAVER_SEARCH_CLIENT_ID:}")
     private String clientId;
@@ -64,6 +68,18 @@ public class DestinationServiceImpl implements DestinationService {
         );
 
         return toDestinationList(response.getBody());
+    }
+
+    @Override
+    @Transactional
+    public DestinationDTO saveDestination(DestinationDTO destination) {
+        validateDestination(destination);
+
+        DestinationVO destinationVO = destination.toVO();
+        destinationMapper.insertDestination(destinationVO);
+
+        destination.setDestinationId(destinationVO.getDestinationId());
+        return destination;
     }
 
     private List<DestinationDTO> toDestinationList(String responseBody) {
@@ -106,6 +122,15 @@ public class DestinationServiceImpl implements DestinationService {
                     "네이버 검색 API 키가 없습니다. 실행 환경 변수 NAVER_SEARCH_CLIENT_ID와 "
                             + "NAVER_SEARCH_CLIENT_SECRET을 설정하세요."
             );
+        }
+    }
+
+    private void validateDestination(DestinationDTO destination) {
+        if (destination == null
+                || destination.getDestLatitude() == null
+                || destination.getDestLongitude() == null
+                || !StringUtils.hasText(destination.getDestName())) {
+            throw new IllegalArgumentException("목적지 정보가 올바르지 않습니다.");
         }
     }
 }

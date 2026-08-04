@@ -9,6 +9,11 @@ export default {
     return data;
   },
 
+  async saveDestination(destination) {
+    const { data } = await api.post('/destinations', destination);
+    return data;
+  },
+
   async saveOnboarding(onboarding) {
     const { data } = await api.post('/onboarding', onboarding);
     return data;

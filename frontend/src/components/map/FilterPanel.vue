@@ -18,6 +18,7 @@ const activeTab = ref('all');
 const amenityFilterRef = ref(null);
 const onboardingFilterRef = ref(null);
 const onboarding = ref(null);
+const applyError = ref('');
 
 const emit = defineEmits(['close', 'apply', 'reset']);
 
@@ -48,15 +49,26 @@ const handleReset = async () => {
   }
 };
 
-const handleApply = () => {
+const handleApply = async () => {
+  applyError.value = '';
   const amenities = amenityFilterRef.value?.getFilters?.() ?? [];
-  const onboardingFilters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
+  const filters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
+  const { selectedDestination, ...onboardingFilters } = filters;
 
-  emit('apply', {
-    onboarding: onboardingFilters,
-    amenities,
-  });
-  emit('close');
+  try {
+    if (selectedDestination) {
+      await onboardingApi.saveDestination(selectedDestination);
+    }
+
+    emit('apply', {
+      onboarding: onboardingFilters,
+      amenities,
+    });
+    emit('close');
+  } catch (error) {
+    applyError.value = '목적지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+    console.error('FILTER DESTINATION SAVE ERROR: ', error);
+  }
 };
 </script>
 
@@ -87,6 +99,8 @@ const handleApply = () => {
         <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
 
+      <p v-if="applyError" class="apply-error">{{ applyError }}</p>
+
       <FilterBottomBar @reset="handleReset" @apply="handleApply" />
     </div>
   </section>
@@ -113,6 +127,14 @@ const handleApply = () => {
   min-height: 0;
   overflow: hidden;
   background: #fff;
+}
+.apply-error {
+  margin: 0;
+  padding: 8px 20px;
+  background: #fff1f2;
+  color: #dc2626;
+  font-size: 12px;
+  text-align: center;
 }
 
 .filter-content {

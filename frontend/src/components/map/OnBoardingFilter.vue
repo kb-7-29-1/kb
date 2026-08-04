@@ -126,6 +126,7 @@ const resetFilters = () => {
 
 const getFilters = () => ({
   destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
+  selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
   budgetDeposit: maxDeposit.value,
