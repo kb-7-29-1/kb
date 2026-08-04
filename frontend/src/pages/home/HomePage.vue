@@ -24,6 +24,10 @@ const applyFilters = ({ onboarding, amenities }) => {
   closeFilter();
 };
 
+const applyAmenityFilters = (amenities) => {
+  appliedAmenityFilters.value = amenities;
+};
+
 const resetFilters = () => {
   appliedOnboardingFilters.value = null;
   appliedAmenityFilters.value = [];
@@ -40,7 +44,11 @@ const goMyPage = () => {
       <span class="logo">🛡️ 살고싶오</span>
       <button class="mypage-btn" @click="goMyPage">마이페이지</button>
     </header>
-    <MapView :applied-amenity-filters="appliedAmenityFilters" @open-filter="openFilter" />
+    <MapView
+      :applied-amenity-filters="appliedAmenityFilters"
+      @open-filter="openFilter"
+      @apply-amenity-filters="applyAmenityFilters"
+    />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
     <!--
@@ -90,6 +98,7 @@ const goMyPage = () => {
       <FilterPanel
         v-if="isFilterOpen"
         :applied-filters="appliedOnboardingFilters"
+        :applied-amenity-filters="appliedAmenityFilters"
         @close="closeFilter"
         @apply="applyFilters"
         @reset="resetFilters"
