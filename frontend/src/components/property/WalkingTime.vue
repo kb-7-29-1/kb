@@ -97,13 +97,11 @@ const displayAmenities = computed(() =>
     })),
 );
 
-const getProgressWidth = (walkingTime) => {
-  const maxTime = Math.max(
-      ...displayAmenities.value.map((amenity) => amenity.walkingTime),
-      10
-  );
+const MAX_WALKING_TIME = 30;
 
-  return `${Math.min((walkingTime / maxTime) * 100, 100)}%`;
+const getProgressWidth = (walkingTime) => {
+  const minutes = Number(walkingTime) || 0;
+  return `${Math.min(Math.max(minutes, 0), MAX_WALKING_TIME) / MAX_WALKING_TIME * 100}%`;
 };
 </script>
 
