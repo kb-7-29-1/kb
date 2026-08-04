@@ -470,9 +470,12 @@ const handleApplyAmenities = (selectedList) => {
   emit('apply-amenity-filters', activeAmenityFilters.value);
 };
 
-const openAmenityDetailFilter = () => {
-  amenityDetailFilters.value = amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  isAmenityDetailFilterOpen.value = true;
+const openAmenityDetailFilter = (selectedFilters) => {
+  const filters = selectedFilters
+    ?? amenityFilterRef.value?.getSelectedAmenities?.()
+    ?? [];
+  amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
+  isAmenityDetailFilterOpen.value = amenityDetailFilters.value.length > 0;
 };
 
 const applyAmenityDetailFilters = () => {
@@ -502,22 +505,22 @@ const {
 
 <template>
   <div
-    class="relative w-full flex-1 min-h-0 h-full overflow-hidden flex flex-col-reverse md:flex-row bg-slate-100"
+    class="relative w-full flex-1 min-h-0 h-full overflow-hidden flex flex-col-reverse xl:flex-row bg-slate-100"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
+      class="mobile-aside-panel w-full xl:w-[380px] bg-white border-t xl:border-t-0 xl:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
-          ? 'h-[80vh] md:h-full'
-          : 'h-1/3 md:h-full',
+          ? 'h-[80vh] xl:h-full'
+          : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full py-2 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing md:hidden select-none touch-none shrink-0 border-b border-slate-100"
+        class="w-full py-2 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0 border-b border-slate-100"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
@@ -546,7 +549,7 @@ const {
         </div>
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
-        <section class="relative !mt-5 hidden border-t border-slate-100 md:block">
+        <section class="relative !mt-5 hidden border-t border-slate-100 xl:block">
           <div class="flex w-full items-center justify-between mb-1">
             <h2 class="text-[17px] font-black text-slate-700">
               편의시설 필터
@@ -586,7 +589,7 @@ const {
 
           <div
             v-if="isAmenityDetailFilterOpen"
-            class="absolute left-0 top-full mt-2 w-full md:left-full md:top-0 md:mt-0 md:ml-3 md:w-80 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
+            class="absolute left-0 top-full mt-2 w-full xl:left-full xl:top-0 xl:mt-0 xl:ml-3 xl:w-80 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl"
           >
             <div class="flex items-center justify-between mb-3">
               <h3 class="text-sm font-black text-slate-900">상세 필터</h3>
