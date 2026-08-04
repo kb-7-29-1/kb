@@ -132,4 +132,20 @@
         ORDER BY tag_count DESC
     </select>
 
+    <!-- 공공데이터 API 수집 매물 DB 배치 저장 (정밀 주소 다르면 100% 신규 저장) -->
+    <insert id="insertBatchPublicProperties">
+        INSERT IGNORE INTO properties (
+            address, building_type, room_type, deposit, monthly_rent,
+            area, floor, built_year, property_latitude, property_longitude,
+            is_illegal_building, del_yn
+        ) VALUES
+        <foreach collection="list" item="p" separator=",">
+        (
+            #{p.address}, #{p.buildingType}, #{p.roomType}, #{p.deposit}, #{p.monthlyRent},
+            #{p.area}, #{p.floor}, COALESCE(#{p.builtYear}, '2020'), #{p.latitude, jdbcType=DECIMAL}, #{p.longitude, jdbcType=DECIMAL},
+            FALSE, 'N'
+        )
+        </foreach>;
+    </insert>
+
 </mapper>
