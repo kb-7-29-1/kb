@@ -1,5 +1,5 @@
 <script setup>
-import { ref, shallowRef, onMounted, watch } from 'vue';
+import { ref, shallowRef, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 
 const props = defineProps({
@@ -46,6 +46,7 @@ const emit = defineEmits(['select-property']);
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
 const markersMap = ref([]);
+let resizeObserver = null;
 
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀) 렌더링
 const renderMarkers = () => {
@@ -115,6 +116,23 @@ const renderMarkers = () => {
   });
 };
 
+// 지도 구역 실시간 크기 변경 감지 Observer
+const setupResizeObserver = () => {
+  const container = document.getElementById('naver-map-container');
+  if (!container || resizeObserver) return;
+
+  resizeObserver = new ResizeObserver(() => {
+    if (mapInstance.value) {
+      if (typeof mapInstance.value.autoResize === 'function') {
+        mapInstance.value.autoResize();
+      }
+      window.dispatchEvent(new Event('resize'));
+    }
+  });
+
+  resizeObserver.observe(container);
+};
+
 // 순수 네이버 지도 SDK 초기화
 const initMap = () => {
   if (window.naver && window.naver.maps) {
@@ -131,6 +149,7 @@ const initMap = () => {
       });
 
       renderMarkers();
+      setupResizeObserver();
     } catch (e) {
       console.warn('Naver map init:', e);
     }
@@ -145,6 +164,27 @@ watch(
   ],
   () => {
     renderMarkers();
+  },
+  { deep: true },
+);
+
+// 목적지 변경 시 해당 목적지 위치로 지도 부드럽게 이동 (panTo)
+watch(
+  () => props.destination,
+  (newDest) => {
+    if (
+      mapInstance.value &&
+      window.naver &&
+      window.naver.maps &&
+      newDest?.lat &&
+      newDest?.lng
+    ) {
+      const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
+      mapInstance.value.panTo(newCenter, {
+        duration: 800,
+        easing: 'easeOutCubic',
+      });
+    }
   },
   { deep: true },
 );
@@ -171,6 +211,13 @@ onMounted(() => {
     document.head.appendChild(script);
   } else {
     initMap();
+  }
+});
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
   }
 });
 </script>
