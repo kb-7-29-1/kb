@@ -57,8 +57,7 @@ export function useOnboardingFilter() {
         if (typeof rawDest === 'object' && rawDest !== null) {
           filterState.value.destination =
             rawDest.destName || rawDest.name || rawDest.destinationName || '세종대학교';
-          filterState.value.destinationAddress =
-            rawDest.destAddress || rawDest.address || '';
+          filterState.value.destinationAddress = rawDest.destAddress || rawDest.address || '';
 
           const latVal = rawDest.destLatitude || rawDest.lat || rawDest.latitude;
           const lngVal = rawDest.destLongitude || rawDest.lng || rawDest.longitude;
@@ -77,20 +76,19 @@ export function useOnboardingFilter() {
         filterState.value.transportMode = mode.includes('WALK') ? 'WALK' : 'TRANSIT';
       }
       // 소요 시간 매핑
-      if (saved.travelTime || saved.maxTravelTime) {
-        filterState.value.travelTime = Number(saved.travelTime || saved.maxTravelTime);
+      const travelTime = saved.maxTravelTime ?? saved.travelTime;
+      if (travelTime !== undefined && travelTime !== null) {
+        filterState.value.travelTime = Number(travelTime);
       }
       // 보증금 한도 매핑
-      if (saved.deposit || saved.maxDeposit || saved.budgetDeposit) {
-        filterState.value.maxDeposit = Number(
-          saved.deposit || saved.maxDeposit || saved.budgetDeposit,
-        );
+      const maxDeposit = saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
+      if (maxDeposit !== undefined && maxDeposit !== null) {
+        filterState.value.maxDeposit = Number(maxDeposit);
       }
       // 월세 한도 매핑
-      if (saved.monthlyRent || saved.maxRent || saved.budgetRent) {
-        filterState.value.maxRent = Number(
-          saved.monthlyRent || saved.maxRent || saved.budgetRent,
-        );
+      const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
+      if (maxRent !== undefined && maxRent !== null) {
+        filterState.value.maxRent = Number(maxRent);
       }
       // 안심 점수 매핑
       if (saved.safety || saved.minSafetyScore !== undefined) {
