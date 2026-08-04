@@ -262,10 +262,29 @@ const sortedProperties = computed(() => {
     // 4. 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
-    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
+    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터
     if (currentFilters.showIsochrone) {
       const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
-      if (distKm > maxReachKm) return false;
+      const distMeters = distKm * 1000;
+
+      if (currentFilters.transportMode === 'WALK') {
+        let speedMetersPerMin = 75;
+        if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
+        if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
+        const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
+        if (distMeters > maxReachMeters) return false;
+      } else {
+        // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 링 구역만 허용
+        const transitBaseRadius = Math.max(500, currentFilters.travelTime * 180); // 내부원 (10분 이내)
+        const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+        const transitMaxRadius = Math.max(
+          transitBaseRadius + 200,
+          (currentFilters.travelTime + flexMins) * 180,
+        ); // 외부원 (30분 이내)
+
+        // 10분 이내 내부원 안쪽 및 30분 초과 외부원 바깥 매물 제외
+        if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
+      }
     }
 
     if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
