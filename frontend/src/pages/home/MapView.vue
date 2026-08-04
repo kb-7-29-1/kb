@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
@@ -50,11 +50,13 @@ const showAmenityFilter = ref(false);
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
+const selectedPropertyDetailAmenities = ref([]);
 
 // 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
+let amenityRefreshTimer = null;
 
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
@@ -65,6 +67,22 @@ const currentDataSource = computed(() => {
   return properties.value[0]?.dataSource || 'PUBLIC_API';
 });
 
+const getSearchRadiusKm = () => {
+  const filters = appliedFilterState.value || filterState.value;
+  const minutes = Number(filters.travelTime) || 15;
+
+  if (filters.transportMode === 'WALK') {
+    const speedKmH = filters.walkPace === 'SLOW'
+      ? 3.6
+      : filters.walkPace === 'FAST'
+        ? 6.0
+        : 4.8;
+    return speedKmH * (minutes / 60);
+  }
+
+  return 18.0 * (minutes / 60);
+};
+
 // 백엔드 실제 DB 매물 API 조회 (/api/properties)
 const fetchPropertiesFromBackend = async () => {
   try {
@@ -72,6 +90,7 @@ const fetchPropertiesFromBackend = async () => {
       params: {
         lat: destinationConfig.value.lat,
         lng: destinationConfig.value.lng,
+        radius: getSearchRadiusKm(),
       },
     });
     if (res.data && Array.isArray(res.data)) {
@@ -106,8 +125,6 @@ const handleResetFilters = async () => {
   await fetchPropertiesFromBackend();
 };
 
-// 모바일 필터 패널의 적용값을 기존 지도 퀵 필터 상태에 반영합니다.
-// 이후에는 기존 destinationConfig / NaverMap 감시 로직이 목적지 이동을 처리합니다.
 const applyMobileOnboardingFilters = (filters) => {
   if (!filters) return;
 
@@ -153,6 +170,8 @@ const loadAmenitiesForProperties = async () => {
     .filter((propertyId) => propertyId != null);
 
   if (!filters.length || !propertyIds.length) {
+    clearTimeout(amenityRefreshTimer);
+    amenityFilterLoading.value = false;
     amenitiesByProperty.value = {};
     return;
   }
@@ -160,23 +179,37 @@ const loadAmenitiesForProperties = async () => {
   const sequence = ++amenityRequestSequence;
   amenityFilterLoading.value = true;
   try {
-    const result = await amenityService.filterProperties(propertyIds, filters);
-    if (sequence === amenityRequestSequence) {
-      amenitiesByProperty.value = result;
-    }
+    const { jobId } = await amenityService.startCalculationJob(propertyIds, filters);
+
+    const loadResult = async () => {
+      const result = await amenityService.filterProperties(propertyIds, filters);
+      if (sequence === amenityRequestSequence) amenitiesByProperty.value = result;
+    };
+
+    const pollJob = async () => {
+      const currentJob = await amenityService.getCalculationJob(jobId);
+      if (sequence !== amenityRequestSequence) return;
+
+      if (currentJob.status === 'COMPLETED') {
+        await loadResult();
+        amenityFilterLoading.value = false;
+        return;
+      }
+      amenityRefreshTimer = setTimeout(pollJob, 1_000);
+    };
+    amenityRefreshTimer = setTimeout(pollJob, 1_000);
   } catch (error) {
     if (sequence === amenityRequestSequence) {
       amenitiesByProperty.value = {};
-      console.error('AMENITY FILTER LOAD ERROR:', error);
-    }
-  } finally {
-    if (sequence === amenityRequestSequence) {
       amenityFilterLoading.value = false;
+      console.error('AMENITY FILTER LOAD ERROR:', error);
     }
   }
 };
 
 watch([() => props.appliedAmenityFilters, properties], loadAmenitiesForProperties, { deep: true });
+
+onUnmounted(() => clearTimeout(amenityRefreshTimer));
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
 watch(
@@ -193,18 +226,21 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
-        if (
-          status === window.naver.maps.Service.Status.OK &&
-          response.v2 &&
-          response.v2.addresses &&
-          response.v2.addresses.length > 0
-        ) {
-          const item = response.v2.addresses[0];
-          filterState.value.destinationLat = Number(item.y);
-          filterState.value.destinationLng = Number(item.x);
-        }
-      });
+      window.naver.maps.Service.geocode(
+        { query: searchQuery },
+        (status, response) => {
+          if (
+            status === window.naver.maps.Service.Status.OK &&
+            response.v2 &&
+            response.v2.addresses &&
+            response.v2.addresses.length > 0
+          ) {
+            const item = response.v2.addresses[0];
+            filterState.value.destinationLat = Number(item.y);
+            filterState.value.destinationLng = Number(item.x);
+          }
+        },
+      );
     }
   },
   { immediate: true },
@@ -291,11 +327,14 @@ const sortedProperties = computed(() => {
 
     if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+      const matchedTypes = new Set(
+        propertyAmenities.map((amenity) => amenity.amenityType),
+      );
       const requiredTypes = new Set(
         props.appliedAmenityFilters.map((filter) => filter.amenityType),
       );
-      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
+      if (![...requiredTypes].every((type) => matchedTypes.has(type)))
+        return false;
     }
 
     return true;
@@ -303,10 +342,16 @@ const sortedProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
+    return list.sort(
+      (a, b) =>
+        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
+    );
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -317,10 +362,32 @@ const sortedProperties = computed(() => {
   return list; // RECOMMENDED
 });
 
+const visibleProperties = computed(() =>
+  amenityFilterLoading.value ? [] : sortedProperties.value,
+);
+
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
-const handleSelectProperty = (property) => {
+const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
+
+  try {
+    const amenities = props.appliedAmenityFilters.length
+      ? await amenityService.filterAmenities(
+          property.propertyId,
+          props.appliedAmenityFilters,
+        )
+      : await amenityService.getCachedAmenities(property.propertyId);
+
+    if (selectedProperty.value?.propertyId === property.propertyId) {
+      selectedPropertyDetailAmenities.value = amenities;
+    }
+  } catch (error) {
+    if (selectedProperty.value?.propertyId === property.propertyId) {
+      selectedPropertyDetailAmenities.value = [];
+    }
+    console.error('SELECTED PROPERTY AMENITY LOAD ERROR:', error);
+  }
 };
 
 // 마이페이지 관심 매물 카드에서 전달한 propertyId로 기존 상세 패널을 열기
@@ -364,7 +431,12 @@ watch(
 const selectedPropertyAmenities = computed(() => {
   // 상세 패널과 지도 핀은 같은 선택 매물의 편의시설 결과를 사용한다.
   if (!selectedProperty.value) return [];
-  return amenitiesByProperty.value[selectedProperty.value.propertyId] ?? [];
+  const propertyId = selectedProperty.value.propertyId;
+  if (props.appliedAmenityFilters.length) {
+    return amenitiesByProperty.value[propertyId]
+      ?? selectedPropertyDetailAmenities.value;
+  }
+  return selectedPropertyDetailAmenities.value;
 });
 
 // 찜 토글
@@ -391,8 +463,13 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
-  useMobilePanelDrag();
+const {
+  mobilePanelHeight,
+  isDragging,
+  dragPixelHeight,
+  toggleMobilePanel,
+  startDrag,
+} = useMobilePanelDrag();
 </script>
 
 <template>
@@ -404,7 +481,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-1/3 md:h-full',
+        mobilePanelHeight === 'EXPANDED'
+          ? 'h-[80vh] md:h-full'
+          : 'h-1/3 md:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -417,7 +496,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       >
         <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
         <span class="text-[10px] font-bold text-slate-400">
-          {{ mobilePanelHeight === 'EXPANDED' ? '▼ 접고 지도 보기' : '▲ 올리고 목록 더보기' }}
+          {{
+            mobilePanelHeight === 'EXPANDED'
+              ? '▼ 접고 지도 보기'
+              : '▲ 올리고 목록 더보기'
+          }}
         </span>
       </div>
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
@@ -427,8 +510,10 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
-            총 {{ sortedProperties.length }}개 매물
+          <span
+            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
+          >
+            총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
 
@@ -462,7 +547,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+        <div
+          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
+        >
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -482,25 +569,36 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
-        <template v-if="sortedProperties.length > 0">
+        <template v-if="visibleProperties.length > 0">
           <PropertyCard
-            v-for="prop in sortedProperties"
+            v-for="prop in visibleProperties"
             :key="prop.propertyId"
             :property="prop"
-            :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
+            :is-selected="
+              selectedProperty &&
+              selectedProperty.propertyId === prop.propertyId
+            "
             @select="handleSelectProperty"
             @toggle-bookmark="handleToggleBookmark"
           />
         </template>
         <div
-          v-else
+          v-else-if="!amenityFilterLoading"
           class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
-          <p class="text-sm font-bold text-slate-600">조건에 맞는 매물이 없습니다.</p>
+          <p class="text-sm font-bold text-slate-600">
+            조건에 맞는 매물이 없습니다.
+          </p>
           <p class="text-xs text-slate-400 mt-1">
             필터 조건을 변경하거나 검색어를 재설정해 보세요.
           </p>
+        </div>
+        <div
+          v-else
+          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+        >
+          편의시설을 조회하고 있어요.
         </div>
       </div>
     </aside>
@@ -512,7 +610,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         <MapQuickFilterBar
           v-if="isQuickFilterReady"
           v-model="filterState"
-          :total-count="sortedProperties.length"
+          :total-count="visibleProperties.length"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
           @apply="handleApplyFilters"
@@ -522,7 +620,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       </div>
 
       <NaverMap
-        :properties="sortedProperties"
+        :properties="visibleProperties"
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
