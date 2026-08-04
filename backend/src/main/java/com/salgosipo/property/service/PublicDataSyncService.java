@@ -109,6 +109,41 @@ public class PublicDataSyncService {
     }
 
     /**
+     * DB에 이미 수집된 매물들의 주소를 네이버 지오코딩 API로 정밀 위경도 일괄 갱신 (무제한 300만건 활용)
+     */
+    public int updateAllDbGeocodes() {
+        log.info("Starting Full DB Geocode Update via Naver Geocoding...");
+        List<PropertyListDTO> properties = propertyMapper.selectAllPropertiesToGeocode();
+        if (properties == null || properties.isEmpty()) {
+            log.info("No properties found in DB to geocode.");
+            return 0;
+        }
+
+        log.info("Total Properties found in DB for Geocoding: {}", properties.size());
+        int updatedCount = 0;
+
+        for (PropertyListDTO p : properties) {
+            if (p.getAddress() == null || p.getAddress().trim().isEmpty()) continue;
+
+            double[] coords = publicDataApiService.getRealCoordinatesFromAddress(p.getAddress());
+            if (coords != null) {
+                try {
+                    propertyMapper.updatePropertyCoordinates(p.getPropertyId(), coords[0], coords[1]);
+                    updatedCount++;
+                    if (updatedCount % 500 == 0) {
+                        log.info("Geocoded & Updated {} / {} properties in DB.", updatedCount, properties.size());
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to update coordinates for propertyId {}: {}", p.getPropertyId(), e.getMessage());
+                }
+            }
+        }
+
+        log.info("Successfully Completed Full DB Geocoding! Total Updated Properties: {}", updatedCount);
+        return updatedCount;
+    }
+
+    /**
      * 단일 위치 기준 매물 동기화
      */
     @Transactional
