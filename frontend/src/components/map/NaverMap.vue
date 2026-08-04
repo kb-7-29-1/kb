@@ -168,6 +168,27 @@ watch(
   { deep: true },
 );
 
+// 목적지 변경 시 해당 목적지 위치로 지도 부드럽게 이동 (panTo)
+watch(
+  () => props.destination,
+  (newDest) => {
+    if (
+      mapInstance.value &&
+      window.naver &&
+      window.naver.maps &&
+      newDest?.lat &&
+      newDest?.lng
+    ) {
+      const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
+      mapInstance.value.panTo(newCenter, {
+        duration: 800,
+        easing: 'easeOutCubic',
+      });
+    }
+  },
+  { deep: true },
+);
+
 watch(zoomLevel, (newZoom) => {
   if (mapInstance.value) {
     mapInstance.value.setZoom(newZoom);
