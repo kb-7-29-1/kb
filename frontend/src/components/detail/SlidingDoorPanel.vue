@@ -1,6 +1,8 @@
 <script setup>
 import { computed } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
+import WalkingTime from '@/components/property/WalkingTime.vue';
+import CommentSection from "@/components/detail/CommentSection.vue";
 
 const props = defineProps({
   isOpen: {
@@ -10,6 +12,10 @@ const props = defineProps({
   property: {
     type: Object,
     default: null,
+  },
+  amenities: {
+    type: Array,
+    default: () => [],
   },
 });
 
@@ -214,7 +220,13 @@ const safetyScoreClass = computed(() => {
             }}
           </p>
         </div>
+        <WalkingTime :amenities="amenities" />
+        <CommentSection
+            :property-id="property.propertyId"
+            :property="property"
+        />
       </div>
     </aside>
+
   </div>
 </template>
