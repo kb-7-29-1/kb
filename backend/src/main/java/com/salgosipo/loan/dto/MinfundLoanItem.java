@@ -36,4 +36,10 @@ public class MinfundLoanItem {
 
     @JacksonXmlProperty(localName = "rltsite")
     private String site;
+
+    @JacksonXmlProperty(localName = "age39blw")
+    private String age39blw;
+
+    @JacksonXmlProperty(localName = "age60abnml")
+    private String age60abnml;
 }
