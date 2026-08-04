@@ -39,7 +39,6 @@ const loadOnboardingSummary = async () => {
 onMounted(loadOnboardingSummary);
 
 const handleReset = async () => {
-  activeTab.value = 'all';
   emit('reset');
 
   await loadOnboardingSummary();
@@ -116,7 +115,7 @@ const handleApply = async () => {
 
 <style scoped>
 .filter-overlay {
-  --map-header-height: 56px;
+  --map-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
   position: fixed;
   top: var(--map-header-height);
   right: 0;
@@ -145,10 +144,16 @@ const handleApply = async () => {
   text-align: center;
 }
 
+@media (min-width: 768px) {
+  .filter-overlay {
+    --map-header-height: 56px;
+  }
+}
+
 .filter-content {
   flex: 1;
   min-height: 0;
-  padding: 24px 20px;
+  padding: 12px 20px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

@@ -85,7 +85,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       </div>
 
       <h2>자주 방문하는 장소를 알려주세요</h2>
-      <p class="description">목적지를 기준으로 나에게 맞는 매물을 찾아드려요.</p>
+      <p class="description">목적지를 기준으로 나에게 맞는 매물을 찾아드려요</p>
 
       <div class="purpose-list" role="group" aria-label="목적지 유형">
         <button

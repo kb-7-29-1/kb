@@ -14,9 +14,17 @@ import amenityService from '@/api/amenityService.js';
 
 const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
 const props = defineProps({
+  appliedOnboardingFilters: {
+    type: Object,
+    default: null,
+  },
   appliedAmenityFilters: {
     type: Array,
     default: () => [],
+  },
+  filterResetVersion: {
+    type: Number,
+    default: 0,
   },
 });
 
@@ -93,7 +101,47 @@ const handleApplyFilters = () => {
 const handleResetFilters = async () => {
   await loadOnboardingDefaultFilters();
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  await fetchPropertiesFromBackend();
 };
+
+// 모바일 필터 패널의 적용값을 기존 지도 퀵 필터 상태에 반영합니다.
+// 이후에는 기존 destinationConfig / NaverMap 감시 로직이 목적지 이동을 처리합니다.
+const applyMobileOnboardingFilters = (filters) => {
+  if (!filters) return;
+
+  const destination = filters.destination;
+  if (destination && typeof destination === 'object') {
+    filterState.value.destination =
+      destination.destName ||
+      destination.destinationName ||
+      destination.name ||
+      filterState.value.destination;
+    filterState.value.destinationAddress = destination.destAddress || destination.address || '';
+
+    const latitude = destination.destLatitude ?? destination.latitude ?? destination.lat;
+    const longitude = destination.destLongitude ?? destination.longitude ?? destination.lng;
+    if (latitude != null && longitude != null) {
+      filterState.value.destinationLat = Number(latitude);
+      filterState.value.destinationLng = Number(longitude);
+    }
+  } else if (typeof destination === 'string' && destination.trim()) {
+    filterState.value.destination = destination;
+  }
+
+  if (filters.transportMode) filterState.value.transportMode = filters.transportMode;
+  if (filters.maxTravelTime != null) filterState.value.travelTime = Number(filters.maxTravelTime);
+  if (filters.budgetDeposit != null) filterState.value.maxDeposit = Number(filters.budgetDeposit);
+  if (filters.budgetRent != null) filterState.value.maxRent = Number(filters.budgetRent);
+  if (filters.minSafetyScore != null) {
+    filterState.value.minSafetyScore = Number(filters.minSafetyScore);
+  }
+
+  handleApplyFilters();
+};
+
+watch(() => props.appliedOnboardingFilters, applyMobileOnboardingFilters, { deep: true });
+
+watch(() => props.filterResetVersion, handleResetFilters);
 
 const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
@@ -143,21 +191,18 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode(
-        { query: searchQuery },
-        (status, response) => {
-          if (
-            status === window.naver.maps.Service.Status.OK &&
-            response.v2 &&
-            response.v2.addresses &&
-            response.v2.addresses.length > 0
-          ) {
-            const item = response.v2.addresses[0];
-            filterState.value.destinationLat = Number(item.y);
-            filterState.value.destinationLng = Number(item.x);
-          }
-        },
-      );
+      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
+        if (
+          status === window.naver.maps.Service.Status.OK &&
+          response.v2 &&
+          response.v2.addresses &&
+          response.v2.addresses.length > 0
+        ) {
+          const item = response.v2.addresses[0];
+          filterState.value.destinationLat = Number(item.y);
+          filterState.value.destinationLng = Number(item.x);
+        }
+      });
     }
   },
   { immediate: true },
@@ -219,25 +264,17 @@ const sortedProperties = computed(() => {
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
     if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(
-        destLat,
-        destLng,
-        p.latitude,
-        p.longitude,
-      );
+      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
       if (distKm > maxReachKm) return false;
     }
 
     if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(
-        propertyAmenities.map((amenity) => amenity.amenityType),
-      );
+      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
       const requiredTypes = new Set(
         props.appliedAmenityFilters.map((filter) => filter.amenityType),
       );
-      if (![...requiredTypes].every((type) => matchedTypes.has(type)))
-        return false;
+      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
     }
 
     return true;
@@ -245,16 +282,10 @@ const sortedProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -301,13 +332,8 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const {
-  mobilePanelHeight,
-  isDragging,
-  dragPixelHeight,
-  toggleMobilePanel,
-  startDrag,
-} = useMobilePanelDrag();
+const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
+  useMobilePanelDrag();
 </script>
 
 <template>
@@ -319,9 +345,7 @@ const {
       class="mobile-aside-panel w-full md:w-[380px] bg-white border-t md:border-t-0 md:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED'
-          ? 'h-[80vh] md:h-full'
-          : 'h-1/3 md:h-full',
+        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] md:h-full' : 'h-1/3 md:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -334,11 +358,7 @@ const {
       >
         <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
         <span class="text-[10px] font-bold text-slate-400">
-          {{
-            mobilePanelHeight === 'EXPANDED'
-              ? '▼ 접고 지도 보기'
-              : '▲ 올리고 목록 더보기'
-          }}
+          {{ mobilePanelHeight === 'EXPANDED' ? '▼ 접고 지도 보기' : '▲ 올리고 목록 더보기' }}
         </span>
       </div>
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
@@ -348,9 +368,7 @@ const {
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span
-            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
-          >
+          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
             총 {{ sortedProperties.length }}개 매물
           </span>
         </div>
@@ -385,9 +403,7 @@ const {
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div
-          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
-        >
+        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -412,10 +428,7 @@ const {
             v-for="prop in sortedProperties"
             :key="prop.propertyId"
             :property="prop"
-            :is-selected="
-              selectedProperty &&
-              selectedProperty.propertyId === prop.propertyId
-            "
+            :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
             @select="handleSelectProperty"
             @toggle-bookmark="handleToggleBookmark"
           />
@@ -425,9 +438,7 @@ const {
           class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
-          <p class="text-sm font-bold text-slate-600">
-            조건에 맞는 매물이 없습니다.
-          </p>
+          <p class="text-sm font-bold text-slate-600">조건에 맞는 매물이 없습니다.</p>
           <p class="text-xs text-slate-400 mt-1">
             필터 조건을 변경하거나 검색어를 재설정해 보세요.
           </p>

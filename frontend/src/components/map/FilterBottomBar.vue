@@ -43,6 +43,32 @@ defineEmits(['reset', 'apply']);
   color: #fff;
 }
 
+@media (max-width: 767px) {
+  .filter-bottom-bar {
+    box-sizing: border-box;
+    min-height: 110px;
+    gap: 10px;
+    padding: 16px 20px max(16px, calc(env(safe-area-inset-bottom) + 10px));
+    border-top-color: #e2e8f0;
+  }
+
+  .filter-bottom-bar button {
+    height: 65px;
+    border-radius: 14px;
+    font-size: 16px;
+  }
+
+  .reset-button {
+    border-color: #e2e8f0;
+    color: #64748b;
+  }
+
+  .apply-button {
+    border-color: #4051db;
+    background: #4051db;
+  }
+}
+
 @media (min-width: 768px) {
   .filter-bottom-bar {
     padding: 16px 28px;

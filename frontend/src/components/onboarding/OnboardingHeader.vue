@@ -144,13 +144,13 @@ h1 {
     background: transparent;
     color: #94a3b8;
     font-family: inherit;
-    font-size: 11px;
+    font-size: 13px;
     cursor: pointer;
     line-height: 1;
   }
 
   .desktop-login-link i {
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1;
   }
 
@@ -173,7 +173,7 @@ h1 {
     align-items: center;
     justify-content: space-between;
     color: #94a3b8;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
   }
 
