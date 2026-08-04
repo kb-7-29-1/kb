@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
@@ -13,6 +14,7 @@ import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 
 const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
+const route = useRoute();
 const props = defineProps({
   appliedOnboardingFilters: {
     type: Object,
@@ -298,15 +300,29 @@ const sortedProperties = computed(() => {
     // 4. 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
-    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
+    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터
     if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(
-        destLat,
-        destLng,
-        p.latitude,
-        p.longitude,
-      );
-      if (distKm > maxReachKm) return false;
+      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
+      const distMeters = distKm * 1000;
+
+      if (currentFilters.transportMode === 'WALK') {
+        let speedMetersPerMin = 75;
+        if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
+        if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
+        const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
+        if (distMeters > maxReachMeters) return false;
+      } else {
+        // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 링 구역만 허용
+        const transitBaseRadius = Math.max(500, currentFilters.travelTime * 180); // 내부원 (10분 이내)
+        const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+        const transitMaxRadius = Math.max(
+          transitBaseRadius + 200,
+          (currentFilters.travelTime + flexMins) * 180,
+        ); // 외부원 (30분 이내)
+
+        // 10분 이내 내부원 안쪽 및 30분 초과 외부원 바깥 매물 제외
+        if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
+      }
     }
 
     if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
@@ -373,6 +389,44 @@ const handleSelectProperty = async (property) => {
     console.error('SELECTED PROPERTY AMENITY LOAD ERROR:', error);
   }
 };
+
+// 마이페이지 관심 매물 카드에서 전달한 propertyId로 기존 상세 패널을 열기
+const openPropertyDetailFromQuery = async (propertyId) => {
+  if (!propertyId) return;
+
+  const numericPropertyId = Number(propertyId);
+  if (!Number.isFinite(numericPropertyId)) return;
+
+  const savedBookmarkProperty = sessionStorage.getItem('selectedBookmarkProperty');
+  const bookmarkedProperty = savedBookmarkProperty ? JSON.parse(savedBookmarkProperty) : null;
+  if (Number(bookmarkedProperty?.propertyId) === numericPropertyId) {
+    handleSelectProperty(bookmarkedProperty);
+    sessionStorage.removeItem('selectedBookmarkProperty');
+    return;
+  }
+
+  const listedProperty = properties.value.find(
+    (property) => Number(property.propertyId) === numericPropertyId,
+  );
+
+  if (listedProperty) {
+    handleSelectProperty(listedProperty);
+    return;
+  }
+
+  try {
+    const { data } = await api.get(`/properties/${numericPropertyId}`);
+    if (data) handleSelectProperty(data);
+  } catch (error) {
+    console.error('BOOKMARK PROPERTY DETAIL LOAD ERROR: ', error);
+  }
+};
+
+watch(
+  () => route.query.propertyId,
+  (propertyId) => openPropertyDetailFromQuery(propertyId),
+  { immediate: true },
+);
 
 const selectedPropertyAmenities = computed(() => {
   // 상세 패널과 지도 핀은 같은 선택 매물의 편의시설 결과를 사용한다.
