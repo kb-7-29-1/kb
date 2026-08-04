@@ -23,4 +23,15 @@ export default {
 
     return data;
   },
+
+  async startCalculationJob(propertyIds, amenities) {
+    const requests = propertyIds.map((propertyId) => ({ propertyId, amenities }));
+    const { data } = await axios.post(`${BASE_URL}/filter/jobs`, requests);
+    return data;
+  },
+
+  async getCalculationJob(jobId) {
+    const { data } = await axios.get(`${BASE_URL}/filter/jobs/${jobId}`);
+    return data;
+  },
 };

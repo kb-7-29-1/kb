@@ -55,7 +55,6 @@ const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
 let amenityRefreshTimer = null;
-let amenityRefreshAttempts = 0;
 
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
@@ -161,7 +160,7 @@ watch(() => props.appliedOnboardingFilters, applyMobileOnboardingFilters, { deep
 
 watch(() => props.filterResetVersion, handleResetFilters);
 
-const loadAmenitiesForProperties = async (isRefresh = false) => {
+const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = props.appliedAmenityFilters;
   const propertyIds = properties.value
@@ -170,39 +169,38 @@ const loadAmenitiesForProperties = async (isRefresh = false) => {
 
   if (!filters.length || !propertyIds.length) {
     clearTimeout(amenityRefreshTimer);
-    amenityRefreshAttempts = 0;
+    amenityFilterLoading.value = false;
     amenitiesByProperty.value = {};
     return;
-  }
-
-  if (!isRefresh) {
-    clearTimeout(amenityRefreshTimer);
-    amenityRefreshAttempts = 0;
   }
 
   const sequence = ++amenityRequestSequence;
   amenityFilterLoading.value = true;
   try {
-    const result = await amenityService.filterProperties(propertyIds, filters);
-    if (sequence === amenityRequestSequence) {
-      amenitiesByProperty.value = result;
-    }
+    const { jobId } = await amenityService.startCalculationJob(propertyIds, filters);
+
+    const loadResult = async () => {
+      const result = await amenityService.filterProperties(propertyIds, filters);
+      if (sequence === amenityRequestSequence) amenitiesByProperty.value = result;
+    };
+
+    const pollJob = async () => {
+      const currentJob = await amenityService.getCalculationJob(jobId);
+      if (sequence !== amenityRequestSequence) return;
+
+      if (currentJob.status === 'COMPLETED') {
+        await loadResult();
+        amenityFilterLoading.value = false;
+        return;
+      }
+      amenityRefreshTimer = setTimeout(pollJob, 1_000);
+    };
+    amenityRefreshTimer = setTimeout(pollJob, 1_000);
   } catch (error) {
     if (sequence === amenityRequestSequence) {
       amenitiesByProperty.value = {};
-      console.error('AMENITY FILTER LOAD ERROR:', error);
-    }
-  } finally {
-    if (sequence === amenityRequestSequence) {
       amenityFilterLoading.value = false;
-
-      if (amenityRefreshAttempts < 12) {
-        amenityRefreshAttempts += 1;
-        amenityRefreshTimer = setTimeout(
-          () => loadAmenitiesForProperties(true),
-          5_000,
-        );
-      }
+      console.error('AMENITY FILTER LOAD ERROR:', error);
     }
   }
 };
@@ -348,6 +346,10 @@ const sortedProperties = computed(() => {
   return list; // RECOMMENDED
 });
 
+const visibleProperties = computed(() =>
+  amenityFilterLoading.value ? [] : sortedProperties.value,
+);
+
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
 const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
@@ -457,7 +459,7 @@ const {
           <span
             class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
           >
-            총 {{ sortedProperties.length }}개 매물
+            총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
 
@@ -513,9 +515,9 @@ const {
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
-        <template v-if="sortedProperties.length > 0">
+        <template v-if="visibleProperties.length > 0">
           <PropertyCard
-            v-for="prop in sortedProperties"
+            v-for="prop in visibleProperties"
             :key="prop.propertyId"
             :property="prop"
             :is-selected="
@@ -527,7 +529,7 @@ const {
           />
         </template>
         <div
-          v-else
+          v-else-if="!amenityFilterLoading"
           class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
@@ -537,6 +539,12 @@ const {
           <p class="text-xs text-slate-400 mt-1">
             필터 조건을 변경하거나 검색어를 재설정해 보세요.
           </p>
+        </div>
+        <div
+          v-else
+          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+        >
+          편의시설을 조회하고 있어요.
         </div>
       </div>
     </aside>
@@ -548,7 +556,7 @@ const {
         <MapQuickFilterBar
           v-if="isQuickFilterReady"
           v-model="filterState"
-          :total-count="sortedProperties.length"
+          :total-count="visibleProperties.length"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
           @apply="handleApplyFilters"
@@ -558,7 +566,7 @@ const {
       </div>
 
       <NaverMap
-        :properties="sortedProperties"
+        :properties="visibleProperties"
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
