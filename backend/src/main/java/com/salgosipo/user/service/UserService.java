@@ -1,5 +1,6 @@
 package com.salgosipo.user.service;
 
+import com.salgosipo.comment.mapper.CommentMapper;
 import com.salgosipo.user.domain.UserVO;
 import com.salgosipo.user.dto.PasswordChangeRequestDto;
 import com.salgosipo.user.dto.SignupRequestDto;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserMapper userMapper;
+    private final CommentMapper commentMapper;
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
@@ -84,6 +86,7 @@ public class UserService {
         if (!passwordEncoder.matches(password, vo.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
+        commentMapper.softDeleteByUserId(vo.getUserId());
         userMapper.withdraw(vo.getUserId());
     }
 }

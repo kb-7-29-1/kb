@@ -5,4 +5,50 @@
 
 <mapper namespace="com.salgosipo.comment.mapper.CommentMapper">
 
+    <select id="findByPropertyId" resultType="com.salgosipo.comment.dto.CommentResponseDTO">
+        SELECT pc.comment_id AS commentId,
+               pc.property_id AS propertyId,
+               pc.user_id AS userId,
+               u.name AS nickname,
+               pc.content,
+               pc.created_at AS createdAt,
+               pc.updated_at AS updatedAt,
+               CASE WHEN pc.user_id = #{userId} THEN TRUE ELSE FALSE END AS isMine
+        FROM property_comment pc
+        JOIN users u ON u.user_id = pc.user_id
+        WHERE pc.property_id = #{propertyId}
+          AND pc.del_yn = 'N'
+          AND u.del_yn = 'N'
+        ORDER BY pc.created_at DESC
+    </select>
+
+    <insert id="insertComment">
+        INSERT INTO property_comment (property_id, user_id, content)
+        VALUES (#{propertyId}, #{userId}, #{content})
+    </insert>
+
+    <update id="updateComment">
+        UPDATE property_comment
+        SET content = #{content}
+        WHERE property_id = #{propertyId}
+          AND comment_id = #{commentId}
+          AND user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="deleteComment">
+        UPDATE property_comment
+        SET del_yn = 'Y'
+        WHERE property_id = #{propertyId}
+          AND comment_id = #{commentId}
+          AND user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
+
+    <update id="softDeleteByUserId">
+        UPDATE property_comment
+        SET del_yn = 'Y'
+        WHERE user_id = #{userId}
+          AND del_yn = 'N'
+    </update>
 </mapper>

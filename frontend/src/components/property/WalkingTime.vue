@@ -13,7 +13,9 @@
           :aria-expanded="isOpen"
           @click.stop="isOpen = !isOpen"
       >
-        {{ isOpen ? '⌃' : '⌄' }}
+        <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path :d="isOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" />
+        </svg>
       </button>
     </div>
 
@@ -56,7 +58,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 
-const isOpen = ref(true);
+const isOpen = ref(false);
 
 const props = defineProps({
   amenities: {
@@ -95,13 +97,11 @@ const displayAmenities = computed(() =>
     })),
 );
 
-const getProgressWidth = (walkingTime) => {
-  const maxTime = Math.max(
-      ...displayAmenities.value.map((amenity) => amenity.walkingTime),
-      10
-  );
+const MAX_WALKING_TIME = 30;
 
-  return `${Math.min((walkingTime / maxTime) * 100, 100)}%`;
+const getProgressWidth = (walkingTime) => {
+  const minutes = Number(walkingTime) || 0;
+  return `${Math.min(Math.max(minutes, 0), MAX_WALKING_TIME) / MAX_WALKING_TIME * 100}%`;
 };
 </script>
 
@@ -154,6 +154,17 @@ const getProgressWidth = (walkingTime) => {
   color: #222;
 
   cursor: pointer;
+}
+
+.toggle-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
 }
 
 .amenity-list {

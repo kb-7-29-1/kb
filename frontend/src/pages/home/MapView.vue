@@ -12,7 +12,7 @@ import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 
-const emit = defineEmits(['open-filter']);
+const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
 const props = defineProps({
   appliedOnboardingFilters: {
     type: Object,
@@ -328,6 +328,7 @@ const handleToggleBookmark = async (id) => {
 // 편의시설 적용 핸들러
 const handleApplyAmenities = (selectedList) => {
   filterState.value.selectedAmenities = selectedList.map((a) => a.amenityType);
+  emit('apply-amenity-filters', selectedList);
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
@@ -395,7 +396,10 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           v-if="showAmenityFilter"
           class="pt-2 border-t border-slate-100 max-h-60 overflow-y-auto"
         >
-          <AmenityFilter @apply="handleApplyAmenities" />
+          <AmenityFilter
+            :applied-filters="props.appliedAmenityFilters"
+            @apply="handleApplyAmenities"
+          />
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
