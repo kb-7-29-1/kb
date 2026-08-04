@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import onboardingApi from '@/api/onboardingApi';
 
 const props = defineProps({
   modelValue: {
@@ -44,6 +45,11 @@ const appliedQuickFilters = computed(() => props.modelValue);
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
 const destinationSearchKeyword = ref('');
+const destinationSearchResults = ref([]);
+const selectedDestination = ref(null);
+const isDestinationSearching = ref(false);
+const destinationSearchError = ref('');
+let destinationSearchTimer;
 const depositOptions = [
   100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
 ];
@@ -81,6 +87,53 @@ const selectDestinationOption = (dest) => {
   activePopover.value = null;
 };
 
+const selectDestination = (destination) => {
+  selectedDestination.value = destination;
+  destinationSearchKeyword.value = destination.destName;
+  destinationSearchResults.value = [];
+  destinationSearchError.value = '';
+
+  // 적용 전까지는 로컬 임시 필터에만 저장한다.
+  filters.value.destination = destination.destName;
+  filters.value.destinationAddress = destination.destAddress;
+  filters.value.destinationLat = Number(destination.destLatitude);
+  filters.value.destinationLng = Number(destination.destLongitude);
+};
+
+const clearDestinationSearch = () => {
+  destinationSearchKeyword.value = '';
+  destinationSearchResults.value = [];
+  selectedDestination.value = null;
+  destinationSearchError.value = '';
+};
+
+watch(destinationSearchKeyword, (value) => {
+  clearTimeout(destinationSearchTimer);
+  destinationSearchError.value = '';
+
+  const keyword = value.trim();
+  if (selectedDestination.value?.destName !== value) selectedDestination.value = null;
+
+  if (keyword.length < 2 || selectedDestination.value?.destName === value) {
+    destinationSearchResults.value = [];
+    isDestinationSearching.value = false;
+    return;
+  }
+
+  destinationSearchTimer = setTimeout(async () => {
+    isDestinationSearching.value = true;
+    try {
+      destinationSearchResults.value = await onboardingApi.searchDestinations(keyword);
+    } catch (error) {
+      destinationSearchResults.value = [];
+      destinationSearchError.value = '목적지 검색에 실패했어요. 다시 시도해 주세요.';
+      console.error('QUICK FILTER DESTINATION SEARCH ERROR:', error);
+    } finally {
+      isDestinationSearching.value = false;
+    }
+  }, 300);
+});
+
 // props 변경 감지
 watch(
   () => props.modelValue,
@@ -92,9 +145,14 @@ watch(
       flexTime: 10,
       ...newVal,
     };
+    selectedDestination.value = null;
+    destinationSearchKeyword.value = '';
+    destinationSearchResults.value = [];
   },
   { deep: true },
 );
+
+onBeforeUnmount(() => clearTimeout(destinationSearchTimer));
 
 // 필터 상태 변경 시 부모로 전달
 const updateFilters = () => {
@@ -241,18 +299,65 @@ const safetyAccentClass = computed(() => {
               type="button"
               class="flex h-6 w-6 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
               aria-label="검색어 지우기"
-              @click="destinationSearchKeyword = ''"
+              @click="clearDestinationSearch"
             >
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </label>
-          <div class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400">
+          <p v-if="isDestinationSearching" class="mt-3 text-center text-xs text-slate-400">
+            검색 중이에요.
+          </p>
+          <p v-else-if="destinationSearchError" class="mt-3 text-center text-xs text-red-500">
+            {{ destinationSearchError }}
+          </p>
+          <ul
+            v-else-if="destinationSearchResults.length"
+            class="mt-3 max-h-52 overflow-y-auto rounded-xl border border-slate-100"
+          >
+            <li
+              v-for="item in destinationSearchResults"
+              :key="`${item.destName}-${item.destAddress}`"
+              class="border-b border-slate-100 last:border-0"
+            >
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 px-3 py-3 text-left transition-colors hover:bg-blue-50"
+                @click="selectDestination(item)"
+              >
+                <i class="fa-solid fa-location-dot text-blue-500" aria-hidden="true"></i>
+                <span class="min-w-0 flex-1">
+                  <strong class="block truncate text-xs text-slate-800">{{ item.destName }}</strong>
+                  <small class="block truncate text-[11px] text-slate-400">{{
+                    item.destAddress
+                  }}</small>
+                </span>
+                <i
+                  class="fa-solid fa-chevron-right text-[10px] text-slate-300"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </li>
+          </ul>
+          <p
+            v-else-if="destinationSearchKeyword.trim().length >= 2"
+            class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
+          >
+            검색 결과가 없어요.
+          </p>
+          <div
+            v-else
+            class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
+          >
             장소명 또는 주소를 입력하면<br />검색 결과가 표시됩니다.
           </div>
           <button
             type="button"
             class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
-            @click="activePopover = null"
+            @click="
+              updateFilters();
+              emit('apply');
+              activePopover = null;
+            "
           >
             적용하기
           </button>
