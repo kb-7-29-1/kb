@@ -20,6 +20,7 @@ public class PropertyListDTO {
     private Integer monthlyRent;   // 월세 (만원)
     private Double area;           // 전용면적 (m2)
     private Integer floor;          // 층수
+    private String builtYear;      // 준공연도 (YYYY)
     private String address;
     private Double latitude;       // 위도
     private Double longitude;      // 경도
