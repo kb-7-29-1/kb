@@ -108,13 +108,13 @@ const handleApply = async () => {
 
 <style scoped>
 .filter-overlay {
-  --map-header-height: 64px;
+  --map-header-height: 56px;
   position: fixed;
   top: var(--map-header-height);
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 50;
+  z-index: 60;
   overflow: hidden;
   background: #fff;
 }

@@ -133,10 +133,7 @@ const renderMarkers = () => {
     if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
 
     const amenityMarker = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(
-        amenity.amenityLatitude,
-        amenity.amenityLongitude,
-      ),
+      position: new window.naver.maps.LatLng(amenity.amenityLatitude, amenity.amenityLongitude),
       map: mapInstance.value,
       icon: {
         content: renderAmenityPin(amenity),
