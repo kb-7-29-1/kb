@@ -10,8 +10,15 @@ import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
 import { mockProperties } from '@/mock/mockProperties.js';
+import amenityService from '@/api/amenityService.js';
 
 const emit = defineEmits(['open-filter']);
+const props = defineProps({
+  appliedAmenityFilters: {
+    type: Array,
+    default: () => [],
+  },
+});
 
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
@@ -35,6 +42,9 @@ const isPanelOpen = ref(false);
 
 // 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
 const properties = ref([...mockProperties]);
+const amenitiesByProperty = ref({});
+const amenityFilterLoading = ref(false);
+let amenityRequestSequence = 0;
 
 // 백엔드 실제 DB 매물 API 조회 (실패 시 mockProperties 백업 자동 유지)
 const fetchPropertiesFromBackend = async () => {
@@ -60,6 +70,43 @@ const appliedFilterState = ref({ ...filterState.value });
 const handleApplyFilters = () => {
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
 };
+
+const loadAmenitiesForProperties = async () => {
+  // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
+  const filters = props.appliedAmenityFilters;
+  const propertyIds = properties.value
+    .map((property) => property.propertyId)
+    .filter((propertyId) => propertyId != null);
+
+  if (!filters.length || !propertyIds.length) {
+    amenitiesByProperty.value = {};
+    return;
+  }
+
+  const sequence = ++amenityRequestSequence;
+  amenityFilterLoading.value = true;
+  try {
+    const result = await amenityService.filterProperties(propertyIds, filters);
+    if (sequence === amenityRequestSequence) {
+      amenitiesByProperty.value = result;
+    }
+  } catch (error) {
+    if (sequence === amenityRequestSequence) {
+      amenitiesByProperty.value = {};
+      console.error('AMENITY FILTER LOAD ERROR:', error);
+    }
+  } finally {
+    if (sequence === amenityRequestSequence) {
+      amenityFilterLoading.value = false;
+    }
+  }
+};
+
+watch(
+  [() => props.appliedAmenityFilters, properties],
+  loadAmenitiesForProperties,
+  { deep: true },
+);
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
 watch(
@@ -147,6 +194,15 @@ const sortedProperties = computed(() => {
       if (distKm > maxReachKm) return false;
     }
 
+    if (props.appliedAmenityFilters.length && !amenityFilterLoading.value) {
+      const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
+      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+      const requiredTypes = new Set(
+        props.appliedAmenityFilters.map((filter) => filter.amenityType),
+      );
+      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
+    }
+
     return true;
   });
 
@@ -171,6 +227,12 @@ const handleSelectProperty = (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
 };
+
+const selectedPropertyAmenities = computed(() => {
+  // 상세 패널과 지도 핀은 같은 선택 매물의 편의시설 결과를 사용한다.
+  if (!selectedProperty.value) return [];
+  return amenitiesByProperty.value[selectedProperty.value.propertyId] ?? [];
+});
 
 // 찜 토글
 const handleToggleBookmark = async (id) => {
@@ -311,6 +373,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <NaverMap
         :properties="sortedProperties"
         :selected-property="selectedProperty"
+        :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
         :show-isochrone="filterState.showIsochrone"
         :transport-mode="filterState.transportMode || 'WALK'"
@@ -325,6 +388,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
     <SlidingDoorPanel
       :is-open="isPanelOpen"
       :property="selectedProperty"
+      :amenities="selectedPropertyAmenities"
       @close="isPanelOpen = false"
       @toggle-bookmark="handleToggleBookmark"
     />
