@@ -4,6 +4,7 @@ import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
 import PropertyPin from './PropertyPin.vue';
 import DestinationPin from './DestinationPin.vue';
+import { getClusteredMarkers, renderClusterPinHTML } from '@/utils/mapClustering';
 
 const props = defineProps({
   properties: {
@@ -106,7 +107,7 @@ const renderDestinationPin = (destination) => {
   `;
 };
 
-// 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀) 렌더링
+// 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
 const renderMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
 
@@ -114,12 +115,15 @@ const renderMarkers = () => {
   markersMap.value.forEach((m) => m.setMap(null));
   markersMap.value = [];
 
+  const bounds = mapInstance.value.getBounds();
+  const currentZoom = mapInstance.value.getZoom();
+
   const destLatLng = new window.naver.maps.LatLng(
     props.destination.lat || 37.5502,
     props.destination.lng || 127.0731,
   );
 
-  // 2. 🚩 주 목적지 핀 (naver.maps.Marker + DestinationPin.vue)
+  // 2. 🚩 주 목적지 핀
   const destMarker = new window.naver.maps.Marker({
     position: destLatLng,
     map: mapInstance.value,
@@ -129,35 +133,65 @@ const renderMarkers = () => {
   });
   markersMap.value.push(destMarker);
 
-  // 3. 🏠 백엔드 연동 매물 마커 핀 (naver.maps.Marker + PropertyPin.vue)
-  props.properties.forEach((prop) => {
-    if (!prop.latitude || !prop.longitude) return;
+  // 3. 🏢 / 🏠 매물 및 클러스터 마커 렌더링
+  const clusteredNodes = getClusteredMarkers(props.properties, currentZoom, bounds);
 
-    const isSelected =
-      props.selectedProperty &&
-      props.selectedProperty.propertyId === prop.propertyId;
+  clusteredNodes.forEach((node) => {
+    if (node.isCluster) {
+      const clusterMarker = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(node.lat, node.lng),
+        map: mapInstance.value,
+        icon: {
+          content: renderClusterPinHTML(node.count),
+        },
+      });
 
-    const propMarker = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
-      map: mapInstance.value,
-      icon: {
-        content: renderPropertyPin(prop, isSelected),
-      },
-    });
+      // 클러스터 클릭 시 해당 그룹 영역으로 줌인
+      window.naver.maps.Event.addListener(clusterMarker, 'click', () => {
+        if (mapInstance.value) {
+          mapInstance.value.morph(
+            new window.naver.maps.LatLng(node.lat, node.lng),
+            currentZoom + 2,
+          );
+        }
+      });
 
-    window.naver.maps.Event.addListener(propMarker, 'click', () => {
-      emit('select-property', prop);
-    });
+      markersMap.value.push(clusterMarker);
+    } else {
+      const prop = node.item;
+      const isSelected =
+        props.selectedProperty &&
+        props.selectedProperty.propertyId === prop.propertyId;
 
-    markersMap.value.push(propMarker);
+      const propMarker = new window.naver.maps.Marker({
+        position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
+        map: mapInstance.value,
+        icon: {
+          content: renderPropertyPin(prop, isSelected),
+        },
+      });
+
+      window.naver.maps.Event.addListener(propMarker, 'click', () => {
+        emit('select-property', prop);
+      });
+
+      markersMap.value.push(propMarker);
+    }
   });
 
+  // 4. 편의시설 마커
   props.amenities.forEach((amenity) => {
     if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
       return;
 
+    const amenityLatLng = new window.naver.maps.LatLng(
+      amenity.amenityLatitude,
+      amenity.amenityLongitude,
+    );
+    if (bounds && !bounds.hasLatLng(amenityLatLng)) return;
+
     const amenityMarker = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(amenity.amenityLatitude, amenity.amenityLongitude),
+      position: amenityLatLng,
       map: mapInstance.value,
       icon: {
         content: renderAmenityPin(amenity),
@@ -198,6 +232,11 @@ const initMap = () => {
         center: centerLatLng,
         zoom: zoomLevel.value,
         zoomControl: false,
+      });
+
+      // 지도 드래그/확대/축소 완료 시 가시 영역 및 클러스팅 핀 자동 재계산
+      window.naver.maps.Event.addListener(mapInstance.value, 'idle', () => {
+        renderMarkers();
       });
 
       renderMarkers();
