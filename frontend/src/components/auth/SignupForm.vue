@@ -124,8 +124,8 @@ const handleSignup = async () => {
       />
     </div>
 
-    <div class="flex gap-4">
-      <div class="flex-[1.8]">
+    <div class="signup-birth-gender-row flex gap-4">
+      <div class="signup-birth-field flex-[1.8]">
         <label class="block text-sm text-gray-600 mb-1">출생연도</label>
         <div class="birth-date-field relative">
           <i
@@ -137,11 +137,12 @@ const handleSignup = async () => {
             v-model="form.birthDate"
             type="date"
             class="w-full border rounded-lg py-3 pl-9 pr-4"
+            :class="{ 'is-empty': !form.birthDate }"
             required
           />
         </div>
       </div>
-      <div class="flex-[0.8]">
+      <div class="signup-gender-field flex-[0.8]">
         <label class="block text-sm text-gray-600 mb-1">성별</label>
         <div class="gender-select flex h-12 gap-2">
           <button
@@ -199,6 +200,98 @@ const handleSignup = async () => {
 </template>
 
 <style scoped>
+@media (min-width: 481px) {
+  .signup-form {
+    gap: 16px;
+  }
+
+  .signup-form > div:has(> .signup-field-icon) {
+    position: relative;
+  }
+
+  .signup-field-icon {
+    position: absolute;
+    top: 49px;
+    left: 14px;
+    z-index: 1;
+    color: #9aa6bf;
+    font-size: 13px;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .signup-field-icon--login-id {
+    top: 49px;
+  }
+
+  .signup-form input:not([type='date']) {
+    min-height: 48px;
+    padding-left: 38px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .signup-form input[type='date'] {
+    border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .signup-form input[type='date'].is-empty {
+    color: transparent;
+  }
+
+  .signup-form input[type='date'].is-empty::-webkit-datetime-edit {
+    color: transparent;
+  }
+
+  .signup-form input:focus {
+    border-color: #4058f5;
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(64 88 245 / 12%);
+  }
+
+  .signup-form .flex > button[type='button'] {
+    min-height: 48px;
+    border-radius: 12px;
+  }
+
+  .signup-birth-gender-row {
+    align-items: flex-end;
+  }
+
+  .signup-birth-field,
+  .signup-gender-field {
+    min-width: 0;
+  }
+
+  .birth-date-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 36px;
+    z-index: 1;
+    padding-right: 4px;
+    background: #fff;
+    color: #a7afbd;
+    font-size: 13px;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .gender-select button {
+    border-radius: 12px;
+    font-size: 13px;
+  }
+
+  .signup-submit-area {
+    margin-top: 12px;
+  }
+
+  .signup-submit-area button {
+    min-height: 60px;
+    border-radius: 12px;
+  }
+}
+
 @media (max-width: 480px) {
   .signup-form {
     flex: 1;

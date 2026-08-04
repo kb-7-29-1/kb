@@ -322,6 +322,10 @@ const showFindModal = ref(false);
     display: none;
   }
 
+  .signup-back-button {
+    display: none;
+  }
+
   .auth-card--login .auth-heading {
     margin-bottom: 34px;
   }
