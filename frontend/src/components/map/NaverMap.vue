@@ -2,6 +2,8 @@
 import { createApp, ref, shallowRef, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
+import PropertyPin from './PropertyPin.vue';
+import DestinationPin from './DestinationPin.vue';
 
 const props = defineProps({
   properties: {
@@ -63,6 +65,47 @@ const renderAmenityPin = (amenity) => {
   return content;
 };
 
+// 매물 마커 핀 (PropertyPin 컴포넌트 렌더링)
+const renderPropertyPin = (prop, isSelected) => {
+  const depositNum = prop.deposit ? Math.round(prop.deposit / 1000) : 0;
+  const priceText = prop.monthlyRent
+    ? `${depositNum}천/${prop.monthlyRent}`
+    : `전세 ${depositNum}천`;
+  const bgClass = isSelected
+    ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
+    : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10';
+  const icon = isSelected ? '📍' : '🏠';
+
+  const isDb = prop.dataSource === 'DB';
+  const tagBg = isDb
+    ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/40'
+    : 'bg-indigo-500/30 text-indigo-300 border-indigo-400/40';
+  const tagText = isDb ? 'DB' : '공공';
+
+  return `
+    <div class="px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-lg border transition-all cursor-pointer flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-full select-none ${bgClass}">
+      <span>${icon}</span>
+      <span>${priceText}</span>
+      <span class="text-[10px] px-1 py-0.2 rounded border font-bold ${tagBg}">${tagText}</span>
+    </div>
+  `;
+};
+
+// 목적지 마커 핀 (DestinationPin 컴포넌트 렌더링)
+const renderDestinationPin = (destination) => {
+  const name = destination?.name || '주 목적지';
+  return `
+    <div class="flex flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
+      <div class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-bold text-xs shadow-xl flex items-center gap-1.5 border border-blue-400 hover:bg-blue-700 transition-all">
+        <span class="inline-block animate-bounce">🚩</span>
+        <span>${name}</span>
+      </div>
+      <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
+      <div class="w-8 h-8 bg-black/20 rounded-full blur-xs mt-1"></div>
+    </div>
+  `;
+};
+
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀) 렌더링
 const renderMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
@@ -76,49 +119,29 @@ const renderMarkers = () => {
     props.destination.lng || 127.0731,
   );
 
-  // 2. 🚩 주 목적지 핀 (naver.maps.Marker)
+  // 2. 🚩 주 목적지 핀 (naver.maps.Marker + DestinationPin.vue)
   const destMarker = new window.naver.maps.Marker({
     position: destLatLng,
     map: mapInstance.value,
     icon: {
-      content: `
-        <div class="flex flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full">
-          <div class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-bold text-xs shadow-xl flex items-center gap-1.5 animate-bounce border border-blue-400">
-            <span>🚩</span>
-            <span>${props.destination.name || '주 목적지'}</span>
-          </div>
-          <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
-          <div class="w-8 h-3 bg-black/20 rounded-full blur-xs mt-1"></div>
-        </div>
-      `,
+      content: renderDestinationPin(props.destination),
     },
   });
   markersMap.value.push(destMarker);
 
-  // 3. 🏠 매물 마커 핀 목록 (naver.maps.Marker)
+  // 3. 🏠 백엔드 연동 매물 마커 핀 (naver.maps.Marker + PropertyPin.vue)
   props.properties.forEach((prop) => {
     if (!prop.latitude || !prop.longitude) return;
+
     const isSelected =
-      props.selectedProperty && props.selectedProperty.propertyId === prop.propertyId;
-    const depositNum = prop.deposit ? Math.round(prop.deposit / 1000) : 0;
-    const priceText = prop.monthlyRent
-      ? `${depositNum}천/${prop.monthlyRent}`
-      : `전세 ${depositNum}천`;
+      props.selectedProperty &&
+      props.selectedProperty.propertyId === prop.propertyId;
 
     const propMarker = new window.naver.maps.Marker({
       position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
       map: mapInstance.value,
       icon: {
-        content: `
-          <div class="px-3 py-1.5 rounded-2xl text-xs font-black shadow-lg border transition-all cursor-pointer flex items-center gap-1 transform -translate-x-1/2 -translate-y-full ${
-            isSelected
-              ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
-              : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10'
-          }">
-            <span>${isSelected ? '📍' : '🏠'}</span>
-            <span>${priceText}</span>
-          </div>
-        `,
+        content: renderPropertyPin(prop, isSelected),
       },
     });
 
@@ -130,7 +153,8 @@ const renderMarkers = () => {
   });
 
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
+      return;
 
     const amenityMarker = new window.naver.maps.Marker({
       position: new window.naver.maps.LatLng(
@@ -204,7 +228,13 @@ watch(
 watch(
   () => props.destination,
   (newDest) => {
-    if (mapInstance.value && window.naver && window.naver.maps && newDest?.lat && newDest?.lng) {
+    if (
+      mapInstance.value &&
+      window.naver &&
+      window.naver.maps &&
+      newDest?.lat &&
+      newDest?.lng
+    ) {
       const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
       mapInstance.value.panTo(newCenter, {
         duration: 800,
