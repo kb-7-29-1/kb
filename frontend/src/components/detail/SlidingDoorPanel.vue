@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue';
-import WalkingTime from "@/components/property/WalkingTime.vue";
+import WalkingTime from '@/components/property/WalkingTime.vue';
 
 const props = defineProps({
   isOpen: {
@@ -10,6 +10,10 @@ const props = defineProps({
   property: {
     type: Object,
     default: null,
+  },
+  amenities: {
+    type: Array,
+    default: () => [],
   },
 });
 
