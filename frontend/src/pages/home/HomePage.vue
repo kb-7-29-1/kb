@@ -11,6 +11,7 @@ const authStore = useAuthStore();
 const isFilterOpen = ref(false);
 const appliedOnboardingFilters = ref(null);
 const appliedAmenityFilters = ref([]);
+const filterResetVersion = ref(0);
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -29,6 +30,7 @@ const applyFilters = ({ onboarding, amenities }) => {
 const resetFilters = () => {
   appliedOnboardingFilters.value = null;
   appliedAmenityFilters.value = [];
+  filterResetVersion.value += 1;
 };
 
 const goMyPage = () => {
@@ -47,7 +49,12 @@ const goMyPage = () => {
         {{ authStore.user?.name?.charAt(0) || '나' }}
       </button>
     </header>
-    <MapView :applied-amenity-filters="appliedAmenityFilters" @open-filter="openFilter" />
+    <MapView
+      :applied-onboarding-filters="appliedOnboardingFilters"
+      :applied-amenity-filters="appliedAmenityFilters"
+      :filter-reset-version="filterResetVersion"
+      @open-filter="openFilter"
+    />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
     <!--
