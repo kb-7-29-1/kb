@@ -49,9 +49,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const emit = defineEmits(['close', 'apply']);
+const props = defineProps({
+  appliedFilters: {
+    type: Array,
+    default: () => [],
+  },
+});
 
 const activeTab = ref('amenity');
 
@@ -104,6 +110,17 @@ const resetFilters = () => {
     item.timeLimit = 15;
   });
 };
+
+// 필터 패널을 닫았다 다시 열어도 마지막 적용값을 그대로 복원합니다.
+const restoreAppliedFilters = (filters = []) => {
+  amenities.value.forEach((item) => {
+    const applied = filters.find((filter) => Number(filter.amenityType) === item.amenityType);
+    item.selected = Boolean(applied);
+    item.timeLimit = applied ? Number(applied.walkTimeMinutes ?? 15) : 15;
+  });
+};
+
+watch(() => props.appliedFilters, restoreAppliedFilters, { immediate: true, deep: true });
 
 // 적용완료 버튼 함수
 const getFilters = () => {

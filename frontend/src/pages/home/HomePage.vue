@@ -104,6 +104,7 @@ const goMyPage = () => {
       <FilterPanel
         v-if="isFilterOpen"
         :applied-filters="appliedOnboardingFilters"
+        :applied-amenity-filters="appliedAmenityFilters"
         @close="closeFilter"
         @apply="applyFilters"
         @reset="resetFilters"

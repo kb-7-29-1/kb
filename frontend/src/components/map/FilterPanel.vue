@@ -12,6 +12,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  appliedAmenityFilters: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const activeTab = ref('all');
@@ -35,7 +39,6 @@ const loadOnboardingSummary = async () => {
 onMounted(loadOnboardingSummary);
 
 const handleReset = async () => {
-  activeTab.value = 'all';
   emit('reset');
 
   await loadOnboardingSummary();
@@ -96,7 +99,11 @@ const handleApply = async () => {
           :onboarding="onboarding"
           :applied-filters="props.appliedFilters"
         />
-        <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
+        <AmenityFilter
+          v-show="activeTab === 'amenity'"
+          ref="amenityFilterRef"
+          :applied-filters="props.appliedAmenityFilters"
+        />
       </div>
 
       <p v-if="applyError" class="apply-error">{{ applyError }}</p>
