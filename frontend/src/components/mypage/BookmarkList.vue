@@ -1,8 +1,10 @@
 <script setup>
 import api from '@/api/api.js';
 import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const bookmarks = ref([]);
+const router = useRouter();
 
 const fetchBookmarks = async () => {
   const response = await api.get('/bookmark');
@@ -12,6 +14,15 @@ const fetchBookmarks = async () => {
 const removeBookmark = async (propertyId) => {
   await api.delete(`/bookmark/${propertyId}`);
   await fetchBookmarks();
+};
+
+const openPropertyDetail = (property) => {
+  sessionStorage.setItem('selectedBookmarkProperty', JSON.stringify(property));
+
+  router.push({
+    name: 'home',
+    query: { propertyId: String(property.propertyId) },
+  });
 };
 
 const safetyBadgeClass = (score) => {
@@ -32,8 +43,16 @@ onMounted(fetchBookmarks);
     <div v-if="bookmarks.length === 0" class="text-gray-400 text-sm text-center py-8">
       찜한 매물이 없습니다.
     </div>
-    <div v-else class="max-h-48 overflow-y-auto space-y-3 pr-1">
-      <div v-for="item in bookmarks" :key="item.propertyId" class="bookmark-item">
+    <div v-else class="bookmark-scroll-list overflow-y-auto space-y-3 pr-1">
+      <div
+        v-for="item in bookmarks"
+        :key="item.propertyId"
+        class="bookmark-item"
+        role="button"
+        tabindex="0"
+        @click="openPropertyDetail(item)"
+        @keydown.enter="openPropertyDetail(item)"
+      >
         <div class="bookmark-item__content">
           <div class="bookmark-item__tags">
             <span class="property-type-tag">{{ item.buildingTypeTag }}</span>
@@ -51,7 +70,7 @@ onMounted(fetchBookmarks);
             type="button"
             class="bookmark-remove-button"
             aria-label="관심 매물에서 삭제"
-            @click="removeBookmark(item.propertyId)"
+            @click.stop="removeBookmark(item.propertyId)"
           >
             <i class="fa-solid fa-heart" aria-hidden="true"></i>
           </button>
@@ -80,6 +99,11 @@ onMounted(fetchBookmarks);
 
 .bookmark-title span {
   color: #4767f7;
+}
+
+.bookmark-scroll-list {
+  max-height: 296px;
+  padding: 2px;
 }
 
 .bookmark-item {
