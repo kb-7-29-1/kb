@@ -25,6 +25,7 @@ const sortOptions = [
 
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
 const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
+const isQuickFilterReady = ref(false);
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
 const showAmenityFilter = ref(false);
@@ -50,14 +51,20 @@ const fetchPropertiesFromBackend = async () => {
 
 onMounted(async () => {
   await loadOnboardingDefaultFilters();
-  await fetchPropertiesFromBackend();
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  isQuickFilterReady.value = true;
+  await fetchPropertiesFromBackend();
 });
 
 // 적용 버튼 클릭 시에만 갱신되는 매물 마커 전용 확정 필터 상태
 const appliedFilterState = ref({ ...filterState.value });
 
 const handleApplyFilters = () => {
+  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+};
+
+const handleResetFilters = async () => {
+  await loadOnboardingDefaultFilters();
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
 };
 
@@ -299,12 +306,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
       <div class="absolute top-4 left-4 z-30 pointer-events-none">
         <MapQuickFilterBar
+          v-if="isQuickFilterReady"
           v-model="filterState"
           :total-count="sortedProperties.length"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
           @apply="handleApplyFilters"
           @update-filters="handleApplyFilters"
+          @reset="handleResetFilters"
         />
       </div>
 

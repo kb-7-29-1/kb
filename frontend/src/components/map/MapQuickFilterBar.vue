@@ -36,6 +36,10 @@ const filters = ref({
   ...props.modelValue,
 });
 
+// 팝오버 안에서 조절 중인 filters와, 실제 적용된 modelValue를 분리한다.
+// 퀵버튼 라벨은 적용된 값만 보여 주고, 팝오버 안에서는 임시값을 자유롭게 조절한다.
+const appliedQuickFilters = computed(() => props.modelValue);
+
 // 모바일 바텀시트 모달 상태
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
@@ -110,23 +114,7 @@ const toggleIsochrone = () => {
 
 // 필터 초기화
 const handleReset = () => {
-  filters.value = {
-    destination: '세종대학교',
-    destinationLat: 37.5502,
-    destinationLng: 127.0731,
-    tradeType: 'MONTHLY',
-    maxDeposit: 5000,
-    maxRent: 100,
-    minSafetyScore: 0,
-    transportMode: 'WALK',
-    travelTime: 15,
-    walkPace: 'NORMAL',
-    flexTime: 10,
-    showIsochrone: true,
-    selectedAmenities: [],
-  };
   activePopover.value = null;
-  updateFilters();
   emit('reset');
 };
 
@@ -151,9 +139,10 @@ const activeFilterCount = computed(() => {
 
 // 가격 요약 텍스트
 const priceSummaryText = computed(() => {
-  const deposit = filters.value.maxDeposit === 10000 ? '1억' : filters.value.maxDeposit;
-  if (filters.value.maxRent === 0) return `전세: ${deposit}`;
-  return `월세: ${deposit}/${filters.value.maxRent}`;
+  const { maxDeposit, maxRent } = appliedQuickFilters.value;
+  const deposit = maxDeposit === 10000 ? '1억' : maxDeposit;
+  if (maxRent === 0) return `전세: ${deposit}`;
+  return `월세: ${deposit}/${maxRent}`;
 });
 
 const depositIndex = computed({
@@ -190,10 +179,10 @@ const safetyThumbColor = computed(() => {
 });
 
 const safetyAccentClass = computed(() => {
-  if (filters.value.minSafetyScore >= 80) {
+  if (appliedQuickFilters.value.minSafetyScore >= 80) {
     return 'bg-emerald-50 text-emerald-700 border-emerald-300 font-extrabold';
   }
-  if (filters.value.minSafetyScore > 0) {
+  if (appliedQuickFilters.value.minSafetyScore > 0) {
     return 'bg-amber-50 text-amber-700 border-amber-300 font-extrabold';
   }
   return 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200';
@@ -215,7 +204,7 @@ const safetyAccentClass = computed(() => {
         >
           <span class="flex items-center gap-1">
             <span class="text-blue-600">📍</span>
-            <span class="whitespace-nowrap">목적지: {{ filters.destination }}</span>
+            <span class="whitespace-nowrap">목적지: {{ appliedQuickFilters.destination }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
         </button>
@@ -281,7 +270,9 @@ const safetyAccentClass = computed(() => {
           <span class="flex items-center gap-1">
             <span>🛡️</span>
             <span class="whitespace-nowrap">{{
-              filters.minSafetyScore > 0 ? `안전: ${filters.minSafetyScore}점 이상` : '안전: 무관'
+              appliedQuickFilters.minSafetyScore > 0
+                ? `안전: ${appliedQuickFilters.minSafetyScore}점 이상`
+                : '안전: 무관'
             }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
@@ -335,7 +326,6 @@ const safetyAccentClass = computed(() => {
                     ? `linear-gradient(to right, ${filters.minSafetyScore >= 80 ? '#10b981' : '#f59e0b'} 0%, ${filters.minSafetyScore >= 80 ? '#10b981' : '#f59e0b'} ${(filters.minSafetyScore / 90) * 100}%, #e2e8f0 ${(filters.minSafetyScore / 90) * 100}%, #e2e8f0 100%)`
                     : '#e2e8f0',
               }"
-              @input="updateFilters"
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>0점</span>
@@ -357,10 +347,7 @@ const safetyAccentClass = computed(() => {
                     : 'bg-amber-500 text-white border-amber-500 font-black shadow-sm'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100',
               ]"
-              @click="
-                filters.minSafetyScore = score;
-                updateFilters();
-              "
+              @click="filters.minSafetyScore = score"
             >
               {{ score }}점+
             </button>
@@ -386,7 +373,7 @@ const safetyAccentClass = computed(() => {
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
-            filters.maxDeposit < 10000 || filters.maxRent < 150
+            appliedQuickFilters.maxDeposit < 10000 || appliedQuickFilters.maxRent < 150
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
@@ -478,15 +465,15 @@ const safetyAccentClass = computed(() => {
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[158px]"
           :class="[
-            filters.transportMode === 'WALK'
+            appliedQuickFilters.transportMode === 'WALK'
               ? 'bg-blue-600 text-white border-blue-600 font-black'
               : 'bg-blue-600 text-white border-blue-600 font-black',
           ]"
           @click="togglePopover('travel')"
         >
           <span class="whitespace-nowrap"
-            >{{ filters.transportMode === 'WALK' ? '🚶 도보' : '🚌 대중교통' }}:
-            {{ filters.travelTime }}분 이내</span
+            >{{ appliedQuickFilters.transportMode === 'WALK' ? '🚶 도보' : '🚌 대중교통' }}:
+            {{ appliedQuickFilters.travelTime }}분 이내</span
           >
           <span class="text-[10px] opacity-80">▼</span>
         </button>
@@ -587,7 +574,6 @@ const safetyAccentClass = computed(() => {
                 if (filters.transportMode === 'TRANSIT' && filters.flexTime > filters.travelTime) {
                   filters.flexTime = filters.travelTime;
                 }
-                updateFilters();
               "
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
@@ -612,7 +598,6 @@ const safetyAccentClass = computed(() => {
               step="5"
               class="w-full appearance-none cursor-pointer quick-range-input"
               :style="rangeStyle(filters.flexTime, 5, Math.min(30, filters.travelTime), '#f59e0b')"
-              @input="updateFilters"
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>5분</span>
