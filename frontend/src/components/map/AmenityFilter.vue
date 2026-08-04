@@ -60,10 +60,17 @@
 </template>
 
 <script setup>
-import {ref, computed} from 'vue';
+import { ref, computed, watch } from 'vue';
 import FilterBottomBar from './FilterBottomBar.vue';
 
 const emit = defineEmits(['close', 'apply']);
+
+const props = defineProps({
+  appliedFilters: {
+    type: Array,
+    default: () => [],
+  },
+});
 
 const activeTab = ref('amenity');
 
@@ -82,6 +89,22 @@ const amenities = ref([
 const selectedAmenities = computed(() => {
   return amenities.value.filter(item => item.selected);
 });
+
+const applySavedFilters = (filters) => {
+  const savedByType = new Map(filters.map((filter) => [filter.amenityType, filter]));
+
+  amenities.value.forEach((item) => {
+    const saved = savedByType.get(item.amenityType);
+    item.selected = Boolean(saved);
+    item.timeLimit = saved ? Number(saved.walkTimeMinutes) : 15;
+  });
+};
+
+watch(
+  () => props.appliedFilters,
+  (filters) => applySavedFilters(filters),
+  { immediate: true, deep: true },
+);
 
 // 편의시설 선택 토글 함수
 const toggleAmenity = (item) => {
