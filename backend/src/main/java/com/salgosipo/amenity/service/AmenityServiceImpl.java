@@ -25,15 +25,11 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
-    private final AmenityCalculationQueue amenityCalculationQueue;
-
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
-            AmenityCalculationQueue amenityCalculationQueue,
             @Value("${TMAP_API_KEY}") String tmapApiKey
     ) {
         this.amenityMapper = amenityMapper;
-        this.amenityCalculationQueue = amenityCalculationQueue;
         this.walkingApiClient = new WalkingApiClient(tmapApiKey);
     }
 
@@ -136,17 +132,6 @@ public class AmenityServiceImpl implements AmenityService {
             if (!isValidRequest(request)) {
                 continue;
             }
-            if (request.getPropertyId() != null) {
-                List<AmenityResponseDTO> cachedAmenities = getCachedAmenities(request.getPropertyId());
-                Set<Integer> cachedTypes = new HashSet<>();
-                cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
-
-            amenitiesByProperty.put(
-                        request.getPropertyId(),
-                        filterByRequest(cachedAmenities, request.getAmenities())
-                );
-                continue;
-            }
             try {
                 amenitiesByProperty.put(request.getPropertyId(), getAmenitiesByFilter(request));
             } catch (RuntimeException e) {
@@ -156,32 +141,6 @@ public class AmenityServiceImpl implements AmenityService {
             }
         }
         return amenitiesByProperty;
-    }
-
-    @Override
-    public String startCalculationJob(List<AmenityRequestDTO> requests) {
-        List<AmenityCalculationQueue.Task> tasks = new ArrayList<>();
-        if (requests != null) {
-            for (AmenityRequestDTO request : requests) {
-                if (!isValidRequest(request)) continue;
-
-                Set<Integer> cachedTypes = new HashSet<>();
-                getCachedAmenities(request.getPropertyId())
-                        .forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
-
-                request.getAmenities().stream()
-                        .filter(filter -> !cachedTypes.contains(filter.getAmenityType()))
-                        .forEach(filter -> tasks.add(new AmenityCalculationQueue.Task(
-                                request.getPropertyId(), filter, null
-                        )));
-            }
-        }
-        return amenityCalculationQueue.createJob(tasks);
-    }
-
-    @Override
-    public String getCalculationStatus(String jobId) {
-        return amenityCalculationQueue.getJobStatus(jobId);
     }
 
     private boolean isValidRequest(AmenityRequestDTO request) {
