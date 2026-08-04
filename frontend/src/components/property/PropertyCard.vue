@@ -84,6 +84,16 @@ const safetyGradeText = computed(() => {
     <div class="flex-1 flex flex-col justify-between min-w-0">
       <div>
         <div class="flex items-center gap-1.5 mb-1">
+          <span
+            class="px-1.5 py-0.5 rounded text-[11px] font-bold"
+            :class="
+              property.dataSource === 'DB'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                : 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+            "
+          >
+            {{ property.dataSource === 'DB' ? '🗄️ DB' : '🌐 공공' }}
+          </span>
           <span class="px-1.5 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600">
             {{ buildingTypeText }} · {{ roomTypeText }}
           </span>

@@ -490,6 +490,7 @@ const safetyAccentClass = computed(() => {
             class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
             @click="
               updateFilters();
+              emit('apply');
               activePopover = null;
             "
           >
@@ -582,6 +583,7 @@ const safetyAccentClass = computed(() => {
             class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
             @click="
               updateFilters();
+              emit('apply');
               activePopover = null;
             "
           >

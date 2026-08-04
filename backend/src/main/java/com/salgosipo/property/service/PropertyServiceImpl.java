@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import java.util.Collections;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -20,11 +22,19 @@ public class PropertyServiceImpl implements PropertyService {
 
     @Override
     public List<PropertyListDTO> getPropertyList(PropertySearchCondDTO cond, Long userId) {
-        List<PropertyListDTO> list = propertyMapper.selectPropertyList(cond, userId);
-        if (list == null || list.isEmpty()) {
-            return publicDataApiService.getGwangjinMonthlyProperties();
+        try {
+            List<PropertyListDTO> list = propertyMapper.selectPropertyList(cond, userId);
+            if (list != null && list.size() >= 5) {
+                list.forEach(item -> item.setDataSource("DB"));
+                return list;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-        return list;
+
+        Double centerLat = cond != null ? cond.getLat() : null;
+        Double centerLng = cond != null ? cond.getLng() : null;
+        return publicDataApiService.getGwangjinMonthlyProperties(centerLat, centerLng);
     }
 
     @Override
