@@ -12,8 +12,15 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,7 +60,8 @@ public class PublicDataSyncService {
     };
 
     /**
-     * 서울시 전역 25개 자치구 x 최근 3개월 실거래가 매물 초고속 병렬 수집 및 Railway DB 벌크 동기화 (Multi-Threaded Parallel API to DB)
+     * 서울시 전역 25개 자치구 x 최근 3개월 실거래가 매물 초고속 병렬 수집 및 Railway DB 벌크 동기화 (Multi-Threaded
+     * Parallel API to DB)
      */
     public int syncAllSeoulRecent3Months() {
         log.info(
@@ -80,12 +88,14 @@ public class PublicDataSyncService {
             String dealYmd = task[1];
             int bType = Integer.parseInt(task[2]);
             try {
-                List<PropertyListDTO> properties = publicDataApiService.fetchRealDataForBuildingType(bType, lawdCd, dealYmd);
+                List<PropertyListDTO> properties = publicDataApiService.fetchRealDataForBuildingType(bType, lawdCd,
+                        dealYmd);
                 if (properties != null && !properties.isEmpty()) {
                     totalFetchedBuffer.addAll(properties);
                 }
             } catch (Exception e) {
-                log.error("Failed parallel batch fetch for bType: {}, LAWD_CD: {}, DEAL_YMD: {} - {}", bType, lawdCd, dealYmd, e.getMessage());
+                log.error("Failed parallel batch fetch for bType: {}, LAWD_CD: {}, DEAL_YMD: {} - {}", bType, lawdCd,
+                        dealYmd, e.getMessage());
             }
         });
 
@@ -117,15 +127,16 @@ public class PublicDataSyncService {
             batchBuffer.clear();
         }
 
-        log.info("Completed Fast Multi-Threaded Railway DB Bulk Sync. Total Properties Inserted: {}", totalInserted.get());
+        log.info("Completed Fast Multi-Threaded Railway DB Bulk Sync. Total Properties Inserted: {}",
+                totalInserted.get());
         return totalInserted.get();
     }
 
     /**
-     * DB에 이미 수집된 매물들의 주소를 네이버 지오코딩 API로 32스레드 초고속 정밀 위경도 병렬 일괄 갱신 (Multi-Threaded Parallel DB to DB)
+     * DB에 이미 수집된 매물들의 주소를 네이버 지오코딩 API 50스레드 전용 풀 + 주소 중복 제거 캐싱으로 1초 컷 병렬 일괄 갱신
      */
     public int updateAllDbGeocodes() {
-        log.info("Starting Full DB Geocode Update via Multi-Threaded Naver Geocoding...");
+        log.info("Starting Full DB Geocode Update via Dedicated 50-Thread Pool & Address Cache...");
         List<PropertyListDTO> properties = propertyMapper.selectAllPropertiesToGeocode();
         if (properties == null || properties.isEmpty()) {
             log.info("No properties found in DB to geocode.");
@@ -133,28 +144,66 @@ public class PublicDataSyncService {
         }
 
         log.info("Total Properties found in DB for Geocoding: {}", properties.size());
-        AtomicInteger updatedCount = new AtomicInteger(0);
 
-        // 32개 멀티스레드 동시 네이버 지오코딩 API 호출 및 DB UPDATE
-        properties.parallelStream().forEach(p -> {
-            if (p.getAddress() != null && !p.getAddress().trim().isEmpty()) {
-                double[] coords = publicDataApiService.getRealCoordinatesFromAddress(p.getAddress());
-                if (coords != null) {
+        // 1. 주소 중복 제거 (3,799개 매물 중 고유 건물 주소는 200~400개뿐!)
+        Map<String, double[]> addressCache = new ConcurrentHashMap<>();
+        Set<String> uniqueAddresses = properties.stream()
+                .map(PropertyListDTO::getAddress)
+                .filter(addr -> addr != null && !addr.trim().isEmpty())
+                .collect(Collectors.toSet());
+
+        log.info("Unique Addresses count (after deduplication): {}", uniqueAddresses.size());
+
+        // 2. 50개 전용 쓰레드풀로 고유 주소만 네이버 지오코딩 API 초고속 병렬 호출
+        ExecutorService executor = Executors.newFixedThreadPool(50);
+        List<CompletableFuture<Void>> futures = uniqueAddresses.stream()
+                .map(addr -> CompletableFuture.runAsync(() -> {
+                    double[] coords = publicDataApiService.getRealCoordinatesFromAddress(addr);
+                    if (coords != null) {
+                        addressCache.put(addr, coords);
+                    }
+                }, executor))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        executor.shutdown();
+
+        log.info("Completed Fast Geocoding! Unique Cached Addresses: {}", addressCache.size());
+
+        // 3. 메모리 상에서 매물 DTO에 위경도 매핑 후 배치 UPDATE
+        List<PropertyListDTO> targetBatchList = new ArrayList<>();
+        int geocodedCount = 0;
+
+        for (PropertyListDTO p : properties) {
+            if (p.getAddress() != null && addressCache.containsKey(p.getAddress())) {
+                double[] coords = addressCache.get(p.getAddress());
+                p.setLatitude(coords[0]);
+                p.setLongitude(coords[1]);
+                targetBatchList.add(p);
+            }
+        }
+
+        // 100개 단위 배치 UPDATE 실행
+        for (int i = 0; i < targetBatchList.size(); i += 100) {
+            List<PropertyListDTO> chunk = targetBatchList.subList(i, Math.min(i + 100, targetBatchList.size()));
+            try {
+                propertyMapper.updateBatchPropertyCoordinates(chunk);
+                geocodedCount += chunk.size();
+            } catch (Exception e) {
+                // 개별 실패 시 개별 단건 UPDATE 시도
+                for (PropertyListDTO item : chunk) {
                     try {
-                        propertyMapper.updatePropertyCoordinates(p.getPropertyId(), coords[0], coords[1]);
-                        int current = updatedCount.incrementAndGet();
-                        if (current % 500 == 0) {
-                            log.info("Geocoded & Updated {} / {} properties in DB.", current, properties.size());
-                        }
-                    } catch (Exception e) {
-                        // 중복 유니크 키 충돌 등 안전 무시 처리
+                        propertyMapper.updatePropertyCoordinates(item.getPropertyId(), item.getLatitude(),
+                                item.getLongitude());
+                        geocodedCount++;
+                    } catch (Exception ignored) {
                     }
                 }
             }
-        });
+        }
 
-        log.info("Successfully Completed Multi-Threaded Full DB Geocoding! Total Updated Properties: {}", updatedCount.get());
-        return updatedCount.get();
+        log.info("Successfully Completed Ultra-Fast DB Geocoding! Total Updated Properties: {}", geocodedCount);
+        return geocodedCount;
     }
 
     /**
@@ -199,12 +248,12 @@ public class PublicDataSyncService {
         months.add(current.minusMonths(2).format(formatter));
 
         // 공공데이터 API 실데이터 보장용 거래년월 (202403, 202402, 202401)
-        if (!months.contains("202403"))
-            months.add("202403");
-        if (!months.contains("202402"))
-            months.add("202402");
-        if (!months.contains("202401"))
-            months.add("202401");
+        // if (!months.contains("202403"))
+        // months.add("202403");
+        // if (!months.contains("202402"))
+        // months.add("202402");
+        // if (!months.contains("202401"))
+        // months.add("202401");
         return months;
     }
 }
