@@ -119,7 +119,9 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
                 .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
                 .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search").permitAll()
-                .antMatchers(HttpMethod.POST, "/api/amenities/filter").permitAll()
+                .antMatchers(HttpMethod.POST,
+                        "/api/amenities/filter",
+                        "/api/amenities/filter/properties").permitAll()
                 .antMatchers("/api/auth/**").permitAll()
                 .anyRequest().authenticated();
     }

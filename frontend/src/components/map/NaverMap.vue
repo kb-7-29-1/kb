@@ -185,7 +185,6 @@ const initMap = () => {
 };
 
 watch(
-  [() => props.properties, () => props.destination, () => props.selectedProperty],
   [
     () => props.properties,
     () => props.destination,
