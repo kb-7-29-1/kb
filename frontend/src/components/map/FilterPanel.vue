@@ -108,7 +108,7 @@ const handleApply = async () => {
 
 <style scoped>
 .filter-overlay {
-  --map-header-height: 56px;
+  --map-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
   position: fixed;
   top: var(--map-header-height);
   right: 0;
@@ -135,6 +135,12 @@ const handleApply = async () => {
   color: #dc2626;
   font-size: 12px;
   text-align: center;
+}
+
+@media (min-width: 768px) {
+  .filter-overlay {
+    --map-header-height: 56px;
+  }
 }
 
 .filter-content {
