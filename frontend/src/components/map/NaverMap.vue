@@ -4,7 +4,10 @@ import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
 import PropertyPin from './PropertyPin.vue';
 import DestinationPin from './DestinationPin.vue';
-import { getClusteredMarkers, renderClusterPinHTML } from '@/utils/mapClustering';
+import {
+  getClusteredMarkers,
+  renderClusterPinHTML,
+} from '@/utils/mapClustering';
 
 const props = defineProps({
   properties: {
@@ -66,12 +69,11 @@ const renderAmenityPin = (amenity) => {
   return content;
 };
 
+import { formatPropertyPrice } from '@/utils/priceFormatter';
+
 // 매물 마커 핀 (PropertyPin 컴포넌트 렌더링)
 const renderPropertyPin = (prop, isSelected) => {
-  const depositNum = prop.deposit ? Math.round(prop.deposit / 1000) : 0;
-  const priceText = prop.monthlyRent
-    ? `${depositNum}천/${prop.monthlyRent}`
-    : `전세 ${depositNum}천`;
+  const priceText = formatPropertyPrice(prop.deposit, prop.monthlyRent);
   const bgClass = isSelected
     ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
     : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10';
@@ -134,7 +136,11 @@ const renderMarkers = () => {
   markersMap.value.push(destMarker);
 
   // 3. 🏢 / 🏠 매물 및 클러스터 마커 렌더링
-  const clusteredNodes = getClusteredMarkers(props.properties, currentZoom, bounds);
+  const clusteredNodes = getClusteredMarkers(
+    props.properties,
+    currentZoom,
+    bounds,
+  );
 
   clusteredNodes.forEach((node) => {
     if (node.isCluster) {
@@ -181,7 +187,8 @@ const renderMarkers = () => {
 
   // 4. 편의시설 마커
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
+      return;
 
     const amenityLatLng = new window.naver.maps.LatLng(
       amenity.amenityLatitude,
@@ -259,17 +266,63 @@ watch(
   { deep: true },
 );
 
-// 목적지 변경 시 해당 목적지 위치로 지도 부드럽게 이동 (panTo)
+// 도보/대중교통 이동시간 최대 원 범위에 맞추어 지도 줌/카메라 범위 자동 조율
+const fitToIsochroneRadius = () => {
+  if (
+    !mapInstance.value ||
+    !window.naver ||
+    !window.naver.maps ||
+    !props.destination?.lat ||
+    !props.destination?.lng
+  )
+    return;
+  if (!props.showIsochrone) return;
+
+  let radiusMeters = 900;
+  if (props.transportMode === 'WALK') {
+    let speedMetersPerMin = 75;
+    if (props.walkPace === 'SLOW') speedMetersPerMin = 58;
+    if (props.walkPace === 'FAST') speedMetersPerMin = 92;
+    radiusMeters = Math.max(200, props.travelTime * speedMetersPerMin);
+  } else {
+    const transitBaseRadius = Math.max(500, props.travelTime * 180);
+    radiusMeters = Math.max(
+      transitBaseRadius + 200,
+      (props.travelTime + props.flexTime) * 180,
+    );
+  }
+
+  const earthRadius = 6378137;
+  const centerLat = props.destination.lat;
+  const centerLng = props.destination.lng;
+  const latRad = (centerLat * Math.PI) / 180;
+
+  // 15% 여유 공간 마진
+  const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI) * 1.15;
+  const lngOffset =
+    (((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI) *
+    1.15;
+
+  const bounds = new window.naver.maps.LatLngBounds(
+    new window.naver.maps.LatLng(centerLat - latOffset, centerLng - lngOffset),
+    new window.naver.maps.LatLng(centerLat + latOffset, centerLng + lngOffset),
+  );
+
+  mapInstance.value.fitBounds(bounds);
+};
+
+// 목적지 및 이동시간 필터 변경 시(적용하기 클릭 시) 해당 최대 원 크기에 맞춰 줌 조율
 watch(
-  () => props.destination,
-  (newDest) => {
-    if (mapInstance.value && window.naver && window.naver.maps && newDest?.lat && newDest?.lng) {
-      const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
-      mapInstance.value.panTo(newCenter, {
-        duration: 800,
-        easing: 'easeOutCubic',
-      });
-    }
+  [
+    () => props.destination,
+    () => props.travelTime,
+    () => props.transportMode,
+    () => props.walkPace,
+    () => props.flexTime,
+    () => props.showIsochrone,
+  ],
+  () => {
+    fitToIsochroneRadius();
   },
   { deep: true },
 );
