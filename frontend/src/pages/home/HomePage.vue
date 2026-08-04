@@ -23,7 +23,8 @@ const closeFilter = () => {
 
 const applyFilters = ({ onboarding, amenities }) => {
   appliedOnboardingFilters.value = onboarding;
-  appliedAmenityFilters.value = amenities;
+  // 초기화 후 적용하면 빈 배열을 유지해 편의시설 조건을 적용하지 않는다.
+  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
   closeFilter();
 };
 

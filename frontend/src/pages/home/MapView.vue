@@ -56,7 +56,6 @@ const selectedPropertyDetailAmenities = ref([]);
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
-let amenityRefreshTimer = null;
 
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
@@ -168,36 +167,21 @@ const loadAmenitiesForProperties = async () => {
   const propertyIds = properties.value
     .map((property) => property.propertyId)
     .filter((propertyId) => propertyId != null);
+  const sequence = ++amenityRequestSequence;
 
   if (!filters.length || !propertyIds.length) {
-    clearTimeout(amenityRefreshTimer);
     amenityFilterLoading.value = false;
     amenitiesByProperty.value = {};
     return;
   }
 
-  const sequence = ++amenityRequestSequence;
   amenityFilterLoading.value = true;
   try {
-    const { jobId } = await amenityService.startCalculationJob(propertyIds, filters);
-
-    const loadResult = async () => {
-      const result = await amenityService.filterProperties(propertyIds, filters);
-      if (sequence === amenityRequestSequence) amenitiesByProperty.value = result;
-    };
-
-    const pollJob = async () => {
-      const currentJob = await amenityService.getCalculationJob(jobId);
-      if (sequence !== amenityRequestSequence) return;
-
-      if (currentJob.status === 'COMPLETED') {
-        await loadResult();
-        amenityFilterLoading.value = false;
-        return;
-      }
-      amenityRefreshTimer = setTimeout(pollJob, 1_000);
-    };
-    amenityRefreshTimer = setTimeout(pollJob, 1_000);
+    const result = await amenityService.filterProperties(propertyIds, filters);
+    if (sequence === amenityRequestSequence) {
+      amenitiesByProperty.value = result;
+      amenityFilterLoading.value = false;
+    }
   } catch (error) {
     if (sequence === amenityRequestSequence) {
       amenitiesByProperty.value = {};
@@ -209,7 +193,9 @@ const loadAmenitiesForProperties = async () => {
 
 watch([() => props.appliedAmenityFilters, properties], loadAmenitiesForProperties, { deep: true });
 
-onUnmounted(() => clearTimeout(amenityRefreshTimer));
+onUnmounted(() => {
+  amenityRequestSequence += 1;
+});
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
 watch(
@@ -371,13 +357,16 @@ const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
 
+  if (!props.appliedAmenityFilters.length) {
+    selectedPropertyDetailAmenities.value = [];
+    return;
+  }
+
   try {
-    const amenities = props.appliedAmenityFilters.length
-      ? await amenityService.filterAmenities(
-          property.propertyId,
-          props.appliedAmenityFilters,
-        )
-      : await amenityService.getCachedAmenities(property.propertyId);
+    const amenities = await amenityService.filterAmenities(
+      property.propertyId,
+      props.appliedAmenityFilters,
+    );
 
     if (selectedProperty.value?.propertyId === property.propertyId) {
       selectedPropertyDetailAmenities.value = amenities;
@@ -431,13 +420,19 @@ watch(
 const selectedPropertyAmenities = computed(() => {
   // 상세 패널과 지도 핀은 같은 선택 매물의 편의시설 결과를 사용한다.
   if (!selectedProperty.value) return [];
+  if (!props.appliedAmenityFilters.length) return [];
+
   const propertyId = selectedProperty.value.propertyId;
-  if (props.appliedAmenityFilters.length) {
-    return amenitiesByProperty.value[propertyId]
-      ?? selectedPropertyDetailAmenities.value;
-  }
-  return selectedPropertyDetailAmenities.value;
+  return amenitiesByProperty.value[propertyId]
+    ?? selectedPropertyDetailAmenities.value;
 });
+
+watch(
+  () => props.appliedAmenityFilters.length,
+  (length) => {
+    if (!length) selectedPropertyDetailAmenities.value = [];
+  },
+);
 
 // 찜 토글
 const handleToggleBookmark = async (id) => {
@@ -598,7 +593,7 @@ const {
           v-else
           class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
         >
-          편의시설을 조회하고 있어요.
+          매물을 조회하고 있어요.
         </div>
       </div>
     </aside>
