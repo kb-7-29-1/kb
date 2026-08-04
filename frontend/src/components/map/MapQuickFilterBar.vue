@@ -40,6 +40,39 @@ const filters = ref({
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
 
+const PRESET_COORDS = {
+  세종대학교: { address: '서울특별시 광진구 능동로 209', lat: 37.5502, lng: 127.0731 },
+  건국대학교: { address: '서울특별시 광진구 능동로 120', lat: 37.5408, lng: 127.0793 },
+  강남역: { address: '서울특별시 강남구 강남대로 지하396', lat: 37.4979, lng: 127.0276 },
+  역삼역: { address: '서울특별시 강남구 테헤란로 지하156', lat: 37.5006, lng: 127.0365 },
+  성수역: { address: '서울특별시 성동구 아차산로 113', lat: 37.5445, lng: 127.0557 },
+};
+
+// 기본 5종 목적지 및 온보딩 지정 목적지 통합 옵션 목록
+const destinationList = computed(() => {
+  const defaults = ['세종대학교', '건국대학교', '강남역', '역삼역', '성수역'];
+  const current = filters.value.destination;
+  if (current && !defaults.includes(current)) {
+    return [current, ...defaults];
+  }
+  return defaults;
+});
+
+const selectDestinationOption = (dest) => {
+  filters.value.destination = dest;
+  if (PRESET_COORDS[dest]) {
+    filters.value.destinationAddress = PRESET_COORDS[dest].address;
+    filters.value.destinationLat = PRESET_COORDS[dest].lat;
+    filters.value.destinationLng = PRESET_COORDS[dest].lng;
+  } else {
+    // 유저 지정 새 장소 시 기존 좌표 초기화 (지오코더가 주소 기반 자동 재생성)
+    delete filters.value.destinationLat;
+    delete filters.value.destinationLng;
+  }
+  updateFilters();
+  activePopover.value = null;
+};
+
 // props 변경 감지
 watch(
   () => props.modelValue,
@@ -75,6 +108,8 @@ const toggleIsochrone = () => {
 const handleReset = () => {
   filters.value = {
     destination: '세종대학교',
+    destinationLat: 37.5502,
+    destinationLng: 127.0731,
     tradeType: 'MONTHLY',
     maxDeposit: 5000,
     maxRent: 100,
@@ -164,9 +199,9 @@ const safetyThumbColor = computed(() => {
           class="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-40 space-y-2"
         >
           <div class="text-xs font-black text-slate-700">주 목적지 변경</div>
-          <div class="space-y-1">
+          <div class="space-y-1 max-h-60 overflow-y-auto">
             <button
-              v-for="dest in ['세종대학교', '건국대학교', '강남역', '역삼역', '성수역']"
+              v-for="dest in destinationList"
               :key="dest"
               type="button"
               class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between"
@@ -175,11 +210,7 @@ const safetyThumbColor = computed(() => {
                   ? 'bg-blue-50 text-blue-600 font-black'
                   : 'text-slate-700 hover:bg-slate-100'
               "
-              @click="
-                filters.destination = dest;
-                updateFilters();
-                activePopover = null;
-              "
+              @click="selectDestinationOption(dest)"
             >
               <span>📍 {{ dest }}</span>
               <span v-if="filters.destination === dest">✓</span>
@@ -360,7 +391,6 @@ const safetyThumbColor = computed(() => {
               max="5000"
               step="500"
               class="w-full accent-blue-600 cursor-pointer"
-              @input="updateFilters"
             />
           </div>
 
@@ -379,7 +409,6 @@ const safetyThumbColor = computed(() => {
               max="100"
               step="10"
               class="w-full accent-blue-600 cursor-pointer"
-              @input="updateFilters"
             />
           </div>
 
@@ -452,7 +481,6 @@ const safetyThumbColor = computed(() => {
               @click="
                 filters.transportMode = 'WALK';
                 if (filters.travelTime < 5) filters.travelTime = 5;
-                updateFilters();
               "
             >
               <span>🚶</span>
@@ -474,7 +502,6 @@ const safetyThumbColor = computed(() => {
               @click="
                 filters.transportMode = 'TRANSIT';
                 if (filters.travelTime < 10) filters.travelTime = 10;
-                updateFilters();
               "
             >
               <span>🚌</span>
@@ -580,6 +607,7 @@ const safetyThumbColor = computed(() => {
             class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-2"
             @click="
               updateFilters();
+              emit('apply');
               activePopover = null;
             "
           >

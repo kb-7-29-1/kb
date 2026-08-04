@@ -375,7 +375,6 @@ const notifyUpdate = () => {
                   max="5000"
                   step="500"
                   class="w-full accent-blue-600 cursor-pointer"
-                  @input="notifyUpdate"
                 />
               </div>
 
@@ -394,7 +393,6 @@ const notifyUpdate = () => {
                   max="100"
                   step="10"
                   class="w-full accent-blue-600 cursor-pointer"
-                  @input="notifyUpdate"
                 />
               </div>
             </div>
@@ -432,7 +430,10 @@ const notifyUpdate = () => {
           <button
             type="button"
             class="flex-1 py-3.5 rounded-2xl bg-slate-900 text-white text-sm font-black shadow-lg hover:bg-slate-800 transition-all text-center"
-            @click="close"
+            @click="
+              notifyUpdate();
+              close();
+            "
           >
             필터 적용하기 (총 {{ totalCount }}개 매물)
           </button>
