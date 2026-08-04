@@ -173,7 +173,7 @@ const safetyScoreClass = computed(() => {
             <div class="p-3 rounded-xl bg-white/5 border border-white/10">
               <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
               <div class="text-lg font-bold text-emerald-400">
-                {{ property.cctvCount || 14 }}개
+                {{ property.cctvCount || 0 }}개
               </div>
             </div>
             <div class="p-3 rounded-xl bg-white/5 border border-white/10">
@@ -181,7 +181,7 @@ const safetyScoreClass = computed(() => {
                 경로 내 가로등/보안등
               </div>
               <div class="text-lg font-bold text-amber-400">
-                {{ property.streetlightCount || 38 }}개
+                {{ property.streetlightCount || 0 }}개
               </div>
             </div>
           </div>
