@@ -87,10 +87,20 @@ const handleUpdateProfile = async () => {
         <p class="profile-modal-description">변경할 이름과 이메일을 입력해 주세요.</p>
 
         <label class="profile-edit-label">이름</label>
-        <input v-model="editForm.name" type="text" class="profile-edit-input" />
+        <input
+          v-model="editForm.name"
+          type="text"
+          class="profile-edit-input"
+          placeholder="변경할 이름을 입력해 주세요"
+        />
 
         <label class="profile-edit-label">이메일</label>
-        <input v-model="editForm.email" type="email" class="profile-edit-input" />
+        <input
+          v-model="editForm.email"
+          type="email"
+          class="profile-edit-input"
+          placeholder="example@email.com"
+        />
 
         <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
 
@@ -114,6 +124,7 @@ const handleUpdateProfile = async () => {
           v-model="passwordForm.currentPassword"
           type="password"
           class="w-full border rounded-lg px-4 py-3 mb-3"
+          placeholder="현재 비밀번호를 입력해 주세요"
         />
 
         <label class="block text-sm text-gray-600 mb-1">새 비밀번호</label>
@@ -121,6 +132,7 @@ const handleUpdateProfile = async () => {
           v-model="passwordForm.newPassword"
           type="password"
           class="w-full border rounded-lg px-4 py-3 mb-3"
+          placeholder="새 비밀번호를 입력해 주세요"
         />
 
         <label class="block text-sm text-gray-600 mb-1">새 비밀번호 재확인</label>
@@ -128,6 +140,7 @@ const handleUpdateProfile = async () => {
           v-model="passwordForm.newPasswordConfirm"
           type="password"
           class="w-full border rounded-lg px-4 py-3 mb-4"
+          placeholder="새 비밀번호를 다시 입력해 주세요"
         />
 
         <p v-if="passwordError" class="text-red-500 text-sm mb-3">{{ passwordError }}</p>

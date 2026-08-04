@@ -57,6 +57,18 @@ const showPasswordModal = ref(false);
 const passwordForm = ref({ currentPassword: '', newPassword: '', newPasswordConfirm: '' });
 const passwordError = ref('');
 
+const openPasswordModal = () => {
+  passwordForm.value = { currentPassword: '', newPassword: '', newPasswordConfirm: '' };
+  passwordError.value = '';
+  showPasswordModal.value = true;
+};
+
+const closePasswordModal = () => {
+  showPasswordModal.value = false;
+  passwordForm.value = { currentPassword: '', newPassword: '', newPasswordConfirm: '' };
+  passwordError.value = '';
+};
+
 const handleChangePassword = async () => {
   passwordError.value = '';
   if (passwordForm.value.newPassword !== passwordForm.value.newPasswordConfirm) {
@@ -69,8 +81,7 @@ const handleChangePassword = async () => {
       newPassword: passwordForm.value.newPassword,
     });
     alert('비밀번호가 변경되었습니다.');
-    showPasswordModal.value = false;
-    passwordForm.value = { currentPassword: '', newPassword: '', newPasswordConfirm: '' };
+    closePasswordModal();
   } catch (error) {
     passwordError.value = '현재 비밀번호가 일치하지 않습니다.';
   }
@@ -85,6 +96,18 @@ const handleLogout = () => {
 const showWithdrawModal = ref(false);
 const withdrawPassword = ref('');
 const withdrawError = ref('');
+
+const openWithdrawModal = () => {
+  withdrawPassword.value = '';
+  withdrawError.value = '';
+  showWithdrawModal.value = true;
+};
+
+const closeWithdrawModal = () => {
+  showWithdrawModal.value = false;
+  withdrawPassword.value = '';
+  withdrawError.value = '';
+};
 
 const handleWithdraw = async () => {
   withdrawError.value = '';
@@ -129,7 +152,7 @@ onMounted(loadOnboarding);
 
       <section class="mypage-actions" aria-labelledby="account-actions-title">
         <h2 id="account-actions-title">계정 관리</h2>
-        <button type="button" class="account-action" @click="showPasswordModal = true">
+        <button type="button" class="account-action" @click="openPasswordModal">
           <span class="account-action__icon" aria-hidden="true">
             <i class="fa-solid fa-lock"></i>
           </span>
@@ -146,7 +169,7 @@ onMounted(loadOnboarding);
         <button
           type="button"
           class="account-action account-action--danger"
-          @click="showWithdrawModal = true"
+          @click="openWithdrawModal"
         >
           <span class="account-action__icon" aria-hidden="true">
             <i class="fa-regular fa-trash-can"></i>
@@ -175,7 +198,7 @@ onMounted(loadOnboarding);
             type="button"
             class="account-modal-close"
             aria-label="닫기"
-            @click="showPasswordModal = false"
+            @click="closePasswordModal"
           >
             <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
@@ -183,18 +206,29 @@ onMounted(loadOnboarding);
         <p class="account-modal-description">현재 비밀번호 확인 후 새 비밀번호를 설정해 주세요.</p>
 
         <label class="account-modal-label">현재 비밀번호</label>
-        <input v-model="passwordForm.currentPassword" type="password" class="account-modal-input" />
+        <input
+          v-model="passwordForm.currentPassword"
+          type="password"
+          class="account-modal-input"
+          placeholder="현재 비밀번호를 입력해 주세요"
+        />
         <label class="account-modal-label">새 비밀번호</label>
-        <input v-model="passwordForm.newPassword" type="password" class="account-modal-input" />
+        <input
+          v-model="passwordForm.newPassword"
+          type="password"
+          class="account-modal-input"
+          placeholder="새 비밀번호를 입력해 주세요"
+        />
         <label class="account-modal-label">새 비밀번호 확인</label>
         <input
           v-model="passwordForm.newPasswordConfirm"
           type="password"
           class="account-modal-input"
+          placeholder="새 비밀번호를 다시 입력해 주세요"
         />
         <p v-if="passwordError" class="account-modal-error">{{ passwordError }}</p>
         <div class="account-modal-actions">
-          <button type="button" class="account-cancel-button" @click="showPasswordModal = false">
+          <button type="button" class="account-cancel-button" @click="closePasswordModal">
             취소
           </button>
           <button type="button" class="account-primary-button" @click="handleChangePassword">
@@ -222,17 +256,22 @@ onMounted(loadOnboarding);
             type="button"
             class="account-modal-close"
             aria-label="닫기"
-            @click="showWithdrawModal = false"
+            @click="closeWithdrawModal"
           >
             <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
         </div>
         <p class="account-modal-description">탈퇴를 진행하려면 현재 비밀번호를 입력해 주세요.</p>
         <label class="account-modal-label">현재 비밀번호</label>
-        <input v-model="withdrawPassword" type="password" class="account-modal-input" />
+        <input
+          v-model="withdrawPassword"
+          type="password"
+          class="account-modal-input"
+          placeholder="현재 비밀번호를 입력해 주세요"
+        />
         <p v-if="withdrawError" class="account-modal-error">{{ withdrawError }}</p>
         <div class="account-modal-actions">
-          <button type="button" class="account-cancel-button" @click="showWithdrawModal = false">
+          <button type="button" class="account-cancel-button" @click="closeWithdrawModal">
             취소
           </button>
           <button type="button" class="account-danger-button" @click="handleWithdraw">
