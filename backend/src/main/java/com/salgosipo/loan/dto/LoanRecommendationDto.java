@@ -12,6 +12,7 @@ public class LoanRecommendationDto {
     private String companyName;
     private String rateInfo;
     private String loanLimit;
+    private String target;
     private double loanRatio;
     private int expectedLoanAmount;
     private int maxSearchAmount;
