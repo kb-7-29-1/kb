@@ -9,5 +9,5 @@ public interface AmenityMapper {
 
     List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request);
 
-    void insertAmenity(AmenityResponseDTO amenity);
+    int insertAmenityIfAbsent(AmenityResponseDTO amenity);
 }

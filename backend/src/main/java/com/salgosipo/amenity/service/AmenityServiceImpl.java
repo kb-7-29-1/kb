@@ -106,13 +106,14 @@ public class AmenityServiceImpl implements AmenityService {
                     .walkTimeMinutes(route.walkTimeMinutes())
                     .build();
 
-            amenityMapper.insertAmenity(amenity);
-            storedAmenities.add(amenity);
+            // 동시 요청으로 이미 저장된 경우에도 예외 없이 기존 행을 유지한다.
+            amenityMapper.insertAmenityIfAbsent(amenity);
             storedTypes.add(type);
         }
 
-        // 3. 선택한 유형과 최대 도보시간을 만족하는 결과만 반환
-        return filterByRequest(storedAmenities, request.getAmenities());
+        // 3. 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
+        List<AmenityResponseDTO> finalAmenities = amenityMapper.getAmenitiesByFilter(request);
+        return filterByRequest(finalAmenities, request.getAmenities());
     }
 
     private boolean isValidRequest(AmenityRequestDTO request) {
