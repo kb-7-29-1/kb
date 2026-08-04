@@ -20,7 +20,7 @@ public class LoanService {
 
     public LoanRecommendationDto getOnboardingRecommendation(Integer deposit, Integer monthlyRent, Integer age){
         boolean isJeonse = (monthlyRent == null || monthlyRent == 0);
-        List<LoanProductDto> loans = isJeonse ? getJeonseLoans(age) : getWolseLoans(age, deposit);
+        List<LoanProductDto> loans = isJeonse ? getJeonseLoans(age) : getWolseLoans(age, deposit, monthlyRent);
 
         if(loans.isEmpty() || deposit == null){
             return null;
@@ -36,6 +36,7 @@ public class LoanService {
                     best.getCompanyName(),
                     best.getRateInfo(),
                     best.getLoanLimit(),
+                    best.getTarget(),
                     0,
                     0,
                     0
@@ -50,6 +51,7 @@ public class LoanService {
                 best.getCompanyName(),
                 best.getRateInfo(),
                 best.getLoanLimit(),
+                best.getTarget(),
                 ratio,
                 expectedLoanAmount,
                 maxSearchAmount
@@ -98,10 +100,11 @@ public class LoanService {
     }
 
     // 월세
-    private List<LoanProductDto> getWolseLoans(Integer age, Integer deposit) {
+    private List<LoanProductDto> getWolseLoans(Integer age, Integer deposit, Integer monthlyRent) {
         boolean isYouth = age != null && age <= 34;
+        boolean isSenior = age != null && age >= 60;
         boolean fitsYouthLoan = deposit != null && deposit <= 5000;
-        boolean fitsStabilityLoan = deposit != null && deposit <= 1440;
+        boolean fitsSeniorLoan = deposit != null && deposit <= 1000;
 
         if (isYouth && fitsYouthLoan) {
             return List.of(new LoanProductDto(
@@ -114,25 +117,31 @@ public class LoanService {
             ));
         }
 
-        if (fitsStabilityLoan) {
+        if (isSenior && fitsSeniorLoan) {
             return List.of(new LoanProductDto(
-                    "주택도시기금 (KB국민은행 등 수탁은행 취급)",
-                    "주거안정 월세대출",
-                    "총 1,440만원 (최대 월세 60만원까지 지원)",
-                    "연 1.3%~1.8%",
-                    "저소득 무주택 세대주",
-                    "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
+                    "국민연금공단",
+                    "노후긴급자금대부",
+                    "최대 1,000만원 (연간 연금수령액 2배 이내)",
+                    "연 2.51% (국고채권 수익률 등 연동 변동금리)",
+                    "만 60세 이상 국민연금수급자 (노령·분할·유족·장애1~3급)",
+                    "국민연금공단 지사 또는 상담센터 방문"
             ));
         }
 
+
+        String limitInfo = (monthlyRent != null && monthlyRent <= 60)
+                    ? "월세 전액(" + monthlyRent + "만원) 지원 가능"
+                    : "월 최대 60만원까지 지원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
+
         return List.of(new LoanProductDto(
-                "일반 은행",
-                "일반 전월세자금대출",
-                "직접 은행에 문의가 필요해요",
-                "은행별로 달라요",
-                "제한 없음",
-                "가까운 은행 영업점 또는 인터넷은행 앱에서 확인해보세요"
+                "주택도시기금 (KB국민은행 등 수탁은행 취급)",
+                "주거안정 월세대출",
+                limitInfo,
+                "연 1.3%~1.8%",
+                "저소득 무주택 세대주",
+                "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
         ));
+
     }
 
     // 대출한도비율(%) 텍스트에서 숫자만 추출
