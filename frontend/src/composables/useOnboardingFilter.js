@@ -52,24 +52,22 @@ export function useOnboardingFilter() {
     // 3. 온보딩 설정값을 filterState 디폴트 값에 필드 매핑
     if (saved) {
       // 목적지 및 실제 주소/좌표 (address, lat, lng) 매핑
-      const destObj = saved.destination;
-      if (destObj && typeof destObj === 'object') {
-        if (destObj.destName || destObj.name) {
-          filterState.value.destination = destObj.destName || destObj.name;
+      const rawDest = saved.destination || saved.destinationName || saved.destName;
+      if (rawDest) {
+        if (typeof rawDest === 'object' && rawDest !== null) {
+          filterState.value.destination =
+            rawDest.destName || rawDest.name || rawDest.destinationName || '세종대학교';
+          filterState.value.destinationAddress = rawDest.destAddress || rawDest.address || '';
+
+          const latVal = rawDest.destLatitude || rawDest.lat || rawDest.latitude;
+          const lngVal = rawDest.destLongitude || rawDest.lng || rawDest.longitude;
+          if (latVal && lngVal) {
+            filterState.value.destinationLat = Number(latVal);
+            filterState.value.destinationLng = Number(lngVal);
+          }
+        } else if (typeof rawDest === 'string') {
+          filterState.value.destination = rawDest;
         }
-        if (destObj.destAddress || destObj.address) {
-          filterState.value.destinationAddress = destObj.destAddress || destObj.address;
-        }
-        const latVal = destObj.destLatitude || destObj.latitude || destObj.lat;
-        const lngVal = destObj.destLongitude || destObj.longitude || destObj.lng;
-        if (latVal && lngVal) {
-          filterState.value.destinationLat = Number(latVal);
-          filterState.value.destinationLng = Number(lngVal);
-        }
-      } else if (typeof saved.destination === 'string') {
-        filterState.value.destination = saved.destination;
-      } else if (saved.destinationName || saved.destName) {
-        filterState.value.destination = saved.destinationName || saved.destName;
       }
 
       // 이동 수단 매핑
@@ -78,20 +76,19 @@ export function useOnboardingFilter() {
         filterState.value.transportMode = mode.includes('WALK') ? 'WALK' : 'TRANSIT';
       }
       // 소요 시간 매핑
-      if (saved.travelTime || saved.maxTravelTime) {
-        filterState.value.travelTime = Number(saved.travelTime || saved.maxTravelTime);
+      const travelTime = saved.maxTravelTime ?? saved.travelTime;
+      if (travelTime !== undefined && travelTime !== null) {
+        filterState.value.travelTime = Number(travelTime);
       }
       // 보증금 한도 매핑
-      if (saved.deposit || saved.maxDeposit || saved.budgetDeposit) {
-        filterState.value.maxDeposit = Number(
-          saved.deposit || saved.maxDeposit || saved.budgetDeposit,
-        );
+      const maxDeposit = saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
+      if (maxDeposit !== undefined && maxDeposit !== null) {
+        filterState.value.maxDeposit = Number(maxDeposit);
       }
       // 월세 한도 매핑
-      if (saved.monthlyRent || saved.maxRent || saved.budgetRent) {
-        filterState.value.maxRent = Number(
-          saved.monthlyRent || saved.maxRent || saved.budgetRent,
-        );
+      const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
+      if (maxRent !== undefined && maxRent !== null) {
+        filterState.value.maxRent = Number(maxRent);
       }
       // 안심 점수 매핑
       if (saved.safety || saved.minSafetyScore !== undefined) {
