@@ -99,8 +99,7 @@ const renderMarkers = () => {
   props.properties.forEach((prop) => {
     if (!prop.latitude || !prop.longitude) return;
     const isSelected =
-      props.selectedProperty &&
-      props.selectedProperty.propertyId === prop.propertyId;
+      props.selectedProperty && props.selectedProperty.propertyId === prop.propertyId;
     const depositNum = prop.deposit ? Math.round(prop.deposit / 1000) : 0;
     const priceText = prop.monthlyRent
       ? `${depositNum}천/${prop.monthlyRent}`
@@ -189,6 +188,7 @@ const initMap = () => {
 };
 
 watch(
+  [() => props.properties, () => props.destination, () => props.selectedProperty],
   [
     () => props.properties,
     () => props.destination,
@@ -205,13 +205,7 @@ watch(
 watch(
   () => props.destination,
   (newDest) => {
-    if (
-      mapInstance.value &&
-      window.naver &&
-      window.naver.maps &&
-      newDest?.lat &&
-      newDest?.lng
-    ) {
+    if (mapInstance.value && window.naver && window.naver.maps && newDest?.lat && newDest?.lng) {
       const newCenter = new window.naver.maps.LatLng(newDest.lat, newDest.lng);
       mapInstance.value.panTo(newCenter, {
         duration: 800,

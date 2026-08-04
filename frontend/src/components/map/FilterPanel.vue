@@ -1,35 +1,74 @@
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
 import FilterBottomBar from './FilterBottomBar.vue';
 import FilterTabs from './FilterTabs.vue';
 import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
+import onboardingApi from '@/api/onboardingApi';
+
+const props = defineProps({
+  appliedFilters: {
+    type: Object,
+    default: null,
+  },
+});
 
 const activeTab = ref('all');
 const amenityFilterRef = ref(null);
+const onboardingFilterRef = ref(null);
+const onboarding = ref(null);
+const applyError = ref('');
 
-const emit = defineEmits(['close', 'apply']);
+const emit = defineEmits(['close', 'apply', 'reset']);
 
-const handleReset = () => {
+const loadOnboardingSummary = async () => {
+  try {
+    onboarding.value = await onboardingApi.getOnboarding();
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      console.error('ONBOARDING SUMMARY LOAD ERROR: ', error);
+    }
+  }
+};
+
+onMounted(loadOnboardingSummary);
+
+const handleReset = async () => {
   activeTab.value = 'all';
+  emit('reset');
+
+  await loadOnboardingSummary();
+
+  if (onboardingFilterRef.value) {
+    onboardingFilterRef.value.resetFilters();
+  }
 
   if (amenityFilterRef.value) {
     amenityFilterRef.value.resetFilters();
   }
 };
 
-const handleApply = () => {
-  const amenities = amenityFilterRef.value
-    ? amenityFilterRef.value.getFilters()
-    : [];
+const handleApply = async () => {
+  applyError.value = '';
+  const amenities = amenityFilterRef.value?.getFilters?.() ?? [];
+  const filters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
+  const { selectedDestination, ...onboardingFilters } = filters;
 
-  emit('apply', {
-    // TODO: OnBoardingFilter가 필터 값을 expose하면 여기에서 수집해 전달한다.
-    onboarding: {},
-    amenities,
-  });
-  emit('close');
+  try {
+    if (selectedDestination) {
+      await onboardingApi.saveDestination(selectedDestination);
+    }
+
+    emit('apply', {
+      onboarding: onboardingFilters,
+      amenities,
+    });
+    emit('close');
+  } catch (error) {
+    applyError.value = '목적지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+    console.error('FILTER DESTINATION SAVE ERROR: ', error);
+  }
 };
 </script>
 
@@ -37,21 +76,32 @@ const handleApply = () => {
   <section class="filter-overlay">
     <div class="filter-panel">
       <div class="filter-content">
-        <OnboardingSummary @close="$emit('close')" />
+        <OnboardingSummary
+          :destination="
+            props.appliedFilters?.destination?.destName ?? onboarding?.destination?.destName
+          "
+          :transport-mode="props.appliedFilters?.transportMode ?? onboarding?.transportMode"
+          :travel-time="props.appliedFilters?.maxTravelTime ?? onboarding?.maxTravelTime"
+          :max-deposit="props.appliedFilters?.budgetDeposit ?? onboarding?.budgetDeposit"
+          :max-rent="props.appliedFilters?.budgetRent ?? onboarding?.budgetRent"
+          :min-safety-score="props.appliedFilters?.minSafetyScore ?? onboarding?.minSafetyScore"
+          @close="$emit('close')"
+        />
 
         <FilterTabs :active-tab="activeTab" @change="activeTab = $event" />
 
-        <OnBoardingFilter v-show="activeTab === 'all'" />
-        <AmenityFilter
-            v-show="activeTab === 'amenity'"
-            ref="amenityFilterRef"
+        <OnBoardingFilter
+          v-show="activeTab === 'all'"
+          ref="onboardingFilterRef"
+          :onboarding="onboarding"
+          :applied-filters="props.appliedFilters"
         />
+        <AmenityFilter v-show="activeTab === 'amenity'" ref="amenityFilterRef" />
       </div>
 
-      <FilterBottomBar
-          @reset="handleReset"
-          @apply="handleApply"
-      />
+      <p v-if="applyError" class="apply-error">{{ applyError }}</p>
+
+      <FilterBottomBar @reset="handleReset" @apply="handleApply" />
     </div>
   </section>
 </template>
@@ -65,6 +115,7 @@ const handleApply = () => {
   bottom: 0;
   left: 0;
   z-index: 50;
+  overflow: hidden;
   background: #fff;
 }
 
@@ -72,8 +123,18 @@ const handleApply = () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-height: calc(100dvh - var(--map-header-height));
+  height: calc(100dvh - var(--map-header-height));
+  min-height: 0;
+  overflow: hidden;
   background: #fff;
+}
+.apply-error {
+  margin: 0;
+  padding: 8px 20px;
+  background: #fff1f2;
+  color: #dc2626;
+  font-size: 12px;
+  text-align: center;
 }
 
 .filter-content {
@@ -81,5 +142,7 @@ const handleApply = () => {
   min-height: 0;
   padding: 24px 20px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 </style>

@@ -2,11 +2,12 @@
 import { ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
-import {useRouter} from "vue-router";
+import { useRouter } from 'vue-router';
 
 const router = useRouter();
 
 const isFilterOpen = ref(false);
+const appliedOnboardingFilters = ref(null);
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -16,9 +17,18 @@ const closeFilter = () => {
   isFilterOpen.value = false;
 };
 
+const applyFilters = ({ onboarding }) => {
+  appliedOnboardingFilters.value = onboarding;
+  closeFilter();
+};
+
+const resetFilters = () => {
+  appliedOnboardingFilters.value = null;
+};
+
 const goMyPage = () => {
-  router.push({name:'mypage'})
-}
+  router.push({ name: 'mypage' });
+};
 </script>
 
 <template>
@@ -71,10 +81,17 @@ const goMyPage = () => {
       </svg>
     </button>
 
-    <Transition name="bottom-sheet">
-      <FilterPanel v-if="isFilterOpen" @close="closeFilter" />
-    </Transition>
     -->
+
+    <Transition name="bottom-sheet">
+      <FilterPanel
+        v-if="isFilterOpen"
+        :applied-filters="appliedOnboardingFilters"
+        @close="closeFilter"
+        @apply="applyFilters"
+        @reset="resetFilters"
+      />
+    </Transition>
   </main>
 </template>
 

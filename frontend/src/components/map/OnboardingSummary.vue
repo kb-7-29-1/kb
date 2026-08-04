@@ -47,7 +47,7 @@ const priceLabel = computed(() => {
       <div>
         <p class="summary-label">목적지</p>
         <div class="summary-title">
-          <span class="location-icon">⌖</span>
+          <i class="fa-solid fa-location-dot location-icon" aria-hidden="true"></i>
           <strong>{{ destination }}</strong>
         </div>
       </div>
@@ -75,7 +75,7 @@ const priceLabel = computed(() => {
 .summary {
   position: relative;
   padding-right: 42px;
-  margin: 20px 0px 10px;
+  margin: 20px 0px;
 }
 
 .summary-top {
@@ -102,20 +102,19 @@ const priceLabel = computed(() => {
 
 .location-icon {
   color: #3d55f6;
+  font-size: 14px;
 }
 
 .close-button {
   position: absolute;
   top: 0;
   right: 0;
-  width: 34px;
-  height: 34px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: #7d8797;
-  font-size: 26px;
+  font-size: 30px;
   line-height: 1;
   cursor: pointer;
 }

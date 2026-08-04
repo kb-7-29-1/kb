@@ -11,6 +11,8 @@ import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
 import { mockProperties } from '@/mock/mockProperties.js';
 
+const emit = defineEmits(['open-filter']);
+
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
 const sortOptions = [
@@ -74,21 +76,18 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode(
-        { query: searchQuery },
-        (status, response) => {
-          if (
-            status === window.naver.maps.Service.Status.OK &&
-            response.v2 &&
-            response.v2.addresses &&
-            response.v2.addresses.length > 0
-          ) {
-            const item = response.v2.addresses[0];
-            filterState.value.destinationLat = Number(item.y);
-            filterState.value.destinationLng = Number(item.x);
-          }
-        },
-      );
+      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
+        if (
+          status === window.naver.maps.Service.Status.OK &&
+          response.v2 &&
+          response.v2.addresses &&
+          response.v2.addresses.length > 0
+        ) {
+          const item = response.v2.addresses[0];
+          filterState.value.destinationLat = Number(item.y);
+          filterState.value.destinationLng = Number(item.x);
+        }
+      });
     }
   },
   { immediate: true },
@@ -137,22 +136,14 @@ const sortedProperties = computed(() => {
     // 2. 보증금 필터
     if (p.deposit > currentFilters.maxDeposit) return false;
     // 월세 필터
-    if (
-      currentFilters.tradeType !== 'JEONSE' &&
-      p.monthlyRent > currentFilters.maxRent
-    )
+    if (currentFilters.tradeType !== 'JEONSE' && p.monthlyRent > currentFilters.maxRent)
       return false;
     // 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 필터
     if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(
-        destLat,
-        destLng,
-        p.latitude,
-        p.longitude,
-      );
+      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
       if (distKm > maxReachKm) return false;
     }
 
@@ -161,16 +152,10 @@ const sortedProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -210,13 +195,8 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const {
-  mobilePanelHeight,
-  isDragging,
-  dragPixelHeight,
-  toggleMobilePanel,
-  startDrag,
-} = useMobilePanelDrag();
+const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
+  useMobilePanelDrag();
 </script>
 
 <template>
@@ -251,9 +231,7 @@ const {
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span
-            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
-          >
+          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
             총 {{ sortedProperties.length }}개 매물
           </span>
         </div>
@@ -285,9 +263,7 @@ const {
         </div>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div
-          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
-        >
+        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
@@ -311,9 +287,7 @@ const {
           v-for="prop in sortedProperties"
           :key="prop.propertyId"
           :property="prop"
-          :is-selected="
-            selectedProperty && selectedProperty.propertyId === prop.propertyId
-          "
+          :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
           @select="handleSelectProperty"
           @toggle-bookmark="handleToggleBookmark"
         />
@@ -328,6 +302,7 @@ const {
           v-model="filterState"
           :total-count="sortedProperties.length"
           class="pointer-events-auto"
+          @open-filter="emit('open-filter')"
           @apply="handleApplyFilters"
           @update-filters="handleApplyFilters"
         />
