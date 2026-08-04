@@ -39,6 +39,10 @@ const filters = ref({
 // 모바일 바텀시트 모달 상태
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
+const destinationSearchKeyword = ref('');
+const depositOptions = [
+  100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+];
 
 const PRESET_COORDS = {
   세종대학교: { address: '서울특별시 광진구 능동로 209', lat: 37.5502, lng: 127.0731 },
@@ -147,24 +151,52 @@ const activeFilterCount = computed(() => {
 
 // 가격 요약 텍스트
 const priceSummaryText = computed(() => {
-  if (filters.value.tradeType === 'JEONSE') {
-    return filters.value.maxDeposit >= 5000 ? '전세: 전체' : `전세: ${filters.value.maxDeposit}`;
-  }
-  if (filters.value.maxDeposit >= 5000 && filters.value.maxRent >= 100) {
-    return '월세: 전체';
-  }
-  const deposit = filters.value.maxDeposit >= 5000 ? '전체' : filters.value.maxDeposit;
-  const rent = filters.value.maxRent >= 100 ? '전체' : filters.value.maxRent;
-  return `월세: ${deposit}/${rent}`;
+  const deposit = filters.value.maxDeposit === 10000 ? '1억' : filters.value.maxDeposit;
+  if (filters.value.maxRent === 0) return `전세: ${deposit}`;
+  return `월세: ${deposit}/${filters.value.maxRent}`;
 });
+
+const depositIndex = computed({
+  get: () => {
+    const index = depositOptions.indexOf(Number(filters.value.maxDeposit));
+    return index >= 0 ? index : depositOptions.length - 1;
+  },
+  set: (index) => {
+    filters.value.maxDeposit = depositOptions[index];
+  },
+});
+
+const depositAmountLabel = computed(() =>
+  filters.value.maxDeposit === 10000 ? '1억원' : `${filters.value.maxDeposit.toLocaleString()}만원`,
+);
+const rentAmountLabel = computed(() =>
+  filters.value.maxRent === 0 ? '전세' : `${filters.value.maxRent}만원`,
+);
+
+const rangeStyle = (value, min, max, color = '#3b82f6') => {
+  const percent = ((value - min) / (max - min)) * 100;
+  return {
+    '--thumb-color': color,
+    background: `linear-gradient(to right, ${color} 0%, ${color} ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
+  };
+};
 
 // 안전점수 동적 콩나물 핸들(Thumb) 색상 (점수 구간별 변색)
 const safetyThumbColor = computed(() => {
   const score = filters.value.minSafetyScore;
   if (score === 0) return '#64748b'; // Slate gray (전체)
-  if (score < 70) return '#f59e0b'; // Amber (보통)
-  if (score < 90) return '#10b981'; // Emerald (안심)
-  return '#2563eb'; // Royal Blue (최상급)
+  if (score < 80) return '#f59e0b'; // Amber (보통)
+  return '#10b981'; // Emerald (안심)
+});
+
+const safetyAccentClass = computed(() => {
+  if (filters.value.minSafetyScore >= 80) {
+    return 'bg-emerald-50 text-emerald-700 border-emerald-300 font-extrabold';
+  }
+  if (filters.value.minSafetyScore > 0) {
+    return 'bg-amber-50 text-amber-700 border-amber-300 font-extrabold';
+  }
+  return 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200';
 });
 </script>
 
@@ -191,26 +223,50 @@ const safetyThumbColor = computed(() => {
         <!-- 목적지 변경 드롭다운 -->
         <div
           v-if="activePopover === 'destination'"
-          class="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-40 space-y-2"
+          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40"
         >
-          <div class="text-xs font-black text-slate-700">주 목적지 변경</div>
-          <div class="space-y-1 max-h-60 overflow-y-auto">
+          <div class="flex items-center justify-between mb-3">
+            <div class="text-sm font-black text-slate-800">목적지 검색</div>
             <button
-              v-for="dest in destinationList"
-              :key="dest"
               type="button"
-              class="w-full text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between"
-              :class="
-                filters.destination === dest
-                  ? 'bg-blue-50 text-blue-600 font-black'
-                  : 'text-slate-700 hover:bg-slate-100'
-              "
-              @click="selectDestinationOption(dest)"
+              class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              aria-label="목적지 검색 닫기"
+              @click="activePopover = null"
             >
-              <span>📍 {{ dest }}</span>
-              <span v-if="filters.destination === dest">✓</span>
+              ✕
             </button>
           </div>
+          <label
+            class="flex items-center gap-2 h-11 px-3 rounded-xl border border-slate-200 text-slate-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100"
+          >
+            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+            <input
+              v-model="destinationSearchKeyword"
+              type="text"
+              autocomplete="off"
+              placeholder="장소명 또는 주소를 검색하세요"
+              class="flex-1 min-w-0 border-0 outline-none text-xs text-slate-700 placeholder:text-slate-400"
+            />
+            <button
+              v-if="destinationSearchKeyword"
+              type="button"
+              class="flex h-6 w-6 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              aria-label="검색어 지우기"
+              @click="destinationSearchKeyword = ''"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </label>
+          <div class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400">
+            장소명 또는 주소를 입력하면<br />검색 결과가 표시됩니다.
+          </div>
+          <button
+            type="button"
+            class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
+            @click="activePopover = null"
+          >
+            적용하기
+          </button>
         </div>
       </div>
 
@@ -219,11 +275,7 @@ const safetyThumbColor = computed(() => {
         <button
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[124px]"
-          :class="[
-            filters.minSafetyScore > 0
-              ? 'bg-amber-50 text-amber-700 border-amber-300 font-extrabold'
-              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-          ]"
+          :class="safetyAccentClass"
           @click="togglePopover('safety')"
         >
           <span class="flex items-center gap-1">
@@ -238,16 +290,33 @@ const safetyThumbColor = computed(() => {
         <!-- 안전점수 팝업 -->
         <div
           v-if="activePopover === 'safety'"
-          class="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-40 space-y-4"
+          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-4"
         >
           <!-- 헤더 및 실시간 점수 배지 -->
           <div class="flex items-center justify-between">
-            <span class="text-xs font-black text-slate-800">🛡️ 최저 안전점수</span>
-            <span
-              class="text-xs font-black px-2.5 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200"
-            >
-              {{ filters.minSafetyScore === 0 ? '전체 보기' : `${filters.minSafetyScore}점 이상` }}
-            </span>
+            <span class="text-xs font-black text-slate-800">🛡️ 최소 안전 점수</span>
+            <div class="flex items-center gap-2">
+              <span
+                class="text-xs font-black px-2.5 py-1 rounded-full border"
+                :class="
+                  filters.minSafetyScore >= 80
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                "
+              >
+                {{
+                  filters.minSafetyScore === 0 ? '전체 보기' : `${filters.minSafetyScore}점 이상`
+                }}
+              </span>
+              <button
+                type="button"
+                class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                aria-label="안전 점수 설정 닫기"
+                @click="activePopover = null"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           <!-- 통합형 type="range" 게이지 슬라이더 -->
@@ -256,35 +325,36 @@ const safetyThumbColor = computed(() => {
               type="range"
               v-model.number="filters.minSafetyScore"
               min="0"
-              max="100"
-              step="5"
-              class="w-full h-3.5 rounded-lg appearance-none cursor-pointer border border-slate-200 shadow-inner transition-all safety-range-input"
+              max="90"
+              step="10"
+              class="w-full appearance-none cursor-pointer shadow-inner transition-all safety-range-input"
               :style="{
                 '--thumb-color': safetyThumbColor,
                 background:
                   filters.minSafetyScore > 0
-                    ? `linear-gradient(to right, #f59e0b 0%, #10b981 ${filters.minSafetyScore / 2}%, #3b82f6 ${filters.minSafetyScore}%, #e2e8f0 ${filters.minSafetyScore}%, #e2e8f0 100%)`
+                    ? `linear-gradient(to right, ${filters.minSafetyScore >= 80 ? '#10b981' : '#f59e0b'} 0%, ${filters.minSafetyScore >= 80 ? '#10b981' : '#f59e0b'} ${(filters.minSafetyScore / 90) * 100}%, #e2e8f0 ${(filters.minSafetyScore / 90) * 100}%, #e2e8f0 100%)`
                     : '#e2e8f0',
               }"
               @input="updateFilters"
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>0점</span>
-              <span>50점</span>
-              <span>100점</span>
+              <span>90점</span>
             </div>
           </div>
 
           <!-- 1-클릭 프리셋 칩 버튼 (70점, 80점, 90점, 95점 4종) -->
           <div class="grid grid-cols-4 gap-1 pt-1">
             <button
-              v-for="score in [70, 80, 90, 95]"
+              v-for="score in [60, 70, 80, 90]"
               :key="score"
               type="button"
               class="py-1.5 rounded-lg text-[11px] font-bold transition-all text-center border"
               :class="[
                 filters.minSafetyScore === score
-                  ? 'bg-amber-500 text-white border-amber-500 font-black shadow-sm'
+                  ? score >= 80
+                    ? 'bg-emerald-500 text-white border-emerald-500 font-black shadow-sm'
+                    : 'bg-amber-500 text-white border-amber-500 font-black shadow-sm'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100',
               ]"
               @click="
@@ -299,7 +369,7 @@ const safetyThumbColor = computed(() => {
           <!-- 팝업 하단 적용하기 버튼 -->
           <button
             type="button"
-            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-1"
+            class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
             @click="
               updateFilters();
               activePopover = null;
@@ -316,7 +386,7 @@ const safetyThumbColor = computed(() => {
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
-            filters.maxDeposit < 5000 || filters.maxRent < 100 || filters.tradeType === 'JEONSE'
+            filters.maxDeposit < 10000 || filters.maxRent < 150
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
@@ -332,85 +402,66 @@ const safetyThumbColor = computed(() => {
         <!-- 가격 팝업 -->
         <div
           v-if="activePopover === 'price'"
-          class="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-40 space-y-4"
+          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-4"
         >
-          <div class="text-xs font-black text-slate-800 flex justify-between items-center">
-            <span>가격 & 거래 조건</span>
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-black text-slate-800">가격 (보증금&월세)</span>
             <button
               type="button"
-              class="text-slate-400 text-xs hover:text-slate-600"
+              class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              aria-label="가격 설정 닫기"
               @click="activePopover = null"
             >
               ✕
             </button>
           </div>
 
-          <!-- 거래 유형 (월세 vs 전세) -->
-          <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
-            <button
-              v-for="t in [
-                { key: 'MONTHLY', label: '🏠 월세' },
-                { key: 'JEONSE', label: '🏢 전세' },
-              ]"
-              :key="t.key"
-              type="button"
-              class="flex-1 py-2 rounded-lg text-xs font-bold transition-all text-center"
-              :class="
-                filters.tradeType === t.key
-                  ? 'bg-white text-blue-600 shadow-sm font-extrabold'
-                  : 'text-slate-500 hover:text-slate-800'
-              "
-              @click="
-                filters.tradeType = t.key;
-                updateFilters();
-              "
-            >
-              {{ t.label }}
-            </button>
-          </div>
-
           <!-- 보증금 슬라이더 -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>{{
-                filters.tradeType === 'JEONSE' ? '최대 전세 보증금' : '최대 월세 보증금'
-              }}</span>
-              <span class="text-blue-600 font-extrabold">{{
-                filters.maxDeposit >= 5000 ? '제한없음' : `${filters.maxDeposit} 만원`
-              }}</span>
+              <span>보증금</span>
+              <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
             <input
               type="range"
-              v-model.number="filters.maxDeposit"
-              min="500"
-              max="5000"
-              step="500"
-              class="w-full accent-blue-600 cursor-pointer"
+              v-model="depositIndex"
+              min="0"
+              :max="depositOptions.length - 1"
+              step="1"
+              class="w-full appearance-none cursor-pointer quick-range-input"
+              :style="rangeStyle(depositIndex, 0, depositOptions.length - 1)"
             />
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+              <span>100만원</span>
+              <span>1억원</span>
+            </div>
           </div>
 
           <!-- 월세 슬라이더 -->
-          <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
+          <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>최대 월세</span>
-              <span class="text-blue-600 font-extrabold">{{
-                filters.maxRent >= 100 ? '제한없음' : `${filters.maxRent} 만원`
-              }}</span>
+              <span>월세</span>
+              <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
             </div>
             <input
               type="range"
               v-model.number="filters.maxRent"
-              min="20"
-              max="100"
-              step="10"
-              class="w-full accent-blue-600 cursor-pointer"
+              min="0"
+              max="150"
+              step="5"
+              class="w-full appearance-none cursor-pointer quick-range-input"
+              :style="rangeStyle(filters.maxRent, 0, 150)"
             />
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+              <span>전세</span>
+              <span>150만원</span>
+            </div>
           </div>
 
           <!-- 팝업 하단 적용하기 버튼 -->
           <button
             type="button"
-            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-2"
+            class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
             @click="
               updateFilters();
               activePopover = null;
@@ -443,11 +494,11 @@ const safetyThumbColor = computed(() => {
         <!-- 이동시간 & 수단 팝업 -->
         <div
           v-if="activePopover === 'travel'"
-          class="absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 z-40 space-y-4"
+          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-4"
         >
           <!-- 헤더 타이틀 요약 -->
           <div class="flex items-center justify-between">
-            <div class="text-sm font-black text-slate-900">
+            <div class="text-sm font-black text-slate-800">
               시간
               <span class="text-blue-600"
                 >{{ filters.transportMode === 'WALK' ? '도보' : '대중교통' }}
@@ -456,7 +507,8 @@ const safetyThumbColor = computed(() => {
             </div>
             <button
               type="button"
-              class="text-slate-400 text-xs hover:text-slate-600"
+              class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              aria-label="이동 시간 설정 닫기"
               @click="activePopover = null"
             >
               ✕
@@ -476,6 +528,7 @@ const safetyThumbColor = computed(() => {
               @click="
                 filters.transportMode = 'WALK';
                 if (filters.travelTime < 5) filters.travelTime = 5;
+                if (filters.travelTime > 40) filters.travelTime = 40;
               "
             >
               <span>🚶</span>
@@ -496,7 +549,7 @@ const safetyThumbColor = computed(() => {
               "
               @click="
                 filters.transportMode = 'TRANSIT';
-                if (filters.travelTime < 10) filters.travelTime = 10;
+                if (filters.travelTime < 15) filters.travelTime = 15;
               "
             >
               <span>🚌</span>
@@ -508,98 +561,74 @@ const safetyThumbColor = computed(() => {
             </button>
           </div>
 
-          <!-- 슬라이더 1: 🎯 원하는 이동 시간 (도보 최소 5분 / 대중교통 최소 10분) -->
+          <!-- 슬라이더 1: 🎯 원하는 이동 시간 -->
           <div class="space-y-1.5 pt-1">
             <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🎯 원하는 이동 시간</span>
-              <span class="text-blue-600 font-extrabold text-sm">{{ filters.travelTime }}분</span>
+              <span class="text-blue-600 font-extrabold text-sm"
+                >{{ filters.travelTime }}분 이내</span
+              >
             </div>
             <input
               type="range"
               v-model.number="filters.travelTime"
-              :min="filters.transportMode === 'WALK' ? 5 : 10"
-              max="60"
+              :min="filters.transportMode === 'WALK' ? 5 : 15"
+              :max="filters.transportMode === 'WALK' ? 40 : 60"
               step="5"
-              class="w-full accent-blue-600 cursor-pointer"
-              @input="updateFilters"
+              class="w-full appearance-none cursor-pointer quick-range-input"
+              :style="
+                rangeStyle(
+                  filters.travelTime,
+                  filters.transportMode === 'WALK' ? 5 : 15,
+                  filters.transportMode === 'WALK' ? 40 : 60,
+                )
+              "
+              @input="
+                if (filters.transportMode === 'TRANSIT' && filters.flexTime > filters.travelTime) {
+                  filters.flexTime = filters.travelTime;
+                }
+                updateFilters();
+              "
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
-              <span>{{ filters.transportMode === 'WALK' ? '5분' : '10분' }}</span>
-              <span>60분</span>
+              <span>{{ filters.transportMode === 'WALK' ? '5분' : '15분' }}</span>
+              <span>{{ filters.transportMode === 'WALK' ? '40분' : '60분' }}</span>
             </div>
           </div>
 
-          <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
-          <div v-if="filters.transportMode === 'WALK'" class="space-y-2 pt-1">
+          <!-- 🚌 [대중교통 모드]: 최소 이동 시간 -->
+          <div v-if="filters.transportMode === 'TRANSIT'" class="space-y-1.5 pt-1">
             <div class="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>🚶‍♂️ 걸음 속도</span>
-              <span class="text-blue-600 font-extrabold text-xs">
-                {{
-                  filters.walkPace === 'SLOW'
-                    ? '천천히 (약 3.5km/h)'
-                    : filters.walkPace === 'FAST'
-                      ? '빠른 걸음 (약 5.5km/h)'
-                      : '보통 걸음 (약 4.5km/h)'
-                }}
-              </span>
-            </div>
-
-            <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
-              <button
-                v-for="pace in [
-                  { key: 'SLOW', label: '🐢 천천히' },
-                  { key: 'NORMAL', label: '🚶 보통' },
-                  { key: 'FAST', label: '🏃 빠르게' },
-                ]"
-                :key="pace.key"
-                type="button"
-                class="py-1.5 rounded-lg text-xs font-bold transition-all text-center"
-                :class="
-                  filters.walkPace === pace.key
-                    ? 'bg-white text-blue-600 shadow-sm font-black'
-                    : 'text-slate-500 hover:text-slate-800'
-                "
-                @click="
-                  filters.walkPace = pace.key;
-                  updateFilters();
-                "
+              <span>⏳ 최소 이동 시간</span>
+              <span class="text-amber-500 font-extrabold text-sm"
+                >{{ filters.flexTime }}분 이상</span
               >
-                {{ pace.label }}
-              </button>
-            </div>
-
-            <p
-              class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
-            >
-              * 선택한 걸음 속도에 따라 도달 가능 범위가 자동 계산됩니다.
-            </p>
-          </div>
-
-          <!-- 🚌 [대중교통 모드]: 앞뒤 여유 시간 슬라이더 -->
-          <div v-else class="space-y-1.5 pt-1">
-            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>⏳ 앞뒤 여유 시간</span>
-              <span class="text-amber-500 font-extrabold text-sm">±{{ filters.flexTime }}분</span>
             </div>
             <input
               type="range"
               v-model.number="filters.flexTime"
               min="5"
-              max="20"
+              :max="Math.min(30, filters.travelTime)"
               step="5"
-              class="w-full accent-amber-500 cursor-pointer"
+              class="w-full appearance-none cursor-pointer quick-range-input"
+              :style="rangeStyle(filters.flexTime, 5, Math.min(30, filters.travelTime), '#f59e0b')"
               @input="updateFilters"
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
-              <span>±5분</span>
-              <span>±20분</span>
+              <span>5분</span>
+              <span>{{ Math.min(30, filters.travelTime) }}분</span>
             </div>
+            <p
+              class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
+            >
+              {{ filters.flexTime }}분~{{ filters.travelTime }}분 이내 매물을 조회해요.
+            </p>
           </div>
 
           <!-- 팝업 하단 적용하기 버튼 -->
           <button
             type="button"
-            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-all text-center shadow-md mt-2"
+            class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
             @click="
               updateFilters();
               emit('apply');
@@ -750,14 +779,21 @@ const safetyThumbColor = computed(() => {
   border-color: #e2e8f0;
 }
 
-/* 동적 콩나물 핸들(Thumb) 색상 및 스케일 애니메이션 */
-.safety-range-input::-webkit-slider-thumb {
+/* 드롭다운 공통 슬라이더 */
+.safety-range-input,
+.quick-range-input {
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+}
+.safety-range-input::-webkit-slider-thumb,
+.quick-range-input::-webkit-slider-thumb {
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--thumb-color, #f59e0b);
-  border: 2.5px solid #ffffff;
+  border: 2px solid #ffffff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
   cursor: pointer;
   transition:
@@ -766,14 +802,16 @@ const safetyThumbColor = computed(() => {
     box-shadow 0.2s ease;
 }
 
-.safety-range-input::-webkit-slider-thumb:hover {
+.safety-range-input::-webkit-slider-thumb:hover,
+.quick-range-input::-webkit-slider-thumb:hover {
   transform: scale(1.2);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
 }
 
-.safety-range-input::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+.safety-range-input::-moz-range-thumb,
+.quick-range-input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: var(--thumb-color, #f59e0b);
   border: 2.5px solid #ffffff;
