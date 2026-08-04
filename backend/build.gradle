@@ -78,6 +78,9 @@ dependencies {
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.9.4'
 
+    // xml 자동 피싱
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
+
     // 보안
     implementation("org.springframework.security:spring-security-web:${springSecurityVersion}")
     implementation("org.springframework.security:spring-security-config:${springSecurityVersion}")
@@ -99,6 +102,9 @@ dependencies {
     testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+    testImplementation "org.junit.platform:junit-platform-commons:1.9.2"
+    testImplementation "org.junit.platform:junit-platform-launcher:1.9.2"
+    testImplementation "org.junit.platform:junit-platform-engine:1.9.2"
 }
 
 // Jetty 및 Tomcat에서 웹 애플리케이션을 실행하기 위한 고급 Gradle 플러그인

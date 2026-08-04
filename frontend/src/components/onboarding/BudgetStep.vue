@@ -1,5 +1,7 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import {computed, onMounted, ref, watch} from 'vue';
+import api from '@/api/api';
+import {useAuthStore} from "@/stores/useAuthStore.js";
 
 const emit = defineEmits(['update:deposit', 'update:monthly-rent']);
 const props = defineProps({
@@ -21,8 +23,6 @@ const monthlyRent = ref(props.monthlyRent);
 
 const deposit = computed(() => depositOptions[depositIndex.value]);
 
-watch(deposit, (value) => emit('update:deposit', value));
-watch(monthlyRent, (value) => emit('update:monthly-rent', value));
 
 const depositLabel = computed(() => {
   if (deposit.value === 10000) return '1억원';
@@ -34,10 +34,44 @@ const monthlyRentLabel = computed(() => {
   return `${monthlyRent.value}만원 이하`;
 });
 
+const authStore = useAuthStore();
+const loan = ref(null);
+const loanLoading = ref(false);
+
+const age = computed(()=>{
+  const birthDate = authStore.user?.birthDate;
+  if(!birthDate) return null;
+  const birthYear = new Date(birthDate).getFullYear();
+  return new Date().getFullYear() - birthYear + 1;
+})
+
+const fetchLoan = async () => {
+  loanLoading.value = true;
+  try {
+    const response = await api.get('/loan/onboarding-recommend',{
+      params :{
+        deposit: deposit.value,
+        monthlyRent: monthlyRent.value,
+        age: age.value,
+      }
+    });
+    loan.value = response.data;
+  }catch (error){
+    console.log('대출상품 조회 실패', error);
+    loan.value = null;
+  }finally {
+    loanLoading.value= false;
+  }
+}
+
+watch([deposit, monthlyRent], fetchLoan);
+onMounted(fetchLoan);
+
 const estimatedLoan = computed(() => deposit.value * 4);
 const estimatedPropertyBudget = computed(() => deposit.value + estimatedLoan.value);
 
 const formatAmount = (amount) => {
+  if(amount === null || amount === undefined) return '-';
   if (amount >= 10000) {
     const eok = Math.floor(amount / 10000);
     const remainder = amount % 10000;
@@ -106,22 +140,33 @@ const rangeStyle = (value, min, max) => {
         </div>
       </div>
 
-      <aside class="loan-panel">
+      <aside v-if="loanLoading" class="loan-panel">
+        <p style="color:#64748b; font-size:12px;">맞춤 금융 상품을 찾고 있어요...</p>
+      </aside>
+
+      <aside v-else-if="loan" class="loan-panel">
         <div class="loan-icon" aria-hidden="true">
           <i class="fa-solid fa-building-columns"></i>
         </div>
         <div class="loan-copy">
           <span>맞춤 금융 상품</span>
-          <strong>KB 주택전세자금대출</strong>
-          <small>내 예산에 맞춰 예상 가능한 매물 금액을 안내해 드려요</small>
+          <strong>{{ loan.productName }}</strong>
+          <small>{{ loan.companyName }} · {{ loan.rateInfo }}</small>
         </div>
         <div class="recommendation-result">
-          <p>
-            보유 자금 <b>{{ depositLabel }}</b> + 예상 대출
-            <b>{{ formatAmount(estimatedLoan) }}</b>
-            (80% 적용)
-          </p>
-          <strong>최대 {{ formatAmount(estimatedPropertyBudget) }} 매물 탐색 가능</strong>
+          <template v-if="loan.loanRatio > 0">
+            <p>
+              보유 자금 <b>{{ depositLabel }}</b> + 예상 대출
+              <b>{{ formatAmount(loan.expectedLoanAmount) }}</b>
+              ({{ Math.round(loan.loanRatio * 100) }}% 적용)
+            </p>
+            <strong>최대 {{ formatAmount(loan.maxSearchAmount) }} 매물 탐색 가능</strong>
+          </template>
+          <template v-else>
+            <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
+            <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
+            <strong>{{ loan.loanLimit }}</strong>
+          </template>
         </div>
       </aside>
     </div>

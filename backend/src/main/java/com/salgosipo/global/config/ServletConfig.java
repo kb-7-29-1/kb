@@ -25,6 +25,7 @@ import java.util.List;
         "com.salgosipo.property.controller",
         "com.salgosipo.safety.controller",
         "com.salgosipo.user.controller",
+        "com.salgosipo.loan.controller",
         "com.salgosipo.global.exception"
 })
 public class ServletConfig implements WebMvcConfigurer {
