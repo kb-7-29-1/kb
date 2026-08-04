@@ -16,7 +16,7 @@ export const renderClusterPinHTML = (count) => {
  * 사용자 세세 조절 커스텀 옵션 세팅
  */
 export const DEFAULT_CLUSTER_OPTIONS = {
-  minClusterZoom: 16,    // 🔍 15 레벨 이상 확대 시 클러스터 해제 후 개별 매물 핀 표출 (조정가능: 13 ~ 16)
+  minClusterZoom: 18,    // 🔍 15 레벨 이상 확대 시 클러스터 해제 후 개별 매물 핀 표출 (조정가능: 13 ~ 16)
   gridSizeFactor: 0.01, // 📐 클러스터 반경 범위 크기 (작을수록 촘촘하게 쪼개짐, 클수록 크게 뭉침: 0.004 ~ 0.015)
   minClusterCount: 3,    // 🔢 최소 묶음 개수 (2개 이상 뭉쳤을 때만 🏢 클러스터 핀 적용)
 };

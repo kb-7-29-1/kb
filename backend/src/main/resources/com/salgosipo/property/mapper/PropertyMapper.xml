@@ -162,4 +162,14 @@
         WHERE property_id = #{propertyId}
     </update>
 
+    <!-- 매물 위경도 정밀 좌표 일괄 배치 갱신 -->
+    <update id="updateBatchPropertyCoordinates">
+        <foreach collection="list" item="p" separator=";">
+            UPDATE properties
+            SET property_latitude = #{p.latitude, jdbcType=DECIMAL},
+                property_longitude = #{p.longitude, jdbcType=DECIMAL}
+            WHERE property_id = #{p.propertyId}
+        </foreach>
+    </update>
+
 </mapper>

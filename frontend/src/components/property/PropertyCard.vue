@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { formatPropertyPrice } from '@/utils/priceFormatter';
 
 const props = defineProps({
   property: {
@@ -26,13 +27,9 @@ const roomTypeText = computed(() => {
   return rooms[props.property.roomType] || '원룸';
 });
 
-// 가격 포맷팅 (예: 보증금 1,000 / 월세 65)
+// 가격 포맷팅 (예: 100만/65, 3,500만/50, 전세 1.5억)
 const formattedPrice = computed(() => {
-  const deposit = props.property.deposit ? props.property.deposit.toLocaleString() : '0';
-  if (!props.property.monthlyRent || props.property.monthlyRent === 0) {
-    return `전세 ${deposit}만`;
-  }
-  return `${deposit} / ${props.property.monthlyRent}만`;
+  return formatPropertyPrice(props.property.deposit, props.property.monthlyRent);
 });
 
 // 안전점수 색상 클래스
