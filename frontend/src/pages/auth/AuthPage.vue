@@ -21,6 +21,15 @@ const showFindModal = ref(false);
     </aside>
     <main class="auth-card" :class="{ 'auth-card--login': mode === 'login' }">
       <div class="auth-heading">
+        <button
+          v-if="mode === 'signup'"
+          type="button"
+          class="signup-back-button"
+          aria-label="로그인으로 돌아가기"
+          @click="router.push({ name: 'login' })"
+        >
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
         <h1 class="auth-logo" @click="router.push({ name: 'login' })">
           <span class="auth-logo__mark"
             ><i class="fa-solid fa-shield-halved" aria-hidden="true"></i
@@ -195,6 +204,59 @@ const showFindModal = ref(false);
     right: 24px;
     left: 24px;
     margin-top: 0;
+  }
+
+  .auth-card:not(.auth-card--login) {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: #f6f8fc;
+  }
+
+  .auth-card:not(.auth-card--login) .auth-heading {
+    position: relative;
+    box-sizing: border-box;
+    height: max(100px, calc(env(safe-area-inset-top) + 62px));
+    padding: max(60px, calc(env(safe-area-inset-top) + 22px)) 20px 0;
+    margin: 0;
+    border-bottom: 1px solid #e7eaf0;
+    background: #f6f8fc;
+  }
+
+  .auth-card:not(.auth-card--login) .auth-logo {
+    display: none;
+  }
+
+  .auth-card:not(.auth-card--login) .auth-signup-title {
+    position: absolute;
+    top: max(60px, calc(env(safe-area-inset-top) + 22px));
+    left: 50%;
+    margin: 0;
+    height: 28px;
+    color: #20283a;
+    font-size: 18px;
+    line-height: 28px;
+    transform: translateX(-50%);
+  }
+
+  .signup-back-button {
+    position: absolute;
+    top: max(60px, calc(env(safe-area-inset-top) + 22px));
+    left: 20px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #6d7480;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .auth-card:not(.auth-card--login) .auth-links {
+    display: none;
   }
 }
 
