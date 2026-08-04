@@ -1,7 +1,7 @@
 <script setup>
-import api from '@/api/api.js';
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import api from "@/api/api.js";
+import {onMounted, ref} from "vue";
+import {useRouter} from "vue-router";
 
 const bookmarks = ref([]);
 const router = useRouter();
