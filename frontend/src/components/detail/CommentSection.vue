@@ -103,8 +103,7 @@ watch(
 <style scoped>
 .comment-section {
   width: 100%;
-  padding: 20px 18px;
-  border-top: 10px solid #f5f6f8;
+  padding: 12px 18px;
   background: #fff;
   box-sizing: border-box;
 }
