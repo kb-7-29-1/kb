@@ -48,6 +48,7 @@ const destinationSearchKeyword = ref('');
 const destinationSearchResults = ref([]);
 const selectedDestination = ref(null);
 const isDestinationSearching = ref(false);
+const isDestinationSaving = ref(false);
 const destinationSearchError = ref('');
 let destinationSearchTimer;
 const depositOptions = [
@@ -105,6 +106,31 @@ const clearDestinationSearch = () => {
   destinationSearchResults.value = [];
   selectedDestination.value = null;
   destinationSearchError.value = '';
+};
+
+const applyDestination = async () => {
+  destinationSearchError.value = '';
+
+  if (selectedDestination.value) {
+    isDestinationSaving.value = true;
+    try {
+      const savedDestination = await onboardingApi.saveDestination(selectedDestination.value);
+      filters.value.destination = savedDestination.destName;
+      filters.value.destinationAddress = savedDestination.destAddress;
+      filters.value.destinationLat = Number(savedDestination.destLatitude);
+      filters.value.destinationLng = Number(savedDestination.destLongitude);
+    } catch (error) {
+      destinationSearchError.value = '목적지 저장에 실패했어요. 다시 시도해 주세요.';
+      console.error('QUICK FILTER DESTINATION SAVE ERROR:', error);
+      return;
+    } finally {
+      isDestinationSaving.value = false;
+    }
+  }
+
+  updateFilters();
+  emit('apply');
+  activePopover.value = null;
 };
 
 watch(destinationSearchKeyword, (value) => {
@@ -339,7 +365,10 @@ const safetyAccentClass = computed(() => {
             </li>
           </ul>
           <p
-            v-else-if="destinationSearchKeyword.trim().length >= 2"
+            v-else-if="
+              destinationSearchKeyword.trim().length >= 2 &&
+              selectedDestination?.destName !== destinationSearchKeyword
+            "
             class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
           >
             검색 결과가 없어요.
@@ -353,13 +382,10 @@ const safetyAccentClass = computed(() => {
           <button
             type="button"
             class="mt-4 w-full rounded-xl bg-blue-600 py-3 text-sm font-black text-white shadow-md transition-all hover:bg-blue-700"
-            @click="
-              updateFilters();
-              emit('apply');
-              activePopover = null;
-            "
+            :disabled="isDestinationSaving"
+            @click="applyDestination"
           >
-            적용하기
+            {{ isDestinationSaving ? '저장 중...' : '적용하기' }}
           </button>
         </div>
       </div>
