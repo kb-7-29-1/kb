@@ -2,11 +2,10 @@ package com.salgosipo.amenity.service;
 
 import com.salgosipo.amenity.client.WalkingApiClient;
 import com.salgosipo.amenity.dto.AmenityFilter;
+import com.salgosipo.amenity.dto.AmenityPropertyCoordinateDTO;
 import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
-import com.salgosipo.property.dto.PropertyDetailDTO;
-import com.salgosipo.property.mapper.PropertyMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.LinkedHashMap;
 
 @Log4j2
 @Service
@@ -24,15 +25,12 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
-    private final PropertyMapper propertyMapper;
 
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
-            PropertyMapper propertyMapper,
             @Value("${TMAP_API_KEY}") String tmapApiKey
     ) {
         this.amenityMapper = amenityMapper;
-        this.propertyMapper = propertyMapper;
         this.walkingApiClient = new WalkingApiClient(tmapApiKey);
     }
 
@@ -58,10 +56,9 @@ public class AmenityServiceImpl implements AmenityService {
         }
 
         // 2. DB에 없는 편의시설만 TMAP으로 계산 및 저장
-        PropertyDetailDTO property = propertyMapper.selectPropertyDetail(
-                request.getPropertyId().longValue(),
-                null
-        );
+        // 북마크·상세 정보 없이 편의시설 계산에 필요한 좌표만 조회한다.
+        AmenityPropertyCoordinateDTO property =
+                amenityMapper.getPropertyCoordinates(request.getPropertyId());
         Double startLat = property == null ? null : property.getLatitude();
         Double startLng = property == null ? null : property.getLongitude();
 
@@ -114,6 +111,29 @@ public class AmenityServiceImpl implements AmenityService {
         // 3. 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
         List<AmenityResponseDTO> finalAmenities = amenityMapper.getAmenitiesByFilter(request);
         return filterByRequest(finalAmenities, request.getAmenities());
+    }
+
+    @Override
+    @Transactional
+    public Map<Integer, List<AmenityResponseDTO>> getAmenitiesByProperties(List<AmenityRequestDTO> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
+        for (AmenityRequestDTO request : requests) {
+            if (!isValidRequest(request)) {
+                continue;
+            }
+            try {
+                amenitiesByProperty.put(request.getPropertyId(), getAmenitiesByFilter(request));
+            } catch (RuntimeException e) {
+                // 한 매물의 조회 실패가 전체 목록 필터링을 중단시키지 않도록 빈 결과로 처리한다.
+                log.warn("Amenity calculation failed. PropertyId: {}", request.getPropertyId(), e);
+                amenitiesByProperty.put(request.getPropertyId(), Collections.emptyList());
+            }
+        }
+        return amenitiesByProperty;
     }
 
     private boolean isValidRequest(AmenityRequestDTO request) {
