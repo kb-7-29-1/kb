@@ -122,7 +122,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .antMatchers(HttpMethod.POST,
                         "/api/amenities/filter",
                         "/api/amenities/filter/properties").permitAll()
-                .antMatchers("/api/auth/**").permitAll()
+                .antMatchers("/api/auth/**","/api/loan/**").permitAll()
                 .anyRequest().authenticated();
     }
 

@@ -13,7 +13,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
@@ -37,7 +39,9 @@ import javax.sql.DataSource;
         "com.salgosipo.onboarding.service",
         "com.salgosipo.property.service",
         "com.salgosipo.safety.service",
-        "com.salgosipo.user.service"})
+        "com.salgosipo.user.service",
+        "com.salgosipo.loan.service",
+        "com.salgosipo.loan.client"})
 public class RootConfig {
     //프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired
@@ -54,6 +58,14 @@ public class RootConfig {
 
     @Value("${jdbc.password}")
     String password;
+
+    @Bean
+    public RestTemplate restTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(5000);
+        return new RestTemplate(factory);
+    }
 
     @Bean
     public DataSource dataSource() {
