@@ -1,20 +1,64 @@
 <script setup>
+import { computed, ref, watch } from 'vue';
+import CommentList from '@/components/property/CommentList.vue';
+import { usePropertyComments } from '@/composables/usePropertyComments.js';
+import { useAuthStore } from '@/stores/useAuthStore';
+
 const props = defineProps({
   propertyId: {
     type: [Number, String],
     required: true,
   },
-  commentCount: {
-    type: Number,
-    default: 0,
+  property: {
+    type: Object,
+    required: true,
   },
 });
 
-const goToComments = () => {
-  emit('view-all', props.propertyId);
+const showCommentList = ref(false);
+const authStore = useAuthStore();
+const isLoggedIn = computed(() => authStore.isLoggedIn);
+const {
+  comments,
+  commentCount,
+  isLoading,
+  loadError,
+  isSubmitting,
+  submitError,
+  load,
+  create,
+  update,
+  remove,
+} = usePropertyComments();
+
+const openCommentList = async () => {
+  showCommentList.value = true;
+  await load(props.propertyId);
 };
 
-const emit = defineEmits(['view-all']);
+const createComment = async ({ content }) => {
+  if (!isLoggedIn.value || !content?.trim()) return;
+  await create(props.propertyId, content.trim());
+};
+
+const updateComment = async ({ commentId, content }) => {
+  if (!isLoggedIn.value || !content?.trim()) return;
+  await update(props.propertyId, commentId, content.trim());
+};
+
+const deleteComment = async (commentId) => {
+  if (!isLoggedIn.value || !window.confirm('댓글을 삭제할까요?')) return;
+  await remove(props.propertyId, commentId);
+};
+
+watch(
+  () => props.propertyId,
+  async (propertyId) => {
+    showCommentList.value = false;
+    if (propertyId) await load(propertyId);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -28,7 +72,7 @@ const emit = defineEmits(['view-all']);
       <button
           type="button"
           class="view-all-button"
-          @click="goToComments"
+          @click="openCommentList"
       >
 
         댓글 {{ commentCount }}개 전체보기
@@ -37,6 +81,23 @@ const emit = defineEmits(['view-all']);
     </div>
 
   </section>
+
+  <aside v-if="showCommentList" class="comment-list-panel">
+    <p v-if="isLoading" class="comment-status">댓글을 불러오는 중입니다.</p>
+    <p v-else-if="loadError" class="comment-status error">{{ loadError }}</p>
+    <CommentList
+      v-else
+      :property="property"
+      :comments="comments"
+      :is-logged-in="isLoggedIn"
+      :is-submitting="isSubmitting"
+      @close="showCommentList = false"
+      @submit-comment="createComment"
+      @update-comment="updateComment"
+      @delete-comment="deleteComment"
+    />
+    <p v-if="submitError" class="comment-submit-error">{{ submitError }}</p>
+  </aside>
 </template>
 
 <style scoped>
@@ -46,6 +107,44 @@ const emit = defineEmits(['view-all']);
   border-top: 10px solid #f5f6f8;
   background: #fff;
   box-sizing: border-box;
+}
+
+.comment-list-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  display: flex;
+  width: 100vw;
+  max-width: 560px;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #f8fafc;
+  box-shadow: -12px 0 30px rgb(15 23 42 / 18%);
+}
+
+.comment-status,
+.comment-submit-error {
+  margin: 0;
+  padding: 48px 18px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.comment-status.error,
+.comment-submit-error {
+  color: #dc2626;
+}
+
+.comment-submit-error {
+  padding: 8px 18px;
+}
+
+@media (max-width: 560px) {
+  .comment-list-panel {
+    max-width: none;
+  }
 }
 
 .section-header {
