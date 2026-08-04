@@ -23,7 +23,11 @@ onMounted(fetchBookmarks)
     <div v-if="bookmarks.length === 0" class="text-gray-400 text-sm text-center py-8">
       찜한 매물이 없습니다.
     </div>
-
+    <div v-else class="max-h-96 overflow-y-auto space-y-3 pr-1">
+      <div v-for="item in bookmarks" :key="item.propertyId" class="border rounded-xl p-4 flex items-center justify-between">
+        ...
+      </div>
+    </div>
     <div v-for="item in bookmarks" :key="item.propertyId" class="border rounded-xl p-4 mb-3 flex items-center justify-between">
       <div>
         <div class="flex items-center gap-2 mb-1">

@@ -148,4 +148,18 @@
         </foreach>;
     </insert>
 
+    <!-- DB 전체 매물 주소 및 좌표 조회 -->
+    <select id="selectAllPropertiesToGeocode" resultType="com.salgosipo.property.dto.PropertyListDTO">
+        SELECT property_id AS propertyId, address, property_latitude AS latitude, property_longitude AS longitude
+        FROM properties
+    </select>
+
+    <!-- 매물 위경도 정밀 좌표 갱신 -->
+    <update id="updatePropertyCoordinates">
+        UPDATE properties
+        SET property_latitude = #{latitude},
+            property_longitude = #{longitude}
+        WHERE property_id = #{propertyId}
+    </update>
+
 </mapper>

@@ -24,4 +24,10 @@ public interface PropertyMapper {
 
     // 공공데이터 API 수집 매물 DB 배치 저장
     int insertBatchPublicProperties(@Param("list") List<PropertyListDTO> list);
+
+    // DB 전체 매물 조회
+    List<PropertyListDTO> selectAllPropertiesToGeocode();
+
+    // 매물 위경도 좌표 갱신
+    int updatePropertyCoordinates(@Param("propertyId") Long propertyId, @Param("latitude") Double latitude, @Param("longitude") Double longitude);
 }
