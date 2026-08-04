@@ -5,13 +5,18 @@ import com.salgosipo.amenity.dto.AmenityFilter;
 import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
+import com.salgosipo.property.dto.PropertyDetailDTO;
 import com.salgosipo.property.mapper.PropertyMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Log4j2
 @Service
@@ -32,92 +37,110 @@ public class AmenityServiceImpl implements AmenityService {
     }
 
     @Override
+    @Transactional
     public List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request) {
-
-        // 1. 기존 DB에 저장된 데이터 확인 (캐싱)
-        List<AmenityResponseDTO> existingAmenities = amenityMapper.getAmenitiesByFilter(request);
-        if (existingAmenities != null && !existingAmenities.isEmpty()) {
-            return existingAmenities;
+        // 1. 요청 검증 및 기존 편의시설 조회
+        if (!isValidRequest(request)) {
+            return Collections.emptyList();
         }
 
-        // 2. 매물의 위경도 조회
-        // Double startLat = propertyMapper.getLatitude(request.getPropertyId());
-        // Double startLng = propertyMapper.getLongitude(request.getPropertyId());
+        List<AmenityResponseDTO> storedAmenities = new ArrayList<>(
+                amenityMapper.getAmenitiesByFilter(request)
+        );
+        Set<Integer> storedTypes = new HashSet<>();
+        storedAmenities.forEach(amenity -> storedTypes.add(amenity.getAmenityType()));
 
-        // 예시: 강남역 10번 출구 근처 좌표로 임시 설정
-        Double startLat = 37.497952;
-        Double startLng = 127.027619;
+        boolean hasMissingType = request.getAmenities().stream()
+                .anyMatch(filter -> !storedTypes.contains(filter.getAmenityType()));
 
-        List<AmenityResponseDTO> newAmenities = new ArrayList<>();
-
-        // if (startLat == null || startLng == null) {
-        //    log.warn("매물 좌표가 존재하지 않습니다. PropertyId: {}", request.getPropertyId());
-        //    return newAmenities;
-        // }
-
-        // 클라이언트가 보낸 필터 목록이 없으면 빈 리스트 반환
-        if (request.getAmenities() == null || request.getAmenities().isEmpty()) {
-            return newAmenities;
+        if (!hasMissingType) {
+            return filterByRequest(storedAmenities, request.getAmenities());
         }
 
-        // 3. 사용자가 요청한 필터(AmenityFilter) 목록 순회
+        // 2. DB에 없는 편의시설만 TMAP으로 계산 및 저장
+        PropertyDetailDTO property = propertyMapper.selectPropertyDetail(
+                request.getPropertyId().longValue(),
+                null
+        );
+        Double startLat = property == null ? null : property.getLatitude();
+        Double startLng = property == null ? null : property.getLongitude();
+
+        if (startLat == null || startLng == null) {
+            log.warn("Property coordinates are missing. PropertyId: {}", request.getPropertyId());
+            return filterByRequest(storedAmenities, request.getAmenities());
+        }
+
         for (AmenityFilter filter : request.getAmenities()) {
             Integer type = filter.getAmenityType();
-            Integer maxWalkTime = filter.getWalkTimeMinutes(); // 유저가 설정한 최대 도보 시간
-
-            // 3-1. Integer 타입을 실제 검색어(String)로 변환
-            String keyword = getKeywordByType(type);
-            if (keyword == null) continue;
-
-            // 3-2. 해당 키워드로 반경 2km 내 가장 가까운 장소 좌표 찾기
-            double[] nearestPlaceCoords = walkingApiClient.findNearestPlace(startLat, startLng, keyword);
-
-            if (nearestPlaceCoords != null) {
-                Double endLat = nearestPlaceCoords[0];
-                Double endLng = nearestPlaceCoords[1];
-
-                // 3-3. 출발지(매물)에서 도착지(편의시설)까지의 도보 시간 계산
-                WalkingApiClient.WalkingRoute route = walkingApiClient.calculateWalkingRoute(
-                        startLat, startLng, endLat, endLng
-                );
-                Integer walkTime = route == null ? null : route.walkTimeMinutes();
-
-                // 3-4. 계산된 도보 시간이 유저가 설정한 최대 시간(maxWalkTime) 이하인 경우에만 추가
-                if (route != null && walkTime != null && route.distanceMeters() != null
-                        && walkTime <= maxWalkTime) {
-
-                    // 3-5. 응답 DTO 생성 (DB 저장을 위해 먼저 생성해야 합니다)
-                    AmenityResponseDTO responseDTO = AmenityResponseDTO.builder()
-                            .propertyId(request.getPropertyId())
-                            .amenityType(type)
-                            .amenityName(keyword)
-                            .amenityLatitude(endLat)
-                            .amenityLongitude(endLng)
-                            .distanceMeters(route.distanceMeters())
-                            .walkTimeMinutes(walkTime)
-                            .build();
-
-                    // 3-6. DB에 캐싱용 데이터 INSERT
-                    amenityMapper.insertAmenity(responseDTO);
-
-                    // 3-7. 반환할 리스트에 추가
-                    newAmenities.add(responseDTO);
-                }
-            } else {
-                log.info("반경 2km 내에 조건에 맞는 편의시설이 없습니다: {}", keyword);
+            if (storedTypes.contains(type)) {
+                continue;
             }
+
+            String keyword = getKeywordByType(type);
+            if (keyword == null) {
+                continue;
+            }
+
+            double[] nearestPlaceCoords = walkingApiClient.findNearestPlace(startLat, startLng, keyword);
+            if (nearestPlaceCoords == null) {
+                continue;
+            }
+
+            WalkingApiClient.WalkingRoute route = walkingApiClient.calculateWalkingRoute(
+                    startLat,
+                    startLng,
+                    nearestPlaceCoords[0],
+                    nearestPlaceCoords[1]
+            );
+            if (route == null || route.walkTimeMinutes() == null || route.distanceMeters() == null) {
+                continue;
+            }
+
+            AmenityResponseDTO amenity = AmenityResponseDTO.builder()
+                    .propertyId(request.getPropertyId())
+                    .amenityType(type)
+                    .amenityName(keyword)
+                    .amenityLatitude(nearestPlaceCoords[0])
+                    .amenityLongitude(nearestPlaceCoords[1])
+                    .distanceMeters(route.distanceMeters())
+                    .walkTimeMinutes(route.walkTimeMinutes())
+                    .build();
+
+            // 동시 요청으로 이미 저장된 경우에도 예외 없이 기존 행을 유지한다.
+            amenityMapper.insertAmenityIfAbsent(amenity);
+            storedTypes.add(type);
         }
 
-        return newAmenities;
+        // 3. 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
+        List<AmenityResponseDTO> finalAmenities = amenityMapper.getAmenitiesByFilter(request);
+        return filterByRequest(finalAmenities, request.getAmenities());
     }
 
-    /**
-     * Integer 형태의 amenityType을 TMAP 검색을 위한 문자열 키워드로 변환
-     * (프론트엔드의 amenities.ref 매핑 기준 적용)
-     */
-    private String getKeywordByType(Integer amenityType) {
-        if (amenityType == null) return null;
+    private boolean isValidRequest(AmenityRequestDTO request) {
+        return request != null
+                && request.getPropertyId() != null
+                && request.getAmenities() != null
+                && !request.getAmenities().isEmpty()
+                && request.getAmenities().stream().allMatch(filter ->
+                filter != null
+                        && filter.getAmenityType() != null
+                        && filter.getWalkTimeMinutes() != null
+        );
+    }
 
+    private List<AmenityResponseDTO> filterByRequest(
+            List<AmenityResponseDTO> amenities,
+            List<AmenityFilter> filters
+    ) {
+        return amenities.stream()
+                .filter(amenity -> filters.stream().anyMatch(filter ->
+                        amenity.getAmenityType().equals(filter.getAmenityType())
+                                && amenity.getWalkTimeMinutes() <= filter.getWalkTimeMinutes()
+                ))
+                .toList();
+    }
+
+    private String getKeywordByType(Integer amenityType) {
         return switch (amenityType) {
             case 1 -> "편의점";
             case 2 -> "카페";
