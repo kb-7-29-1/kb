@@ -3,6 +3,7 @@ package com.salgosipo.comment.service;
 import com.salgosipo.comment.domain.PropertyCommentVO;
 import com.salgosipo.comment.dto.CommentResponseDTO;
 import com.salgosipo.comment.dto.CommentRequestDTO;
+import com.salgosipo.comment.dto.CommentTagResponseDTO;
 import com.salgosipo.comment.mapper.CommentMapper;
 import com.salgosipo.user.domain.UserVO;
 import com.salgosipo.user.mapper.UserMapper;
@@ -18,6 +19,7 @@ public class CommentServiceImpl implements CommentService {
 
     private final CommentMapper commentMapper;
     private final UserMapper userMapper;
+    private final CommentTagAnalysisService commentTagAnalysisService;
 
     @Override
     public List<CommentResponseDTO> getCommentsByPropertyId(Long propertyId, String loginId) {
@@ -28,6 +30,7 @@ public class CommentServiceImpl implements CommentService {
     @Transactional
     public void createComment(Long propertyId, String loginId, CommentRequestDTO request) {
         commentMapper.insertComment(createCommentVO(propertyId, null, loginId, getContent(request)));
+        commentTagAnalysisService.refreshPropertyTags(propertyId);
     }
 
     @Override
@@ -38,6 +41,7 @@ public class CommentServiceImpl implements CommentService {
         ) == 0) {
             throw new IllegalArgumentException("수정할 댓글이 없습니다.");
         }
+        commentTagAnalysisService.refreshPropertyTags(propertyId);
     }
 
     @Override
@@ -46,6 +50,14 @@ public class CommentServiceImpl implements CommentService {
         if (commentMapper.deleteComment(createCommentVO(propertyId, commentId, loginId, null)) == 0) {
             throw new IllegalArgumentException("삭제할 댓글이 없습니다.");
         }
+        commentTagAnalysisService.refreshPropertyTags(propertyId);
+    }
+
+    @Override
+    public List<CommentTagResponseDTO> getTagsByPropertyId(Long propertyId) {
+        // 기존에 작성된 댓글도 첫 조회부터 분석 결과에 포함한다.
+        commentTagAnalysisService.refreshPropertyTags(propertyId);
+        return commentMapper.findTagsByPropertyId(propertyId);
     }
 
     private Long getUserId(String loginId) {

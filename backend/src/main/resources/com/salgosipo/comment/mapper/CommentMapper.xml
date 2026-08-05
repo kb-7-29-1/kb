@@ -51,4 +51,40 @@
         WHERE user_id = #{userId}
           AND del_yn = 'N'
     </update>
+
+    <select id="findActiveContentsByPropertyId" resultType="string">
+        SELECT content
+        FROM property_comment
+        WHERE property_id = #{propertyId}
+          AND del_yn = 'N'
+    </select>
+
+    <select id="findTagsByPropertyId" resultType="com.salgosipo.comment.dto.CommentTagResponseDTO">
+        SELECT tag_type AS tagType,
+               CASE tag_type
+                   WHEN 1 THEN '현관보안 좋음'
+                   WHEN 2 THEN '귀갓길 밝음'
+                   WHEN 3 THEN '근처 유동인구 많음'
+                   WHEN 4 THEN '여성 전용 원룸'
+                   WHEN 5 THEN '관리인 상주'
+                   WHEN 6 THEN '외부인 출입 잦음'
+                   WHEN 7 THEN '귀갓길 어두움'
+                   WHEN 8 THEN '근처 인적 드묾'
+               END AS tagName,
+               CASE WHEN tag_type IN (6, 7, 8) THEN 'NEGATIVE' ELSE 'POSITIVE' END AS type,
+               tag_count AS count
+        FROM property_tag
+        WHERE property_id = #{propertyId}
+        ORDER BY tag_count DESC, tag_type ASC
+    </select>
+
+    <delete id="deleteTagsByPropertyId">
+        DELETE FROM property_tag
+        WHERE property_id = #{propertyId}
+    </delete>
+
+    <insert id="insertPropertyTag">
+        INSERT INTO property_tag (property_id, tag_type, tag_count)
+        VALUES (#{propertyId}, #{tagType}, #{tagCount})
+    </insert>
 </mapper>
