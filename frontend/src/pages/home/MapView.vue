@@ -34,11 +34,15 @@ const props = defineProps({
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
 const sortOptions = [
-  { key: 'RECOMMENDED', label: '추천순' },
-  { key: 'PRICE_ASC', label: '가격 낮은순' },
-  { key: 'PRICE_DESC', label: '가격 높은순' },
-  { key: 'SAFETY_DESC', label: '안전점수 높은순' },
-  { key: 'AREA_DESC', label: '면적 넓은순' },
+  { key: 'RECOMMENDED', label: '추천순', icon: 'fa-solid fa-thumbs-up' },
+  { key: 'PRICE_ASC', label: '가격 낮은순', icon: 'fa-solid fa-arrow-down-wide-short' },
+  { key: 'PRICE_DESC', label: '가격 높은순', icon: 'fa-solid fa-arrow-up-wide-short' },
+  { key: 'SAFETY_DESC', label: '안전점수 높은순', icon: 'fa-solid fa-shield-halved' },
+  {
+    key: 'AREA_DESC',
+    label: '면적 넓은순',
+    icon: 'fa-solid fa-up-right-and-down-left-from-center',
+  },
 ];
 
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
@@ -319,9 +323,7 @@ const sortedProperties = computed(() => {
     if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
       const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
-      const requiredTypes = new Set(
-        activeAmenityFilters.value.map((filter) => filter.amenityType),
-      );
+      const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
       if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
     }
 
@@ -419,8 +421,7 @@ const selectedPropertyAmenities = computed(() => {
   if (!activeAmenityFilters.value.length) return [];
 
   const propertyId = selectedProperty.value.propertyId;
-  return amenitiesByProperty.value[propertyId]
-    ?? selectedPropertyDetailAmenities.value;
+  return amenitiesByProperty.value[propertyId] ?? selectedPropertyDetailAmenities.value;
 });
 
 watch(
@@ -455,9 +456,7 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 const openAmenityDetailFilter = (selectedFilters) => {
-  const filters = selectedFilters
-    ?? amenityFilterRef.value?.getSelectedAmenities?.()
-    ?? [];
+  const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
   amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
@@ -477,9 +476,7 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
 
-  const selectedTypes = new Set(
-    selectedFilters.map((filter) => Number(filter.amenityType)),
-  );
+  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
   const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
     (filter) => !selectedTypes.has(Number(filter.amenityType)),
   );
@@ -529,53 +526,30 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       class="mobile-aside-panel w-full xl:w-[380px] rounded-t-[22px] xl:rounded-none bg-white border-t xl:border-t-0 xl:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out overflow-hidden"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED'
-          ? 'h-[80vh] xl:h-full'
-          : 'h-[250px] xl:h-full',
+        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] xl:h-full' : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-2 pt-3 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
       >
-        <span class="w-20 h-1.5 bg-slate-300 rounded-full"></span>
+        <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
 
-      <!-- 모바일: 하단 시트용 간결한 목록 헤더 -->
-      <div class="xl:hidden px-4 pb-3 pt-1 bg-white shrink-0 space-y-2">
-        <p class="m-0 text-[13px] font-bold text-slate-700">
-          {{ visibleProperties.length }}개 매물
-        </p>
-        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-0.5">
-          <button
-            v-for="opt in sortOptions"
-            :key="opt.key"
-            type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors"
-            :class="
-              currentSort === opt.key
-                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                : 'border-slate-200 bg-white text-slate-500'
-            "
-            @click="currentSort = opt.key"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-      </div>
-
-      <!-- PC: 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div class="hidden xl:block p-4 border-b border-slate-200 bg-white space-y-3">
+      <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
+      <div class="p-4 pt-1 pb-1 border-b-0 xl:border-b xl:border-slate-200 bg-white space-y-3">
         <div class="flex items-center justify-between">
-          <h1 class="font-black text-slate-900 text-lg flex items-center gap-2">
+          <h1 class="hidden xl:flex font-black text-slate-900 text-lg items-center gap-2">
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
-          <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">
+          <span
+            class="text-[13px] font-bold text-slate-500 xl:text-xs xl:text-blue-600 xl:bg-blue-50 xl:px-2.5 xl:py-1 xl:rounded-full"
+          >
             총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
@@ -583,26 +557,24 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
         <section class="relative !mt-5 hidden border-t border-slate-100 xl:block">
           <div class="flex w-full items-center justify-between mb-1">
-            <h2 class="text-[17px] font-black text-slate-700">
-              편의시설 필터
-            </h2>
+            <h2 class="text-[17px] font-black text-slate-700">편의시설 필터</h2>
 
             <button
-                type="button"
-                class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                @click="openAmenityDetailFilter()"
+              type="button"
+              class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+              @click="openAmenityDetailFilter()"
             >
               <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
               >
                 <path d="M4 5h16l-6.5 7.2V18l-3 1.5v-7.3L4 5z" />
               </svg>
@@ -630,19 +602,20 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </section>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none">
+        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:gap-1">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
             type="button"
-            class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all xl:rounded-lg xl:border-0 xl:px-2.5 xl:text-xs xl:font-bold"
             :class="[
               currentSort === opt.key
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5] xl:border-0 xl:bg-slate-900 xl:text-white xl:shadow-sm'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 xl:bg-slate-100 xl:text-slate-600 xl:hover:bg-slate-200',
             ]"
             @click="currentSort = opt.key"
           >
+            <i :class="[opt.icon, 'xl:hidden text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
           </button>
         </div>
