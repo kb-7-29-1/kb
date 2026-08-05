@@ -93,31 +93,39 @@ public class LoanService {
                     );
                     return new LoanProductDtoWithRate(dto,minRate != null ? minRate : 999.0);
                 })
-                .sorted(Comparator.comparing((LoanProductDtoWithRate p) -> !p.getDto().getCompanyName().contains("국민은행"))
+                .sorted(Comparator.comparing((LoanProductDtoWithRate p) -> !(isYouth && p.getDto().getProductName().contains("청년")))
+                        .thenComparing((LoanProductDtoWithRate p) ->!p.getDto().getCompanyName().contains("국민은행"))
                         .thenComparing(LoanProductDtoWithRate::getRate))
                 .map(LoanProductDtoWithRate::getDto)
                 .collect(Collectors.toList());
     }
 
-    // 월세
+    // 월세 (API 데이터 부족으로 인한 하드코딩)
     private List<LoanProductDto> getWolseLoans(Integer age, Integer deposit, Integer monthlyRent) {
         boolean isYouth = age != null && age <= 34;
         boolean isSenior = age != null && age >= 60;
-        boolean fitsYouthLoan = deposit != null && deposit <= 5000;
-        boolean fitsSeniorLoan = deposit != null && deposit <= 1000;
+        boolean fitsYouthLoan = deposit != null && monthlyRent != null && deposit <= 6500 && monthlyRent <=70;
 
         if (isYouth && fitsYouthLoan) {
+            String depositLimitInfo = (deposit != null && deposit <= 4500)
+                    ? "보증금 전액(" + deposit + "만원)"
+                    : "보증금 최대 4,500만원" + (deposit != null ? " (초과분 " + (deposit - 4500) + "만원은 본인 부담)" : "");
+
+            String monthlyLimitInfo = (monthlyRent != null && monthlyRent <= 50)
+                    ? "월세 전액(" + monthlyRent + "만원)"
+                    : "월 최대 50만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 50) + "만원은 본인 부담)" : "");
+
             return List.of(new LoanProductDto(
                     "주택도시기금 (KB국민은행 등 수탁은행 취급)",
                     "청년전용 보증부 월세대출",
-                    "임차보증금 5천만원 이하",
+                    depositLimitInfo + "/" + monthlyLimitInfo,
                     "연 1.0%~2.0% (국토교통부 고시 변동금리)",
-                    "만 19~34세 청년, 무주택 세대주",
+                    "만 19~34세 청년, 무주택 세대주 (보증금 6,500만원·월세 70만원 이하)",
                     "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
             ));
         }
 
-        if (isSenior && fitsSeniorLoan) {
+        if (isSenior) {
             return List.of(new LoanProductDto(
                     "국민연금공단",
                     "노후긴급자금대부",
@@ -128,20 +136,18 @@ public class LoanService {
             ));
         }
 
-
         String limitInfo = (monthlyRent != null && monthlyRent <= 60)
                     ? "월세 전액(" + monthlyRent + "만원) 지원 가능"
                     : "월 최대 60만원까지 지원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
 
         return List.of(new LoanProductDto(
                 "주택도시기금 (KB국민은행 등 수탁은행 취급)",
-                "주거안정 월세대출",
+                "주거안정 월세대출 (2년간 총 1440만원 한도)",
                 limitInfo,
                 "연 1.3%~1.8%",
-                "저소득 무주택 세대주",
+                "저소득 무주택 세대주 (소득 기준 등 자격 확인 필요)",
                 "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
         ));
-
     }
 
     // 대출한도비율(%) 텍스트에서 숫자만 추출
