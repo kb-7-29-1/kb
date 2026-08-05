@@ -165,9 +165,9 @@ const rangeStyle = (value, min, max) => {
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>{{ loan.loanLimit }}까지 대출 가능해요 !</strong>
+            <strong>{{ loan.loanLimit }} 대출 가능!</strong>
           </template>
-          <p v-if="loan.target" class="target-info">{{ loan.target }} 대상</p>
+          <p v-if="loan.target" class="target-info">대상 : {{ loan.target }} </p>
         </div>
       </aside>
     </div>
