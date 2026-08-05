@@ -23,14 +23,18 @@ public interface CommentMapper {
     // 댓글 삭제
     int deleteComment(PropertyCommentVO comment);
 
-    // 회원 탈퇴 시 작성 댓글 soft delete
+    // 회원 탈퇴 시 댓글 삭제
     int softDeleteByUserId(Long userId);
 
+    // 태그 분석용 댓글 조회
     List<String> findActiveContentsByPropertyId(Long propertyId);
 
+    // 태그 조회
     List<CommentTagResponseDTO> findTagsByPropertyId(Long propertyId);
 
+    // 기존 태그 삭제
     int deleteTagsByPropertyId(Long propertyId);
 
+    // 태그 저장
     int insertPropertyTag(PropertyTagVO tag);
 }

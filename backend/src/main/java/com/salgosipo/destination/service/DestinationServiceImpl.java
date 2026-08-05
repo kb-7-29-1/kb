@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salgosipo.destination.domain.DestinationVO;
 import com.salgosipo.destination.dto.DestinationDTO;
 import com.salgosipo.destination.mapper.DestinationMapper;
+import com.salgosipo.property.service.PublicDataApiService;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public class DestinationServiceImpl implements DestinationService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final DestinationMapper destinationMapper;
+    private final PublicDataApiService publicDataApiService;
 
     @Value("${NAVER_SEARCH_CLIENT_ID:}")
     private String clientId;
@@ -47,27 +49,59 @@ public class DestinationServiceImpl implements DestinationService {
             return List.of();
         }
 
-        validateApiKey();
+        List<DestinationDTO> resultList = new ArrayList<>();
+        String cleanKeyword = keyword.trim();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("X-Naver-Client-Id", clientId);
-        headers.set("X-Naver-Client-Secret", clientSecret);
+        // 1. 네이버 장소(POI) 검색 API 호출
+        try {
+            validateApiKey();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("X-Naver-Client-Id", clientId);
+            headers.set("X-Naver-Client-Secret", clientSecret);
 
-        URI requestUri = UriComponentsBuilder.fromHttpUrl(NAVER_LOCAL_SEARCH_URL)
-                .queryParam("query", keyword.trim())
-                .queryParam("display", DISPLAY_COUNT)
-                .build()
-                .encode()
-                .toUri();
+            URI requestUri = UriComponentsBuilder.fromHttpUrl(NAVER_LOCAL_SEARCH_URL)
+                    .queryParam("query", cleanKeyword)
+                    .queryParam("display", DISPLAY_COUNT)
+                    .build()
+                    .encode()
+                    .toUri();
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                requestUri,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                String.class
-        );
+            ResponseEntity<String> response = restTemplate.exchange(
+                    requestUri,
+                    HttpMethod.GET,
+                    new HttpEntity<>(headers),
+                    String.class
+            );
 
-        return toDestinationList(response.getBody());
+            resultList.addAll(toDestinationList(response.getBody()));
+        } catch (Exception e) {
+            log.warn("Naver local POI search failed: {}", e.getMessage());
+        }
+
+        // 2. 지번/도로명 주소 검색 (NCP Geocoding API 연동) - 결합 처리
+        try {
+            double[] coords = publicDataApiService.getRealCoordinatesFromAddress(cleanKeyword);
+            if (coords != null && coords[0] != 0 && coords[1] != 0) {
+                boolean duplicateExists = resultList.stream()
+                        .anyMatch(d -> cleanKeyword.equals(d.getDestName()) || cleanKeyword.equals(d.getDestAddress()));
+
+                if (!duplicateExists) {
+                    DestinationDTO addressDTO = DestinationDTO.builder()
+                            .destName(cleanKeyword)
+                            .destAddress(cleanKeyword)
+                            .destLatitude(BigDecimal.valueOf(coords[0]))
+                            .destLongitude(BigDecimal.valueOf(coords[1]))
+                            .build();
+
+                    // 주소 검색 결과를 최상단에 결합 삽입
+                    resultList.add(0, addressDTO);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("NCP Geocoding address search failed: {}", e.getMessage());
+        }
+
+        return resultList;
     }
 
     @Override

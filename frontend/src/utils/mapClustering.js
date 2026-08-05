@@ -2,6 +2,30 @@
  * 초고속 격자 클러스터링 (Grid Marker Clustering) 및 바운즈 연산 유틸리티
  */
 
+import { createApp } from 'vue';
+import PropertyPin from '@/components/map/PropertyPin.vue';
+import DestinationPin from '@/components/map/DestinationPin.vue';
+
+// 매물 마커 핀 HTML 렌더러 (PropertyPin.vue 컴포넌트 실시간 마운트)
+export const renderPropertyPinHTML = (prop, isSelected) => {
+  const container = document.createElement('div');
+  const pinApp = createApp(PropertyPin, { property: prop, isSelected });
+  pinApp.mount(container);
+  const content = container.innerHTML;
+  pinApp.unmount();
+  return content;
+};
+
+// 주 목적지 마커 핀 HTML 렌더러 (DestinationPin.vue 컴포넌트 실시간 마운트)
+export const renderDestinationPinHTML = (destination) => {
+  const container = document.createElement('div');
+  const pinApp = createApp(DestinationPin, { destination });
+  pinApp.mount(container);
+  const content = container.innerHTML;
+  pinApp.unmount();
+  return content;
+};
+
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
 export const renderClusterPinHTML = (count, items = []) => {
   let icon = '🏘️'; // 2종류 이상 혼합 묶음
