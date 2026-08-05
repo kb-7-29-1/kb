@@ -11,8 +11,6 @@ public interface AmenityMapper {
 
     List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request);
 
-    List<AmenityResponseDTO> getCachedAmenities(Integer propertyId);
-
     // 목록 편의시설 필터용 매물별 편의시설 캐시 일괄 조회
     List<AmenityResponseDTO> getAmenitiesByPropertyIds(@Param("propertyIds") List<Integer> propertyIds);
 

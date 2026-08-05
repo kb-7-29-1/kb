@@ -8,7 +8,6 @@ import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,16 +24,18 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
+    private final AmenityCacheService amenityCacheService;
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
-            WalkingApiClient walkingApiClient
+            WalkingApiClient walkingApiClient,
+            AmenityCacheService amenityCacheService
     ) {
         this.amenityMapper = amenityMapper;
         this.walkingApiClient = walkingApiClient;
+        this.amenityCacheService = amenityCacheService;
     }
 
     @Override
-    @Transactional
     public List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request) {
         // 1. 요청 검증 및 기존 편의시설 조회
         if (!isValidRequest(request)) {
@@ -103,7 +104,7 @@ public class AmenityServiceImpl implements AmenityService {
                     .build();
 
             // 동시 요청으로 이미 저장된 경우에도 예외 없이 기존 행을 유지한다.
-            amenityMapper.insertAmenityIfAbsent(amenity);
+            amenityCacheService.saveIfAbsent(amenity);
             storedTypes.add(type);
         }
 
@@ -113,15 +114,6 @@ public class AmenityServiceImpl implements AmenityService {
     }
 
     @Override
-    public List<AmenityResponseDTO> getCachedAmenities(Integer propertyId) {
-        if (propertyId == null) {
-            return Collections.emptyList();
-        }
-        return amenityMapper.getCachedAmenities(propertyId);
-    }
-
-    @Override
-    @Transactional
     public Map<Integer, List<AmenityResponseDTO>> getAmenitiesByProperties(List<AmenityRequestDTO> requests) {
         if (requests == null || requests.isEmpty()) {
             return Collections.emptyMap();
