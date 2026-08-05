@@ -122,154 +122,163 @@ const buildingAge = computed(() => {
       <!-- 패널 메인 스크롤 콘텐츠 -->
       <div v-if="property" class="property-detail-scroll min-h-0 flex-1 overflow-y-auto">
         <div class="flex min-h-full flex-col gap-6 p-6 py-0">
-        <!-- 매물 갤러리/대표 사진 -->
-        <div class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
-          <img
-            :src="
-              property.thumbnailUrl ||
-              'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'
-            "
-            :alt="property.title"
-            class="w-full h-full object-cover"
-          />
+          <!-- 매물 갤러리/대표 사진 -->
           <div
-            class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
+            class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
           >
-            사진 1 / 5
-          </div>
-        </div>
-
-        <!-- 가격 및 타이틀 -->
-        <div>
-          <div class="hidden items-center gap-2 mb-1.5">
-            <span
-              class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200"
-            >
-              {{ property.buildingType === 3 ? '오피스텔' : '빌라/연립' }}
-            </span>
-            <span class="px-2.5 py-1 rounded-md text-xs font-bold border" :class="safetyScoreClass">
-              안전지수 {{ property.safetyScore || 85 }}점
-            </span>
-            <span
-              v-if="property.dealCount && property.dealCount > 1"
-              class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"
-            >
-              🏢 동일 건물 실거래 {{ property.dealCount }}건
-            </span>
-          </div>
-
-          <h1 class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]">
-            {{ formattedPrice }}
-          </h1>
-          <p class="text-[14px] font-medium text-slate-500">
-            {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
-          </p>
-        </div>
-
-        <!-- 건물 안전 정보 -->
-        <section class="border-t border-slate-200 pt-5">
-          <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
-            <span aria-hidden="true">🏢</span>
-            건물 안전 정보
-          </h3>
-          <div class="grid grid-cols-2 gap-3">
-            <div
-              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[124px]"
-              :class="
-                property.isIllegalBuilding
-                  ? 'border-rose-200 bg-rose-50'
-                  : 'border-emerald-200 bg-emerald-50'
+            <img
+              :src="
+                property.thumbnailUrl ||
+                'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'
               "
-            >
-              <i
-                class="fa-solid mb-1.5 text-[16px]"
-                :class="
-                  property.isIllegalBuilding
-                    ? 'fa-triangle-exclamation text-rose-500'
-                    : 'fa-circle-check text-emerald-500'
-                "
-                aria-hidden="true"
-              ></i>
-              <p
-                class="text-sm font-bold"
-                :class="property.isIllegalBuilding ? 'text-rose-500' : 'text-emerald-600'"
-              >
-                {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
-              </p>
-              <p class="mt-0.5 text-[10px] text-slate-500">건축물대장 기준</p>
-            </div>
+              :alt="property.title"
+              class="w-full h-full object-cover"
+            />
             <div
-              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
+              class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
             >
-              <p class="text-[18px] font-extrabold leading-none text-slate-800">
-                {{ buildingAge === null ? '-' : `${buildingAge}년` }}
-              </p>
-              <p class="mt-1 text-[11px] font-medium text-slate-500">
-                {{ property.builtYear || '2022' }}년 준공
-              </p>
-              <p class="mt-0.5 text-[10px] font-bold text-emerald-500">
-                {{ buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축' }}
-              </p>
+              사진 1 / 5
             </div>
           </div>
-        </section>
 
-        <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
-        <section class="border-t border-slate-200 pt-5">
-          <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
-            <span aria-hidden="true">💡</span>
-            귀갓길 안전 점수
-          </h3>
-          <div
-            class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
-          >
-            <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
-              <div class="flex items-center gap-2">
-                <span class="text-xl">🛡️</span>
-                <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
-              </div>
+          <!-- 가격 및 타이틀 -->
+          <div>
+            <div class="hidden items-center gap-2 mb-1.5">
               <span
-                class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200"
               >
-                안심 등급 🟢
+                {{ property.buildingType === 3 ? '오피스텔' : '빌라/연립' }}
+              </span>
+              <span
+                class="px-2.5 py-1 rounded-md text-xs font-bold border"
+                :class="safetyScoreClass"
+              >
+                안전지수 {{ property.safetyScore || 85 }}점
+              </span>
+              <span
+                v-if="property.dealCount && property.dealCount > 1"
+                class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"
+              >
+                🏢 동일 건물 실거래 {{ property.dealCount }}건
               </span>
             </div>
 
-            <div class="grid grid-cols-2 gap-3 pt-1">
-              <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
-                <div class="text-lg font-bold text-emerald-400">
-                  {{ property.cctvCount || 0 }}개
-                </div>
-              </div>
-              <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
-                <div class="text-lg font-bold text-amber-400">
-                  {{ property.streetlightCount || 0 }}개
-                </div>
-              </div>
-            </div>
-
-            <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
-              <span
-                >건물 위반건축물 여부:
-                <strong class="text-white">{{
-                  property.isIllegalBuilding ? '위반' : '정상 (미해당)'
-                }}</strong></span
-              >
-              <span>경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span>
-            </div>
+            <h1
+              class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]"
+            >
+              {{ formattedPrice }}
+            </h1>
+            <p class="text-[14px] font-medium text-slate-500">
+              {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
+            </p>
           </div>
-        </section>
 
-        <WalkingTime class="detail-section-flush detail-section-divider" :amenities="amenities" />
-        <section class="detail-community-section">
-          <CommentSection
-            class="detail-section-flush"
-            :property-id="property.propertyId"
-            :property="property"
-          />
-        </section>
+          <!-- 건물 안전 정보 -->
+          <section class="border-t border-slate-200 pt-5">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+              <span aria-hidden="true">🏢</span>
+              건물 안전 정보
+            </h3>
+            <div class="grid grid-cols-2 gap-3">
+              <div
+                class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[124px]"
+                :class="
+                  property.isIllegalBuilding
+                    ? 'border-rose-200 bg-rose-50'
+                    : 'border-emerald-200 bg-emerald-50'
+                "
+              >
+                <i
+                  class="fa-solid mb-1.5 text-[16px]"
+                  :class="
+                    property.isIllegalBuilding
+                      ? 'fa-triangle-exclamation text-rose-500'
+                      : 'fa-circle-check text-emerald-500'
+                  "
+                  aria-hidden="true"
+                ></i>
+                <p
+                  class="text-sm font-bold"
+                  :class="property.isIllegalBuilding ? 'text-rose-500' : 'text-emerald-600'"
+                >
+                  {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
+                </p>
+                <p class="mt-0.5 text-[10px] text-slate-500">건축물대장 기준</p>
+              </div>
+              <div
+                class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
+              >
+                <p class="text-[18px] font-extrabold leading-none text-slate-800">
+                  {{ buildingAge === null ? '-' : `${buildingAge}년` }}
+                </p>
+                <p class="mt-1 text-[11px] font-medium text-slate-500">
+                  {{ property.builtYear || '2022' }}년 준공
+                </p>
+                <p class="mt-0.5 text-[10px] font-bold text-emerald-500">
+                  {{ buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축' }}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
+          <section class="border-t border-slate-200 pt-5">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+              <span aria-hidden="true">💡</span>
+              귀갓길 안전 점수
+            </h3>
+            <div
+              class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
+            >
+              <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">🛡️</span>
+                  <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
+                </div>
+                <span
+                  class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                >
+                  안심 등급 🟢
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 pt-1">
+                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
+                  <div class="text-lg font-bold text-emerald-400">
+                    {{ property.cctvCount || 0 }}개
+                  </div>
+                </div>
+                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
+                  <div class="text-lg font-bold text-amber-400">
+                    {{ property.streetlightCount || 0 }}개
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
+                <span
+                  >건물 위반건축물 여부:
+                  <strong class="text-white">{{
+                    property.isIllegalBuilding ? '위반' : '정상 (미해당)'
+                  }}</strong></span
+                >
+                <span
+                  >경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span
+                >
+              </div>
+            </div>
+          </section>
+
+          <WalkingTime class="detail-section-flush detail-section-divider" :amenities="amenities" />
+          <section class="detail-community-section">
+            <CommentSection
+              class="detail-section-flush"
+              :property-id="property.propertyId"
+              :property="property"
+            />
+          </section>
         </div>
       </div>
     </aside>
@@ -302,6 +311,10 @@ const buildingAge = computed(() => {
 }
 
 @media (min-width: 768px) {
+  .property-detail-backdrop {
+    display: none;
+  }
+
   .detail-community-section {
     margin-top: auto;
   }
