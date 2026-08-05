@@ -1,5 +1,13 @@
 <script setup>
-import { createApp, ref, shallowRef, onMounted, onUnmounted, watch } from 'vue';
+import {
+  createApp,
+  ref,
+  shallowRef,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+} from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
 import PropertyPin from './PropertyPin.vue';
@@ -78,19 +86,20 @@ const renderPropertyPin = (prop, isSelected) => {
   const bgClass = isSelected
     ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
     : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10';
-  const icon = isSelected ? '📍' : '🏠';
 
-  const isDb = prop.dataSource === 'DB';
-  const tagBg = isDb
-    ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/40'
-    : 'bg-indigo-500/30 text-indigo-300 border-indigo-400/40';
-  const tagText = isDb ? 'DB' : '공공';
+  let icon = '🏠';
+  if (isSelected) {
+    icon = '📍';
+  } else if (prop.buildingType === 3) {
+    icon = '🏢';
+  } else if (prop.buildingType === 1) {
+    icon = '🏡';
+  }
 
   return `
     <div class="px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-lg border transition-all cursor-pointer flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-full select-none ${bgClass}">
       <span>${icon}</span>
       <span>${priceText}</span>
-      <span class="text-[10px] px-1 py-0.2 rounded border font-bold ${tagBg}">${tagText}</span>
     </div>
   `;
 };
@@ -149,7 +158,7 @@ const renderMarkers = () => {
         position: new window.naver.maps.LatLng(node.lat, node.lng),
         map: mapInstance.value,
         icon: {
-          content: renderClusterPinHTML(node.count),
+          content: renderClusterPinHTML(node.count, node.items),
         },
       });
 
@@ -189,9 +198,8 @@ const renderMarkers = () => {
   // 4. 편의시설 마커
 };
 
-const getAmenityMarkerKey = (amenity) => (
-  `${amenity.propertyId ?? 'map'}-${amenity.amenityType}-${amenity.amenityLatitude}-${amenity.amenityLongitude}`
-);
+const getAmenityMarkerKey = (amenity) =>
+  `${amenity.propertyId ?? 'map'}-${amenity.amenityType}-${amenity.amenityLatitude}-${amenity.amenityLongitude}`;
 
 const clearAmenityMarkers = () => {
   amenityMarkers.forEach(({ marker }) => marker.setMap(null));
@@ -203,7 +211,8 @@ const renderAmenityMarkers = () => {
 
   const nextKeys = new Set();
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
+      return;
 
     const key = getAmenityMarkerKey(amenity);
     nextKeys.add(key);
@@ -265,14 +274,23 @@ const initMap = () => {
         zoomControl: false,
       });
 
-      // 지도 드래그/확대/축소 완료 시 가시 영역 및 클러스팅 핀 자동 재계산
+      // 지도 드래그/확대/축소 완료 시 가시 영역 및 클러스팅 핀 자동 재계산 및 목적지 거리 감지
       window.naver.maps.Event.addListener(mapInstance.value, 'idle', () => {
         renderMarkers();
+        checkDistanceToDestination();
       });
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'center_changed',
+        () => {
+          checkDistanceToDestination();
+        },
+      );
 
       renderMarkers();
       renderAmenityMarkers();
       setupResizeObserver();
+      checkDistanceToDestination();
     } catch (e) {
       console.warn('Naver map init:', e);
     }
@@ -287,6 +305,7 @@ watch(
   ],
   () => {
     renderMarkers();
+    checkDistanceToDestination();
   },
   { deep: true },
 );
@@ -391,6 +410,44 @@ onUnmounted(() => {
     resizeObserver = null;
   }
 });
+const isFarFromDestination = ref(false);
+
+const destinationName = computed(() => {
+  const raw =
+    props.destination?.name || props.destination?.destName || '내 목적지';
+  return raw.replace(/\s*\(주 목적지\)$/, '');
+});
+
+const checkDistanceToDestination = () => {
+  if (!mapInstance.value || !props.destination || !window.naver || !window.naver.maps) return;
+  const targetLat =
+    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
+  const targetLng =
+    Number(props.destination.lng || props.destination.destLongitude) ||
+    127.0731;
+
+  const bounds = mapInstance.value.getBounds();
+  const destLatLng = new window.naver.maps.LatLng(targetLat, targetLng);
+
+  // 목적지 핀(🚩)이 화면 가시 영역(Viewport)을 완전히 벗어났을 때만 스르륵 버튼 등장
+  isFarFromDestination.value = bounds ? !bounds.hasLatLng(destLatLng) : false;
+};
+
+// 내 목적지로 카메라 빠른 이동
+const moveMapToDestination = () => {
+  if (!mapInstance.value || !props.destination) return;
+  const targetLat =
+    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
+  const targetLng =
+    Number(props.destination.lng || props.destination.destLongitude) ||
+    127.0731;
+
+  mapInstance.value.morph(
+    new window.naver.maps.LatLng(targetLat, targetLng),
+    15,
+  );
+  isFarFromDestination.value = false;
+};
 </script>
 
 <template>
@@ -409,7 +466,24 @@ onUnmounted(() => {
       :flex-time="flexTime"
     />
 
-    <!-- 3. 지도 줌 오버레이 컨트롤 (z-20) -->
+    <!-- 3. 목적지에서 멀어졌을 때 상단 중앙 스르륵 등장하는 플로팅 복귀 캡슐 버튼 (z-30) -->
+    <Transition name="slide-fade">
+      <button
+        v-if="isFarFromDestination"
+        type="button"
+        class="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2.5 rounded-full bg-slate-900/90 text-white border border-blue-400/50 shadow-2xl text-xs font-bold transition-all hover:bg-blue-600 hover:scale-105 active:scale-95 cursor-pointer backdrop-blur-md"
+        title="목적지 위치로 지도 카메라 복귀"
+        @click="moveMapToDestination"
+      >
+        <span class="text-blue-400 animate-pulse text-sm">📍</span>
+        <span
+          ><strong class="text-blue-300">{{ destinationName }}</strong
+          >(으)로 돌아갈래요</span
+        >
+      </button>
+    </Transition>
+
+    <!-- 4. 지도 줌 오버레이 컨트롤 (z-20) -->
     <div
       class="absolute right-4 top-4 z-20 flex flex-col gap-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-md"
     >
@@ -433,3 +507,16 @@ onUnmounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.slide-fade-enter-active,
+.slide-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translate(-50%, -20px);
+  opacity: 0;
+}
+</style>

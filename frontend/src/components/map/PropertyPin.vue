@@ -13,8 +13,23 @@ const props = defineProps({
   },
 });
 
+const buildingIcon = computed(() => {
+  if (props.isSelected) return '📍';
+  const bType = props.property.buildingType;
+  if (bType === 3) return '🏢';
+  if (bType === 1) return '🏡';
+  return '🏠';
+});
+
+const roomText = computed(() => {
+  return props.property.roomType === 2 ? '투룸' : '원룸';
+});
+
 const priceText = computed(() => {
-  return formatPropertyPrice(props.property.deposit, props.property.monthlyRent);
+  return formatPropertyPrice(
+    props.property.deposit,
+    props.property.monthlyRent,
+  );
 });
 </script>
 
@@ -27,17 +42,7 @@ const priceText = computed(() => {
         : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10',
     ]"
   >
-    <span>{{ isSelected ? '📍' : '🏠' }}</span>
+    <span>{{ buildingIcon }}</span>
     <span>{{ priceText }}</span>
-    <span
-      class="text-[10px] px-1 py-0.2 rounded border font-bold"
-      :class="
-        property.dataSource === 'DB'
-          ? 'bg-emerald-500/30 text-emerald-300 border-emerald-400/40'
-          : 'bg-indigo-500/30 text-indigo-300 border-indigo-400/40'
-      "
-    >
-      {{ property.dataSource === 'DB' ? 'DB' : '공공' }}
-    </span>
   </div>
 </template>
