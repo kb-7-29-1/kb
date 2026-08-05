@@ -30,7 +30,12 @@ public class LoanService {
         Double ratio = extractLoanRatio(best.getLoanLimit());
 
         if(ratio == null){
-            // 비율 정보가 없으면 계산 없이, 상품 정보만 응답
+            // 비율 정보가 없으면 절대금액 한도에서 부족분만 계산해서 응답
+            Integer loanLimitAmount = extractLoanLimitAmount(best.getLoanLimit());
+            Integer shortfallAmount = (loanLimitAmount != null && deposit > loanLimitAmount)
+                    ? deposit - loanLimitAmount
+                    : null;
+
             return new LoanRecommendationDto(
                     best.getProductName(),
                     best.getCompanyName(),
@@ -39,7 +44,8 @@ public class LoanService {
                     best.getTarget(),
                     0,
                     0,
-                    0
+                    0,
+                    shortfallAmount
             );
         }
 
@@ -54,7 +60,8 @@ public class LoanService {
                 best.getTarget(),
                 ratio,
                 expectedLoanAmount,
-                maxSearchAmount
+                maxSearchAmount,
+                null
         );
     }
 
@@ -157,6 +164,24 @@ public class LoanService {
         Matcher matcher = Pattern.compile("(\\d+)%").matcher(loanLimit);
         if(matcher.find()){
             return Integer.parseInt(matcher.group(1)) / 100.0;
+        }
+        return null;
+    }
+
+    // 절대금액 추출
+    private Integer extractLoanLimitAmount(String loanLimit){
+        if(loanLimit == null) return null;
+
+        Matcher eokmatcher = Pattern.compile("([\\d.]+)\\s*억").matcher(loanLimit);
+
+        if(eokmatcher.find()){
+            return (int) Math.round(Double.parseDouble(eokmatcher.group(1)) * 10000);
+        }
+
+        Matcher beakManMatcher = Pattern.compile("([\\d.]+)\\s*백만").matcher(loanLimit);
+
+        if (beakManMatcher.find()){
+            return (int) Math.round(Double.parseDouble(beakManMatcher.group(1)) * 100);
         }
         return null;
     }
