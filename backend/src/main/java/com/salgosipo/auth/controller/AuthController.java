@@ -27,8 +27,8 @@ public class AuthController {
 
     @PostMapping("/find-password")
     public ResponseEntity<?> verifyForPasswordReset(@RequestBody FindPasswordRequestDto dto){
-        Long userId = authService.verifyForPasswordReset(dto);
-        return ResponseEntity.ok(userId);
+        String resetToken = authService.verifyForPasswordReset(dto);
+        return ResponseEntity.ok(resetToken);
     }
 
     @PostMapping("/reset-password")

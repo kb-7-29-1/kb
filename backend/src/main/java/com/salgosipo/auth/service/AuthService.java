@@ -4,6 +4,7 @@ import com.salgosipo.auth.dto.FindIdResponseDto;
 import com.salgosipo.auth.dto.FindPasswordRequestDto;
 import com.salgosipo.auth.dto.ResetPasswordRequestDto;
 import com.salgosipo.auth.mapper.AuthMapper;
+import com.salgosipo.global.security.util.JwtProcessor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ public class AuthService {
 
     private final AuthMapper authMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtProcessor jwtProcessor;
 
     public FindIdResponseDto findId(String email){
         String loginId = authMapper.findLoginIdByEmail(email);
@@ -31,18 +33,19 @@ public class AuthService {
         return loginId.substring(0,visibleLength) + "*".repeat(loginId.length() - visibleLength);
     }
 
-    public Long verifyForPasswordReset(FindPasswordRequestDto dto){
+    public String verifyForPasswordReset(FindPasswordRequestDto dto){
         Long userId = authMapper.findUserIdForPasswordReset(dto.getLoginId(), dto.getName(), dto.getEmail());
 
         if(userId == null){
             throw new IllegalArgumentException("일치하는 계정 정보가 없습니다.");
         }
 
-        return userId;
+        return jwtProcessor.generateResetToken(userId);
     }
 
     public void resetPassword(ResetPasswordRequestDto dto){
+        Long userId = jwtProcessor.getUserIdFromResetToken(dto.getResetToken());
         String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
-        authMapper.resetPassword(dto.getUserId(), encodedPassword);
+        authMapper.resetPassword(userId, encodedPassword);
     }
 }

@@ -35,6 +35,7 @@ public class PropertyDetailDTO {
     private Integer streetlightCount; // 경로 내 가로등/보안등 수
     private Boolean hasPoliceStation; // 경로 내 파출소 존재 여부
     private Boolean isIllegalBuilding;// 위반건축물 여부
+    private Integer dealCount;        // 동일 건물/위치 실거래 건수
 
     private List<String> tags;        // 댓글 키워드 추출 태그
 }
