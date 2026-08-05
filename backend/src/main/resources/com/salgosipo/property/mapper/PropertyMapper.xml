@@ -16,6 +16,8 @@
             p.monthly_rent AS monthlyRent,
             p.area AS area,
             p.floor AS floor,
+            p.built_year AS builtYear,
+            p.is_illegal_building AS isIllegalBuilding,
             p.address AS address,
             p.property_latitude AS latitude,
             p.property_longitude AS longitude,

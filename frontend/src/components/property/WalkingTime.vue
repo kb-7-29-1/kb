@@ -126,7 +126,7 @@ const getProgressWidth = (walkingTime) => {
 .title {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 
   font-size: 16px;
   font-weight: 700;
