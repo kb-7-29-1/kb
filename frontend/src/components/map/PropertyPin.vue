@@ -46,21 +46,25 @@ const priceText = computed(() => {
         : 'bg-slate-900/95 text-white hover:bg-blue-600 border-slate-700 backdrop-blur-md z-10',
     ]"
   >
-    <!-- Row 1: 건물 이모지 + 🛡️ 안전 점수 -->
+    <!-- Row 1: 🛡️ 안전 점수 -->
     <div class="flex items-center gap-1">
-      <span class="text-xs">{{ buildingIcon }}</span>
-      <span class="text-xs">{{ buildingIcon }}</span>
-
       <span
-        class="text-emerald-400 font-extrabold flex items-center gap-0.5 text-[11px]"
+        class="text-emerald-400 font-extrabold flex items-center gap-0.5 text-[12px]"
       >
         <i class="fa-solid fa-shield-halved text-[9px]"></i>
         {{ safetyScore }}점
       </span>
     </div>
-    <!-- Row 2: 전월세 가격 -->
+    <!-- Row 2: 건물 이모지 + 전월세 가격 -->
     <div class="text-[11px] font-black text-white whitespace-nowrap mt-0.5">
-      {{ priceText }}
+      {{ buildingIcon }} {{ priceText }}
+    </div>
+    <!-- Row 3: 맨 아래 🏢 동일 건물 실거래 건수 배지 (dealCount > 1 일 때만 표출) -->
+    <div
+      v-if="property.dealCount && property.dealCount > 1"
+      class="mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 border border-blue-400/40 font-black tracking-tight"
+    >
+      + 최근 3개월 {{ property.dealCount }}건 더 거래됐어요
     </div>
   </div>
 </template>
