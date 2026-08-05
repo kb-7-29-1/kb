@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 @Service
 public class AmenityServiceImpl implements AmenityService {
 
+    // 직선거리 기반 예상 도보 시간 계산에 사용하는 기준값
     // 지구 반지름을 미터 단위로 둔 값, 위도·경도 두 점의 직선거리를 계산할 때 사용
     private static final double EARTH_RADIUS_METERS = 6_371_000;
 
@@ -52,6 +53,7 @@ public class AmenityServiceImpl implements AmenityService {
             return Collections.emptyList();
         }
 
+        // 요청한 매물의 기존 편의시설 캐시를 먼저 조회
         List<AmenityResponseDTO> storedAmenities = new ArrayList<>(
                 amenityMapper.getAmenitiesByFilter(request)
         );
@@ -65,7 +67,7 @@ public class AmenityServiceImpl implements AmenityService {
             return filterByRequest(storedAmenities, request.getAmenities());
         }
 
-        // DB에 없는 편의시설만 TMAP으로 계산 및 저장
+        // 캐시에 없는 유형만 가장 가까운 POI를 검색해 예상 시간을 계산
         AmenityPropertyCoordinateDTO property =
                 amenityMapper.getPropertyCoordinates(request.getPropertyId());
         Double startLat = property == null ? null : property.getLatitude();
@@ -92,6 +94,7 @@ public class AmenityServiceImpl implements AmenityService {
                 continue;
             }
 
+            // 보행자 길찾기 API 대신 직선거리에 보정값을 적용해 예상 시간을 계산
             int straightDistanceMeters = calculateStraightDistanceMeters(
                     startLat,
                     startLng,
@@ -116,12 +119,12 @@ public class AmenityServiceImpl implements AmenityService {
                     .walkTimeMinutes(estimatedWalkingMinutes)
                     .build();
 
-            // 동시 요청으로 이미 저장된 경우에도 예외 없이 기존 행을 유지한다.
+            // 동시에 같은 요청이 들어와도 먼저 저장된 캐시 값을 유지
             amenityCacheService.saveIfAbsent(amenity);
             storedTypes.add(type);
         }
 
-        // 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
+        // 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환
         List<AmenityResponseDTO> finalAmenities = amenityMapper.getAmenitiesByFilter(request);
         return filterByRequest(finalAmenities, request.getAmenities());
     }
@@ -132,6 +135,7 @@ public class AmenityServiceImpl implements AmenityService {
             return Collections.emptyMap();
         }
 
+        // 유효하지 않은 요청은 제외하고 처리
         List<AmenityRequestDTO> validRequests = requests.stream()
                 .filter(this::isValidRequest)
                 .toList();
@@ -139,7 +143,7 @@ public class AmenityServiceImpl implements AmenityService {
             return Collections.emptyMap();
         }
 
-        // 목록에 표시할 매물의 캐시를 한 번에 가져와, 캐시가 채워진 경우 N번의 DB 조회를 피한다.
+        // 목록에 표시할 매물의 캐시를 한 번에 가져와, 캐시가 채워진 경우 N번의 DB 조회를 피한다
         Set<Integer> propertyIds = new HashSet<>();
         validRequests.forEach(request -> propertyIds.add(request.getPropertyId()));
         Map<Integer, List<AmenityResponseDTO>> cachedAmenitiesByProperty = new HashMap<>();
@@ -149,6 +153,7 @@ public class AmenityServiceImpl implements AmenityService {
                     .add(amenity);
         }
 
+        // 캐시가 완전한 매물은 바로 반환하고, 부족한 유형만 단건 계산으로 보완
         Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
         for (AmenityRequestDTO request : validRequests) {
             try {
@@ -167,7 +172,7 @@ public class AmenityServiceImpl implements AmenityService {
                                 : getAmenitiesByFilter(request)
                 );
             } catch (RuntimeException e) {
-                // 한 매물의 조회 실패가 전체 목록 필터링을 중단시키지 않도록 빈 결과로 처리한다.
+                // 한 매물의 조회 실패가 전체 목록 필터링을 중단시키지 않도록 빈 결과로 처리
                 log.warn("Amenity calculation failed. PropertyId: {}", request.getPropertyId(), e);
                 amenitiesByProperty.put(request.getPropertyId(), Collections.emptyList());
             }
@@ -175,6 +180,7 @@ public class AmenityServiceImpl implements AmenityService {
         return amenitiesByProperty;
     }
 
+    // 매물 ID와 편의시설 유형·시간 조건이 모두 있어야 계산 가능
     private boolean isValidRequest(AmenityRequestDTO request) {
         return request != null
                 && request.getPropertyId() != null
@@ -187,6 +193,7 @@ public class AmenityServiceImpl implements AmenityService {
         );
     }
 
+    // 요청한 유형의 제한 시간 이내인 편의시설만 반환
     private List<AmenityResponseDTO> filterByRequest(
             List<AmenityResponseDTO> amenities,
             List<AmenityFilter> filters
@@ -199,6 +206,7 @@ public class AmenityServiceImpl implements AmenityService {
                 .toList();
     }
 
+    // 편의시설 유형을 POI 검색어로 변환
     private String getKeywordByType(Integer amenityType) {
         return switch (amenityType) {
             case 1 -> "편의점";
@@ -219,12 +227,14 @@ public class AmenityServiceImpl implements AmenityService {
             double endLat,
             double endLng
     ) {
+        // Haversine 공식을 사용해 두 좌표 사이의 직선거리를 미터 단위로 계산
         double latDistance = Math.toRadians(endLat - startLat);
         double lngDistance = Math.toRadians(endLng - startLng);
         double startLatitude = Math.toRadians(startLat);
         double endLatitude = Math.toRadians(endLat);
 
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+
                 + Math.cos(startLatitude) * Math.cos(endLatitude)
                 * Math.sin(lngDistance / 2) * Math.sin(lngDistance / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
