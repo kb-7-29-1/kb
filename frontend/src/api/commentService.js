@@ -6,6 +6,11 @@ export default {
     return data;
   },
 
+  async getTags(propertyId) {
+    const { data } = await api.get(`/properties/${propertyId}/comments/tags`);
+    return data;
+  },
+
   async createComment(propertyId, content) {
     await api.post(`/properties/${propertyId}/comments`, { content });
   },

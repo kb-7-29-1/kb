@@ -40,18 +40,8 @@ const emit = defineEmits([
 ]);
 
 const content = ref('');
-const selectedTagId = ref(null);
 const editingCommentId = ref(null);
 const editingContent = ref('');
-
-const propertyName = computed(() => {
-  return (
-      props.property?.propertyName ||
-      props.property?.title ||
-      props.property?.name ||
-      '매물 정보'
-  );
-});
 
 const propertyAddress = computed(() => {
   return (
@@ -65,8 +55,8 @@ const propertyAddress = computed(() => {
 const formatDateTime = (dateTime) => {
   if (!dateTime) return '';
 
-  const matched = String(dateTime).match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/);
-  return matched ? `${matched[1]}.${matched[2]}.${matched[3]} ${matched[4]}` : '';
+  const matched = String(dateTime).match(/(\d{4})-(\d{2})-(\d{2})/);
+  return matched ? `${matched[1]}.${matched[2]}.${matched[3]}` : '';
 };
 
 const submitComment = () => {
@@ -80,11 +70,9 @@ const submitComment = () => {
   emit('submit-comment', {
     propertyId: props.property?.propertyId,
     content: trimmedContent,
-    tagId: selectedTagId.value,
   });
 
   content.value = '';
-  selectedTagId.value = null;
 };
 
 const startEdit = (comment) => {
@@ -177,28 +165,31 @@ const submitEdit = (commentId) => {
       <article
           v-for="comment in comments"
           :key="comment.commentId"
-          class="comment-card"
+        class="comment-card"
       >
         <div class="comment-header">
-          <div>
-            <strong>{{ comment.nickname || '익명 사용자' }}</strong>
+          <strong class="comment-nickname">{{ comment.nickname || '익명 사용자' }}</strong>
+          <div class="comment-meta">
             <span class="created-at">{{ formatDateTime(comment.createdAt) }}</span>
-          </div>
-          <div v-if="comment.isMine" class="comment-actions">
-            <button
-                type="button"
-                class="edit-button"
-                @click="startEdit(comment)"
-            >
-              수정
-            </button>
-            <button
-                type="button"
-                class="delete-button"
-                @click="emit('delete-comment', comment.commentId)"
-            >
-              삭제
-            </button>
+            <template v-if="comment.isMine">
+              <span class="action-separator" aria-hidden="true">|</span>
+              <div class="comment-actions">
+                <button
+                    type="button"
+                    class="edit-button"
+                    @click="startEdit(comment)"
+                >
+                  수정
+                </button>
+                <button
+                    type="button"
+                    class="delete-button"
+                    @click="emit('delete-comment', comment.commentId)"
+                >
+                  삭제
+                </button>
+              </div>
+            </template>
           </div>
         </div>
         <template v-if="editingCommentId === comment.commentId">
@@ -234,30 +225,6 @@ const submitEdit = (commentId) => {
         <strong>실거주 댓글 작성</strong>
       </div>
 
-      <div
-          v-if="tags.length"
-          class="form-tag-list"
-      >
-        <button
-            v-for="tag in tags"
-            :key="`form-${tag.tagId || tag.id || tag.tagName}`"
-            type="button"
-            class="form-tag"
-            :class="{
-            selected:
-              selectedTagId === (tag.tagId || tag.id),
-          }"
-            @click="
-            selectedTagId =
-              selectedTagId === (tag.tagId || tag.id)
-                ? null
-                : (tag.tagId || tag.id)
-          "
-        >
-          {{ tag.tagName || tag.name }}
-        </button>
-      </div>
-
       <div class="input-row">
         <textarea
             v-model="content"
@@ -285,7 +252,8 @@ const submitEdit = (commentId) => {
   display: flex;
   flex: 1;
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
+  overflow: hidden;
   flex-direction: column;
   box-sizing: border-box;
   background: #f7f8fa;
@@ -433,10 +401,12 @@ const submitEdit = (commentId) => {
 
 .comment-list {
   display: flex;
+  min-height: 0;
   flex: 1;
   flex-direction: column;
   gap: 10px;
   padding: 18px 22px 20px;
+  overflow-y: auto;
 }
 
 .comment-card {
@@ -449,21 +419,34 @@ const submitEdit = (commentId) => {
 
 .comment-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.comment-header strong {
-  display: block;
+.comment-nickname {
+  min-width: 0;
+  overflow: hidden;
   color: #263244;
   font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-meta {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 7px;
 }
 
 .created-at {
-  display: block;
-  margin-top: 4px;
   color: #98a2b3;
+  font-size: 11px;
+}
+
+.action-separator {
+  color: #d0d5dd;
   font-size: 11px;
 }
 
@@ -531,36 +514,32 @@ const submitEdit = (commentId) => {
 .comment-actions {
   display: flex;
   flex-shrink: 0;
-  gap: 6px;
+  gap: 5px;
 }
 
 .comment-actions button {
-  min-width: 42px;
-  padding: 6px 9px;
-  border: 1px solid;
-  border-radius: 7px;
-  background: #fff;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
 }
 
 .edit-button {
-  border-color: #cfd7ff !important;
   color: #4056d6;
 }
 
 .edit-button:hover {
-  background: #f1f3ff;
+  text-decoration: underline;
 }
 
 .delete-button {
-  border-color: #ffd2d7 !important;
   color: #d64857;
 }
 
 .delete-button:hover {
-  background: #fff3f4;
+  text-decoration: underline;
 }
 
 .empty-comment-icon {
@@ -586,9 +565,6 @@ const submitEdit = (commentId) => {
 }
 
 .comment-form {
-  position: sticky;
-  bottom: 0;
-  z-index: 5;
   margin-top: auto;
   padding: 15px 22px 20px;
   border-top: 1px solid #dfe3e8;
@@ -603,32 +579,6 @@ const submitEdit = (commentId) => {
   margin-bottom: 11px;
   color: #454d5d;
   font-size: 13px;
-}
-
-.form-tag-list {
-  display: flex;
-  overflow-x: auto;
-  gap: 7px;
-  margin-bottom: 10px;
-  padding-bottom: 2px;
-}
-
-.form-tag {
-  flex-shrink: 0;
-  padding: 6px 10px;
-  border: 1px solid #dde2eb;
-  border-radius: 20px;
-  background: #fff;
-  color: #737c8e;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.form-tag.selected {
-  border-color: #293a8c;
-  background: #eef1ff;
-  color: #293a8c;
 }
 
 .input-row {
