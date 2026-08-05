@@ -38,23 +38,6 @@
         WHERE property_id = #{propertyId}
     </select>
 
-    <select id="getCachedAmenities" resultType="com.salgosipo.amenity.dto.AmenityResponseDTO">
-        SELECT property_id,
-               amenity_type,
-               amenity_name,
-               amenity_latitude,
-               amenity_longitude,
-               distance_meters,
-               walk_time_minutes
-        FROM property_amenities
-        WHERE property_id = #{propertyId}
-    </select>
-
-    <!--
-        목록 편의시설 필터에서 사용하는 일괄 캐시 조회.
-        기존에는 매물마다 property_amenities를 조회했지만,
-        이 쿼리는 현재 목록의 propertyId들을 IN 절로 한 번에 조회한다.
-    -->
     <select id="getAmenitiesByPropertyIds" resultType="com.salgosipo.amenity.dto.AmenityResponseDTO">
         SELECT property_id,
                amenity_type,

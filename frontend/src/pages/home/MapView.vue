@@ -75,6 +75,7 @@ const selectedPropertyDetailAmenities = ref([]);
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
+let amenityFilterDebounceTimer = null;
 
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
@@ -206,10 +207,16 @@ const loadAmenitiesForProperties = async () => {
   }
 };
 
-watch([activeAmenityFilters, properties], loadAmenitiesForProperties, { deep: true });
+const scheduleAmenityLoad = () => {
+  if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
+  amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
+};
+
+watch([activeAmenityFilters, properties], scheduleAmenityLoad, { deep: true });
 
 onUnmounted(() => {
   amenityRequestSequence += 1;
+  if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
 });
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환

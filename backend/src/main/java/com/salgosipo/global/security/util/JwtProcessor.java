@@ -5,6 +5,7 @@ import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -14,13 +15,13 @@ import java.util.Date;
 @Component //프로젝트 시작할 때 싱글톤으로 만들고 시작.
 public class JwtProcessor {
     static private final long TOKEN_VALID_MILISECOND = 1000L * 60 * 30; // 30 분
+    static private final long RESET_TOKEN_VALID_MILISECOND = 1000L * 60 * 5; // 5분
 
-    private String secretKey
-            = "충분히긴임의의(랜덤한) 비밀키문자열배정";
-    private Key key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    public JwtProcessor(@Value("${jwt.secret}") String secretKey) {
+        this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+    }
 
-    //private Key key = Keys.secretKeyFor(SignatureAlgorithm.HS256);  -- 운영시 사용
-
+    private final Key key;
 
     // JWT생성
     public String generateToken(String subject){
@@ -30,6 +31,31 @@ public class JwtProcessor {
                 .setExpiration(new Date(new Date().getTime() + TOKEN_VALID_MILISECOND))
                 .signWith(key)
                 .compact();
+    }
+
+    // RESET시 JWT 생성
+    public String generateResetToken(Long userId){
+        return Jwts.builder()
+                .setSubject(String.valueOf(userId))
+                .claim("purpose","password-reset")
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(new Date().getTime() + RESET_TOKEN_VALID_MILISECOND))
+                .signWith(key)
+                .compact();
+    }
+
+    //
+    public Long getUserIdFromResetToken(String token){
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+
+        if (!"password-reset".equals(claims.get("purpose"))) {
+            throw new io.jsonwebtoken.JwtException("잘못된 토큰입니다.");
+        }
+        return Long.valueOf(claims.getSubject());
     }
 
     //username(id역할하는 클레임) --> 그대로 사용, db검색해도 됨.

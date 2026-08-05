@@ -26,6 +26,7 @@
                 WHEN COALESCE(ps.safety_score, 85) >= 60 THEN 'WARNING'
                 ELSE 'DANGER'
             END AS safetyGrade,
+            COALESCE(p.deal_count, 1) AS dealCount,
             CASE WHEN b.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
         LEFT JOIN property_safety ps ON p.property_id = ps.property_id
@@ -108,6 +109,7 @@
             COALESCE(ps.street_lamp_count, 35) AS streetlightCount,
             COALESCE(ps.has_police_station, TRUE) AS hasPoliceStation,
             p.is_illegal_building AS isIllegalBuilding,
+            COALESCE(p.deal_count, 1) AS dealCount,
             CASE WHEN b.bookmark_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
         LEFT JOIN property_safety ps ON p.property_id = ps.property_id
@@ -132,20 +134,21 @@
         ORDER BY tag_count DESC
     </select>
 
-    <!-- 공공데이터 API 수집 매물 DB 배치 저장 (정밀 주소 다르면 100% 신규 저장) -->
+    <!-- 공공데이터 API 수집 매물 DB 배치 저장 (동일 위경도 건물 발견 시 deal_count 1 증가) -->
     <insert id="insertBatchPublicProperties">
-        INSERT IGNORE INTO properties (
+        INSERT INTO properties (
             address, building_type, room_type, deposit, monthly_rent,
             area, floor, built_year, property_latitude, property_longitude,
-            is_illegal_building, del_yn
+            is_illegal_building, del_yn, deal_count
         ) VALUES
         <foreach collection="list" item="p" separator=",">
         (
             #{p.address}, #{p.buildingType}, #{p.roomType}, #{p.deposit}, #{p.monthlyRent},
             #{p.area}, #{p.floor}, COALESCE(#{p.builtYear}, '2020'), #{p.latitude, jdbcType=DECIMAL}, #{p.longitude, jdbcType=DECIMAL},
-            FALSE, 'N'
+            FALSE, 'N', 1
         )
-        </foreach>;
+        </foreach>
+        ON DUPLICATE KEY UPDATE deal_count = deal_count + 1;
     </insert>
 
     <!-- DB 전체 매물 주소 및 좌표 조회 -->

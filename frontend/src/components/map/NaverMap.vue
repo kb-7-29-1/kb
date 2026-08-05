@@ -57,6 +57,7 @@ const emit = defineEmits(['select-property']);
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
 const markersMap = ref([]);
+const amenityMarkers = new Map();
 let resizeObserver = null;
 
 // 편의시설 마커 핀
@@ -186,25 +187,49 @@ const renderMarkers = () => {
   });
 
   // 4. 편의시설 마커
-  props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
-      return;
+};
 
-    const amenityLatLng = new window.naver.maps.LatLng(
-      amenity.amenityLatitude,
-      amenity.amenityLongitude,
-    );
-    if (bounds && !bounds.hasLatLng(amenityLatLng)) return;
+const getAmenityMarkerKey = (amenity) => (
+  `${amenity.propertyId ?? 'map'}-${amenity.amenityType}-${amenity.amenityLatitude}-${amenity.amenityLongitude}`
+);
+
+const clearAmenityMarkers = () => {
+  amenityMarkers.forEach(({ marker }) => marker.setMap(null));
+  amenityMarkers.clear();
+};
+
+const renderAmenityMarkers = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  const nextKeys = new Set();
+  props.amenities.forEach((amenity) => {
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+
+    const key = getAmenityMarkerKey(amenity);
+    nextKeys.add(key);
+    if (amenityMarkers.has(key)) return;
 
     const amenityMarker = new window.naver.maps.Marker({
-      position: amenityLatLng,
+      position: new window.naver.maps.LatLng(
+        amenity.amenityLatitude,
+        amenity.amenityLongitude,
+      ),
       map: mapInstance.value,
+      zIndex: 30,
       icon: {
         content: renderAmenityPin(amenity),
+        anchor: new window.naver.maps.Point(0, 0),
       },
     });
 
-    markersMap.value.push(amenityMarker);
+    amenityMarkers.set(key, { marker: amenityMarker });
+  });
+
+  amenityMarkers.forEach(({ marker }, key) => {
+    if (!nextKeys.has(key)) {
+      marker.setMap(null);
+      amenityMarkers.delete(key);
+    }
   });
 };
 
@@ -246,6 +271,7 @@ const initMap = () => {
       });
 
       renderMarkers();
+      renderAmenityMarkers();
       setupResizeObserver();
     } catch (e) {
       console.warn('Naver map init:', e);
@@ -258,11 +284,16 @@ watch(
     () => props.properties,
     () => props.destination,
     () => props.selectedProperty,
-    () => props.amenities,
   ],
   () => {
     renderMarkers();
   },
+  { deep: true },
+);
+
+watch(
+  () => props.amenities,
+  () => renderAmenityMarkers(),
   { deep: true },
 );
 
@@ -353,6 +384,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  markersMap.value.forEach((marker) => marker.setMap(null));
+  clearAmenityMarkers();
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;

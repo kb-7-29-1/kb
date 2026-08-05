@@ -121,6 +121,12 @@ const safetyScoreClass = computed(() => {
             >
               안전지수 {{ property.safetyScore || 85 }}점
             </span>
+            <span
+              v-if="property.dealCount && property.dealCount > 1"
+              class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"
+            >
+              🏢 동일 건물 실거래 {{ property.dealCount }}건
+            </span>
           </div>
 
           <h1 class="text-2xl font-black text-slate-900 mb-1">
