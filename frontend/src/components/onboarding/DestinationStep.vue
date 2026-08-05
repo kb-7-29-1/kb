@@ -20,6 +20,7 @@ const destinations = ref([]);
 const selectedDestination = ref(props.selectedDestination);
 const isSearching = ref(false);
 const searchError = ref('');
+const isComposing = ref(false);
 
 const purposes = [
   { id: 'school', label: '학교', icon: '🎓' },
@@ -28,6 +29,22 @@ const purposes = [
 ];
 
 let searchTimer;
+let searchRequestId = 0;
+
+const handleCompositionStart = () => {
+  isComposing.value = true;
+};
+
+const handleCompositionEnd = (event) => {
+  isComposing.value = false;
+  keyword.value = event.target.value;
+  scheduleSearch(keyword.value);
+};
+
+const handleSearchInput = (event) => {
+  keyword.value = event.target.value;
+  scheduleSearch(event.target.value);
+};
 
 const clearSearch = () => {
   keyword.value = '';
@@ -45,9 +62,10 @@ const selectDestination = (destination) => {
   emit('select-destination', destination);
 };
 
-watch(keyword, (value) => {
+const scheduleSearch = (value) => {
   clearTimeout(searchTimer);
   searchError.value = '';
+  const requestId = ++searchRequestId;
 
   const searchKeyword = value.trim();
   if (searchKeyword.length < 2 || selectedDestination.value?.destName === value) {
@@ -57,20 +75,25 @@ watch(keyword, (value) => {
   }
 
   selectedDestination.value = null;
+  destinations.value = [];
+  isSearching.value = true;
   searchTimer = setTimeout(async () => {
-    isSearching.value = true;
-
     try {
-      destinations.value = await onboardingApi.searchDestinations(searchKeyword);
+      const results = await onboardingApi.searchDestinations(searchKeyword);
+      if (requestId !== searchRequestId) return;
+      destinations.value = results;
     } catch (error) {
+      if (requestId !== searchRequestId) return;
       destinations.value = [];
       searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('DESTINATION SEARCH ERROR: ', error);
     } finally {
-      isSearching.value = false;
+      if (requestId === searchRequestId) isSearching.value = false;
     }
   }, 300);
-});
+};
+
+watch(keyword, scheduleSearch);
 
 watch(selectedPurpose, (value) => emit('update:purpose', value));
 
@@ -107,6 +130,9 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
         <input
           id="destination"
           v-model="keyword"
+          @input="handleSearchInput"
+          @compositionstart="handleCompositionStart"
+          @compositionend="handleCompositionEnd"
           type="text"
           autocomplete="off"
           placeholder="예: 세종대학교, KB국민은행"
@@ -278,10 +304,18 @@ input::placeholder {
 .suggestion-list {
   margin: 12px 0 0;
   padding: 0;
-  overflow: hidden;
+  max-height: 248px;
+  overflow-y: auto;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   list-style: none;
+}
+.suggestion-list::-webkit-scrollbar {
+  width: 4px;
+}
+.suggestion-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 .suggestion-list li + li {
   border-top: 1px solid #eef2f7;

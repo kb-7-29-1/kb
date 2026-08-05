@@ -63,7 +63,24 @@ const selectedDestination = ref(null);
 const isDestinationSearching = ref(false);
 const isDestinationSaving = ref(false);
 const destinationSearchError = ref('');
+const isDestinationComposing = ref(false);
 let destinationSearchTimer;
+let destinationSearchRequestId = 0;
+
+const handleDestinationCompositionStart = () => {
+  isDestinationComposing.value = true;
+};
+
+const handleDestinationCompositionEnd = (event) => {
+  isDestinationComposing.value = false;
+  destinationSearchKeyword.value = event.target.value;
+  scheduleDestinationSearch(destinationSearchKeyword.value);
+};
+
+const handleDestinationSearchInput = (event) => {
+  destinationSearchKeyword.value = event.target.value;
+  scheduleDestinationSearch(event.target.value);
+};
 const depositOptions = DEPOSIT_OPTIONS;
 
 const PRESET_COORDS = {
@@ -164,9 +181,10 @@ const applyDestination = async () => {
   activePopover.value = null;
 };
 
-watch(destinationSearchKeyword, (value) => {
+const scheduleDestinationSearch = (value) => {
   clearTimeout(destinationSearchTimer);
   destinationSearchError.value = '';
+  const requestId = ++destinationSearchRequestId;
 
   const keyword = value.trim();
   if (selectedDestination.value?.destName !== value) selectedDestination.value = null;
@@ -177,19 +195,25 @@ watch(destinationSearchKeyword, (value) => {
     return;
   }
 
+  destinationSearchResults.value = [];
+  isDestinationSearching.value = true;
   destinationSearchTimer = setTimeout(async () => {
-    isDestinationSearching.value = true;
     try {
-      destinationSearchResults.value = await onboardingApi.searchDestinations(keyword);
+      const results = await onboardingApi.searchDestinations(keyword);
+      if (requestId !== destinationSearchRequestId) return;
+      destinationSearchResults.value = results;
     } catch (error) {
+      if (requestId !== destinationSearchRequestId) return;
       destinationSearchResults.value = [];
       destinationSearchError.value = '목적지 검색에 실패했어요. 다시 시도해 주세요.';
       console.error('QUICK FILTER DESTINATION SEARCH ERROR:', error);
     } finally {
-      isDestinationSearching.value = false;
+      if (requestId === destinationSearchRequestId) isDestinationSearching.value = false;
     }
   }, 300);
-});
+};
+
+watch(destinationSearchKeyword, scheduleDestinationSearch);
 
 // props 변경 감지
 watch(
@@ -344,6 +368,9 @@ const safetyAccentClass = computed(() => {
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input
               v-model="destinationSearchKeyword"
+              @input="handleDestinationSearchInput"
+              @compositionstart="handleDestinationCompositionStart"
+              @compositionend="handleDestinationCompositionEnd"
               type="text"
               autocomplete="off"
               placeholder="장소명 또는 주소를 검색하세요"
