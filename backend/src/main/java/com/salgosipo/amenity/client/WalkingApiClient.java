@@ -32,11 +32,6 @@ public class WalkingApiClient {
     }
 
     // 1. TMAP 보행자 API: 출발지에서 도착지까지의 최소 도보 시간(분) 계산
-    public Integer calculateWalkingTime(Double startLat, Double startLng, Double endLat, Double endLng) {
-        WalkingRoute route = calculateWalkingRoute(startLat, startLng, endLat, endLng);
-        return route == null ? null : route.walkTimeMinutes();
-    }
-
     public WalkingRoute calculateWalkingRoute(Double startLat, Double startLng, Double endLat, Double endLng) {
         String url = "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
 
