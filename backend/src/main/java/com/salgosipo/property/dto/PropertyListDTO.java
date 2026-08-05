@@ -21,6 +21,7 @@ public class PropertyListDTO {
     private Double area;           // 전용면적 (m2)
     private Integer floor;          // 층수
     private String builtYear;      // 준공연도 (YYYY)
+    private Boolean isIllegalBuilding; // 위반 건축물 여부
     private String address;
     private Double latitude;       // 위도
     private Double longitude;      // 경도
