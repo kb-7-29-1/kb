@@ -433,19 +433,13 @@ const checkDistanceToDestination = () => {
   isFarFromDestination.value = bounds ? !bounds.hasLatLng(destLatLng) : false;
 };
 
-// 내 목적지로 카메라 빠른 이동
+// 내 목적지로 카메라 빠른 이동 (도보/대중교통 및 이동시간 범위에 맞추어 줌 레벨 자동 조율)
 const moveMapToDestination = () => {
   if (!mapInstance.value || !props.destination) return;
-  const targetLat =
-    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng =
-    Number(props.destination.lng || props.destination.destLongitude) ||
-    127.0731;
 
-  mapInstance.value.morph(
-    new window.naver.maps.LatLng(targetLat, targetLng),
-    15,
-  );
+  // 선택된 이동 수단(도보/대중교통), 걸음 속도, 이동 시간에 맞춰 최적 줌 레벨 및 위치로 이동
+  fitToIsochroneRadius();
+
   isFarFromDestination.value = false;
 };
 </script>
