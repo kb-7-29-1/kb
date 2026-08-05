@@ -104,12 +104,64 @@ const destinationList = computed(() => {
   return defaults;
 });
 
+const RECENT_DESTINATIONS_KEY = 'recent_destinations';
+
+const getRecentDestinations = () => {
+  try {
+    const data = localStorage.getItem(RECENT_DESTINATIONS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+const recentDestinations = ref(getRecentDestinations());
+
+const saveRecentDestination = (destObj) => {
+  if (!destObj || !destObj.destName) return;
+  const list = getRecentDestinations();
+  const filtered = list.filter((item) => item.destName !== destObj.destName);
+  const updated = [
+    {
+      destName: destObj.destName,
+      destAddress: destObj.destAddress || '',
+      destLatitude: destObj.destLatitude || destObj.lat || null,
+      destLongitude: destObj.destLongitude || destObj.lng || null,
+    },
+    ...filtered,
+  ].slice(0, 5);
+  try {
+    localStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(updated));
+  } catch (e) {}
+  recentDestinations.value = updated;
+};
+
+const removeRecentDestination = (destName) => {
+  const list = getRecentDestinations();
+  const updated = list.filter((item) => item.destName !== destName);
+  try {
+    localStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(updated));
+  } catch (e) {}
+  recentDestinations.value = updated;
+};
+
+const selectRecentDestination = (item) => {
+  selectDestination(item);
+  applyDestination();
+};
+
 const selectDestinationOption = (dest) => {
   filters.value.destination = dest;
   if (PRESET_COORDS[dest]) {
     filters.value.destinationAddress = PRESET_COORDS[dest].address;
     filters.value.destinationLat = PRESET_COORDS[dest].lat;
     filters.value.destinationLng = PRESET_COORDS[dest].lng;
+    saveRecentDestination({
+      destName: dest,
+      destAddress: PRESET_COORDS[dest].address,
+      destLatitude: PRESET_COORDS[dest].lat,
+      destLongitude: PRESET_COORDS[dest].lng,
+    });
   } else {
     // 유저 지정 새 장소 시 기존 좌표 초기화 (지오코더가 주소 기반 자동 재생성)
     delete filters.value.destinationLat;
@@ -150,6 +202,7 @@ const applyDestination = async () => {
       filters.value.destinationAddress = savedDestination.destAddress;
       filters.value.destinationLat = Number(savedDestination.destLatitude);
       filters.value.destinationLng = Number(savedDestination.destLongitude);
+      saveRecentDestination(savedDestination);
     } catch (error) {
       destinationSearchError.value = '목적지 저장에 실패했어요. 다시 시도해 주세요.';
       console.error('QUICK FILTER DESTINATION SAVE ERROR:', error);
@@ -254,9 +307,10 @@ const activeFilterCount = computed(() => {
 
 // 가격 요약 텍스트
 const priceSummaryText = computed(() => {
-  const { maxDeposit, maxRent } = appliedQuickFilters.value;
+  const { tradeType, maxDeposit, maxRent } = appliedQuickFilters.value;
   const deposit = formatDepositShort(maxDeposit);
-  if (maxRent === 0) return `전세: ${deposit}`;
+  if (tradeType === 'JEONSE') return `전세: ${deposit}`;
+  if (maxRent === 0) return `보증금: ${deposit}`;
   return `월세: ${deposit}/${maxRent}`;
 });
 
@@ -359,6 +413,32 @@ const safetyAccentClass = computed(() => {
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </label>
+
+          <!-- 🕒 최근 검색 목적지 기록 칩 목록 -->
+          <div v-if="recentDestinations.length > 0" class="mt-3">
+            <div class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5">
+              <span>🕒 최근 검색 목적지</span>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <span
+                v-for="item in recentDestinations"
+                :key="item.destName"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors"
+                @click="selectRecentDestination(item)"
+              >
+                <span>📍 {{ item.destName }}</span>
+                <button
+                  type="button"
+                  class="text-[10px] text-slate-400 hover:text-slate-600 ml-0.5"
+                  aria-label="삭제"
+                  @click.stop="removeRecentDestination(item.destName)"
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
+          </div>
+
           <p v-if="isDestinationSearching" class="mt-3 text-center text-xs text-slate-400">
             검색 중이에요.
           </p>
@@ -564,10 +644,31 @@ const safetyAccentClass = computed(() => {
             </button>
           </div>
 
+          <!-- 🏠 월세 vs 🏢 전세 선택 탭 -->
+          <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
+            <button
+              v-for="t in [
+                { key: 'MONTHLY', label: '🏠 월세' },
+                { key: 'JEONSE', label: '🏢 전세' },
+              ]"
+              :key="t.key"
+              type="button"
+              class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all text-center"
+              :class="
+                filters.tradeType === t.key
+                  ? 'bg-white text-blue-600 shadow-sm font-black'
+                  : 'text-slate-500 hover:text-slate-700'
+              "
+              @click="filters.tradeType = t.key"
+            >
+              {{ t.label }}
+            </button>
+          </div>
+
           <!-- 전세금/보증금 슬라이더 -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>보증금</span>
+              <span>{{ filters.tradeType === 'JEONSE' ? '최대 전세 보증금' : '최대 월세 보증금' }}</span>
               <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
             <input
@@ -585,10 +686,10 @@ const safetyAccentClass = computed(() => {
             </div>
           </div>
 
-          <!-- 월세 슬라이더 -->
-          <div class="space-y-1.5">
+          <!-- 월세 슬라이더 (월세 모드일 때만 표시) -->
+          <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>월세</span>
+              <span>최대 월세</span>
               <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
             </div>
             <input
@@ -742,6 +843,47 @@ const safetyAccentClass = computed(() => {
               <span>{{ filters.transportMode === 'WALK' ? '5분' : '15분' }}</span>
               <span>{{ filters.transportMode === 'WALK' ? '40분' : '60분' }}</span>
             </div>
+          </div>
+
+          <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
+          <div v-if="filters.transportMode === 'WALK'" class="space-y-2 pt-1">
+            <div class="flex justify-between text-xs font-bold text-slate-800">
+              <span>🚶‍♂️ 걸음 속도</span>
+              <span class="text-blue-600 font-extrabold text-xs">
+                {{
+                  filters.walkPace === 'SLOW'
+                    ? '천천히 (약 3.5km/h)'
+                    : filters.walkPace === 'FAST'
+                      ? '빠른 걸음 (약 5.5km/h)'
+                      : '보통 걸음 (약 4.5km/h)'
+                }}
+              </span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
+              <button
+                v-for="pace in [
+                  { key: 'SLOW', label: '🐢 천천히' },
+                  { key: 'NORMAL', label: '🚶 보통' },
+                  { key: 'FAST', label: '🏃 빠르게' },
+                ]"
+                :key="pace.key"
+                type="button"
+                class="py-1.5 rounded-lg text-xs font-bold transition-all text-center"
+                :class="
+                  filters.walkPace === pace.key
+                    ? 'bg-white text-blue-600 shadow-sm font-black'
+                    : 'text-slate-500 hover:text-slate-800'
+                "
+                @click="filters.walkPace = pace.key"
+              >
+                {{ pace.label }}
+              </button>
+            </div>
+            <p
+              class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
+            >
+              * 선택한 걸음 속도에 따라 도달 가능 범위가 자동 계산됩니다.
+            </p>
           </div>
 
           <!-- 🚌 [대중교통 모드]: 최소 이동 시간 -->
