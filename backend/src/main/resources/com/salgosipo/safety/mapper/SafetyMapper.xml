@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.salgosipo.safety.mapper.SafetyMapper">
+
+    <!-- property_id + destination_id 조합의 기존 계산 결과 조회 -->
+    <select id="selectPropertySafety"
+            resultType="com.salgosipo.safety.domain.PropertySafetyVO">
+        SELECT
+            property_id AS propertyId,
+            destination_id AS destinationId,
+            safety_score AS safetyScore,
+            cctv_count AS cctvCount,
+            street_lamp_count AS streetLampCount,
+            has_police_station AS hasPoliceStation,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+        FROM property_safety
+        WHERE property_id = #{propertyId}
+          AND destination_id = #{destinationId}
+        LIMIT 1
+    </select>
+
+    <!-- 안전경로 출발점으로 사용할 실제 매물 좌표 -->
+    <select id="selectPropertyCoordinate"
+            resultType="com.salgosipo.safety.domain.SafetyPropertyCoordinateVO">
+        SELECT
+            property_id AS propertyId,
+            address AS address,
+            property_latitude AS latitude,
+            property_longitude AS longitude
+        FROM properties
+        WHERE property_id = #{propertyId}
+          AND del_yn = 'N'
+        LIMIT 1
+    </select>
+
+    <!-- destinationId가 전달된 경우 DB 좌표를 사용 -->
+    <select id="selectDestinationById"
+            resultType="com.salgosipo.safety.domain.SafetyDestinationVO">
+        SELECT
+            destination_id AS destinationId,
+            dest_latitude AS latitude,
+            dest_longitude AS longitude,
+            dest_name AS name,
+            dest_address AS address
+        FROM destinations
+        WHERE destination_id = #{destinationId}
+        LIMIT 1
+    </select>
+
+    <!--
+        destinationId가 없는 요청은 좌표 기준으로 목적지를 저장합니다.
+        동일 좌표가 이미 있으면 기존 destination_id를 LAST_INSERT_ID로 돌려받습니다.
+    -->
+    <insert id="upsertDestination"
+            parameterType="com.salgosipo.safety.domain.SafetyDestinationVO">
+        INSERT INTO destinations (
+            dest_latitude,
+            dest_longitude,
+            dest_name,
+            dest_address
+        ) VALUES (
+            #{latitude},
+            #{longitude},
+            #{name},
+            #{address}
+        )
+        ON DUPLICATE KEY UPDATE
+            destination_id = LAST_INSERT_ID(destination_id),
+            dest_name = VALUES(dest_name),
+            dest_address = VALUES(dest_address)
+
+        <selectKey keyProperty="destinationId" resultType="int" order="AFTER">
+            SELECT LAST_INSERT_ID()
+        </selectKey>
+    </insert>
+
+    <!--
+        캐시가 없을 때만 최초 계산값을 저장합니다.
+        동시 요청이 같은 조합을 계산해도 먼저 저장된 행은 덮어쓰지 않습니다.
+    -->
+    <insert id="insertPropertySafetyIfAbsent"
+            parameterType="com.salgosipo.safety.domain.PropertySafetyVO">
+        INSERT INTO property_safety (
+            property_id,
+            destination_id,
+            safety_score,
+            cctv_count,
+            street_lamp_count,
+            has_police_station
+        ) VALUES (
+            #{propertyId},
+            #{destinationId},
+            #{safetyScore},
+            #{cctvCount},
+            #{streetLampCount},
+            #{hasPoliceStation}
+        )
+        ON DUPLICATE KEY UPDATE
+            property_id = property_id
+    </insert>
+
+</mapper>
