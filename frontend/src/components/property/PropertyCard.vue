@@ -43,11 +43,11 @@ const safetyScoreClass = computed(() => {
 
 <template>
   <div
-    class="group relative flex gap-3 p-3 rounded-xl bg-white border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 md:p-3.5"
+    class="group relative flex items-center gap-3 p-3 rounded-xl bg-white border transition-all duration-200 cursor-pointer hover:shadow-md hover:-translate-y-0.5 md:p-3.5"
     :class="[
       isSelected
         ? 'border-blue-600 ring-2 ring-blue-500/20 bg-blue-50/30'
-        : 'border-slate-200 hover:border-slate-300',
+        : 'border-[#dbe3ef] hover:border-[#cbd6e6]',
     ]"
     @click="emit('select', property)"
   >
@@ -66,7 +66,7 @@ const safetyScoreClass = computed(() => {
     </div>
 
     <!-- 매물 정보 -->
-    <div class="flex-1 flex flex-col justify-between min-w-0 pr-7 md:pr-8">
+    <div class="flex-1 flex flex-col justify-between min-w-0 pr-8 md:pr-9">
       <div>
         <div class="flex items-center gap-1.5 mb-1">
           <span
@@ -115,15 +115,29 @@ const safetyScoreClass = computed(() => {
     <!-- 찜 버튼 -->
     <button
       type="button"
-      class="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-[15px] transition-transform hover:scale-110 md:right-3.5 md:top-3.5"
-      :class="property.isBookmarked ? 'text-[#dc4b5d]' : 'text-[#94a3b8] hover:text-[#64748b]'"
+      class="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 transition-transform hover:scale-110 md:right-3 md:top-3"
       :aria-label="property.isBookmarked ? '관심 매물 해제' : '관심 매물 등록'"
       @click.stop="emit('toggle-bookmark', property.propertyId)"
     >
-      <i
-        :class="property.isBookmarked ? 'fa-solid fa-heart' : 'fa-regular fa-heart'"
+      <svg
+        viewBox="0 0 24 24"
+        class="h-[18px] w-[18px] transition-colors"
+        :class="
+          property.isBookmarked
+            ? 'fill-[#dc4b5d] text-[#dc4b5d]'
+            : 'fill-none text-[#94a3b8] hover:text-[#64748b]'
+        "
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.7"
+        stroke-linecap="round"
+        stroke-linejoin="round"
         aria-hidden="true"
-      ></i>
+      >
+        <path
+          d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"
+        />
+      </svg>
     </button>
   </div>
 </template>
