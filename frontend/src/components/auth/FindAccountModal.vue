@@ -26,7 +26,7 @@ const handleFindId = async () => {
 const pwLoginId = ref('');
 const pwName = ref('');
 const pwEmail = ref('');
-const verifiedUserId = ref(null);
+const verifiedResetToken = ref(null);
 const verifyError = ref('');
 
 const handleVerify = async () => {
@@ -37,7 +37,7 @@ const handleVerify = async () => {
       name: pwName.value,
       email: pwEmail.value,
     });
-    verifiedUserId.value = response.data;
+    verifiedResetToken.value = response.data;
   } catch (error) {
     verifyError.value = '일치하는 계정 정보가 없습니다.';
   }
@@ -58,7 +58,7 @@ const handleResetPassword = async () => {
 
   try {
     await resetPassword({
-      userId: verifiedUserId.value,
+      resetToken: verifiedResetToken.value,
       newPassword: newPassword.value,
     });
     resetSuccess.value = true;
@@ -70,9 +70,10 @@ const handleResetPassword = async () => {
 const switchTab = (target) => {
   tab.value = target;
   // 탭 전환시 상태 초기화
+
   maskedLoginId.value = '';
   findIdError.value = '';
-  verifiedUserId.value = null;
+  verifiedResetToken.value = null;
   verifyError.value = '';
   resetError.value = '';
   resetSuccess.value = false;
@@ -153,7 +154,7 @@ const switchTab = (target) => {
 
       <!-- 비밀번호 찾기 -->
       <div v-else>
-        <template v-if="!verifiedUserId">
+        <template v-if="!verifiedResetToken">
           <p class="text-sm text-gray-500 mb-4">아이디, 이름, 이메일을 입력해주세요.</p>
 
           <label class="block text-sm text-gray-600 mb-1">아이디</label>
