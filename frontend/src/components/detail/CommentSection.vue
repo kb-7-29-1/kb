@@ -20,6 +20,7 @@ const authStore = useAuthStore();
 const isLoggedIn = computed(() => authStore.isLoggedIn);
 const {
   comments,
+  tags,
   commentCount,
   isLoading,
   loadError,
@@ -80,6 +81,24 @@ watch(
       </button>
     </div>
 
+    <div v-if="tags.length" class="keyword-list" aria-label="댓글 자동 분석 태그">
+      <span
+        v-for="tag in tags"
+        :key="tag.tagType"
+        class="keyword-item"
+        :class="tag.type === 'NEGATIVE' ? 'negative' : 'positive'"
+      >
+        {{ tag.type === 'NEGATIVE' ? '👎' : '👍' }}
+        {{ tag.tagName }}
+        <strong>{{ tag.count }}</strong>
+      </span>
+    </div>
+
+    <div class="notice">
+      <span class="notice-icon" aria-hidden="true">⚠</span>
+      <p>본 키워드는 인터넷 커뮤니티 게시물을 바탕으로 자동 분석된 결과이며, 당사는 사실 여부를 보증하지 않습니다. (단순 참고용)</p>
+    </div>
+
   </section>
 
   <aside v-if="showCommentList" class="comment-list-panel">
@@ -89,6 +108,7 @@ watch(
       v-else
       :property="property"
       :comments="comments"
+      :tags="tags"
       :is-logged-in="isLoggedIn"
       :is-submitting="isSubmitting"
       @close="showCommentList = false"
@@ -118,9 +138,10 @@ watch(
   width: 100vw;
   max-width: 560px;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background: #f8fafc;
   box-shadow: -12px 0 30px rgb(15 23 42 / 18%);
+  box-sizing: border-box;
 }
 
 .comment-status,
@@ -218,6 +239,12 @@ watch(
   border: 1px solid #6ee7b7;
   background: #f0fdf7;
   color: #24815f;
+}
+
+.keyword-item.negative {
+  border: 1px solid #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
 }
 
 .keyword-item.more {
