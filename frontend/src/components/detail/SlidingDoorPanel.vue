@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
-import CommentSection from "@/components/detail/CommentSection.vue";
+import CommentSection from '@/components/detail/CommentSection.vue';
 
 const props = defineProps({
   isOpen: {
@@ -43,9 +43,10 @@ const safetyScoreClass = computed(() => {
 <template>
   <div>
     <!-- Backdrop Overlay (패널 열렸을 때 오버레이) -->
+    <!-- fixed inset-0 bg-slate-900/30 backdrop-blur-xs -->
     <div
       v-if="isOpen"
-      class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
+      class="z-40 transition-opacity"
       @click="emit('close')"
     ></div>
 
@@ -228,11 +229,10 @@ const safetyScoreClass = computed(() => {
         </div>
         <WalkingTime :amenities="amenities" />
         <CommentSection
-            :property-id="property.propertyId"
-            :property="property"
+          :property-id="property.propertyId"
+          :property="property"
         />
       </div>
     </aside>
-
   </div>
 </template>
