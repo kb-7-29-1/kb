@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { formatDepositAmount } from '@/utils/budget';
 
 const props = defineProps({
   destination: {
@@ -37,8 +38,8 @@ defineEmits(['close']);
 const transportLabel = computed(() => (props.transportMode === 'TRANSIT' ? '대중교통' : '도보'));
 const destinationLabel = computed(() => props.destination?.trim() || '목적지를 설정해 주세요');
 const priceLabel = computed(() => {
-  if (props.maxRent === 0) return `전세 ${props.maxDeposit.toLocaleString()}만 이하`;
-  return `보증 ${props.maxDeposit.toLocaleString()}만 · 월세 ${props.maxRent}만 이하`;
+  if (props.maxRent === 0) return `전세 ${formatDepositAmount(props.maxDeposit)} 이하`;
+  return `보증 ${formatDepositAmount(props.maxDeposit)} · 월세 ${props.maxRent}만원 이하`;
 });
 </script>
 
