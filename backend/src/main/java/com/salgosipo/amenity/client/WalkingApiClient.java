@@ -3,27 +3,31 @@ package com.salgosipo.amenity.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.Map;
 
 @Log4j2
+@Component
 public class WalkingApiClient {
 
     public record WalkingRoute(Integer walkTimeMinutes, Integer distanceMeters) {
     }
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String tmapApiKey;
 
-    public WalkingApiClient(String tmapApiKey) {
+    public WalkingApiClient(RestTemplate restTemplate, @Value("${TMAP_API_KEY}") String tmapApiKey) {
+        this.restTemplate = restTemplate;
         this.tmapApiKey = tmapApiKey;
     }
 

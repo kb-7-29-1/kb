@@ -1,47 +1,12 @@
 <template>
   <div class="filter-container">
-    <div v-show="activeTab === 'amenity'" class="filter-content">
-      <!-- 편의시설 필터 섹션 -->
-      <div class="section">
-        <h3 class="section-title">편의시설 필터</h3>
-        <div class="amenity-grid">
-          <button
-            v-for="item in amenities"
-            :key="item.id"
-            class="amenity-btn"
-            :class="{ selected: item.selected }"
-            @click="toggleAmenity(item)"
-          >
-            <span class="icon">{{ item.icon }}</span>
-            <span class="name">{{ item.name }}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 편의시설 도보 시간 제한 섹션 -->
-      <div class="section" v-if="selectedAmenities.length > 0">
-        <h3 class="section-title">편의시설 도보 시간 제한</h3>
-        <div class="slider-list">
-          <div v-for="item in selectedAmenities" :key="'slider-' + item.id" class="slider-item">
-            <div class="slider-label">
-              <span class="icon">{{ item.icon }}</span>
-              <span class="name">{{ item.name }}</span>
-            </div>
-            <div class="slider-control">
-              <input
-                type="range"
-                v-model="item.timeLimit"
-                min="0"
-                max="30"
-                step="1"
-                class="styled-slider"
-                :style="sliderStyle(item.timeLimit)"
-              />
-            </div>
-            <div class="slider-value">{{ item.timeLimit }}분</div>
-          </div>
-        </div>
-      </div>
+    <div class="filter-content">
+      <AmenityTypeFilter :amenities="amenities" @toggle="toggleAmenity"/>
+      <AmenityWalkingTimeFilter
+          v-if="showWalkingTime"
+          :amenities="selectedAmenities"
+          @update-time-limit="updateTimeLimit"
+      />
     </div>
 
     <button type="button" class="apply-button" @click="applyFilters">적용하기</button>
@@ -49,23 +14,27 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import {ref, computed, watch} from 'vue';
+import AmenityTypeFilter from './AmenityTypeFilter.vue';
+import AmenityWalkingTimeFilter from './AmenityWalkingTimeFilter.vue';
 
-const emit = defineEmits(['close', 'apply']);
+const emit = defineEmits(['close', 'apply', 'selection-change']);
 const props = defineProps({
   appliedFilters: {
     type: Array,
     default: () => [],
   },
+  showWalkingTime: {
+    type: Boolean,
+    default: true,
+  },
 });
-
-const activeTab = ref('amenity');
 
 // 편의시설 데이터 상태 관리
 const amenities = ref([
-  { id: 'convenience', amenityType: 1, name: '편의점', icon: '🏪', selected: false, timeLimit: 15 },
-  { id: 'cafe', amenityType: 2, name: '카페', icon: '☕', selected: false, timeLimit: 15 },
-  { id: 'laundry', amenityType: 3, name: '코인세탁소', icon: '🧺', selected: false, timeLimit: 15 },
+  {id: 'convenience', amenityType: 1, name: '편의점', icon: '🏪', selected: false, timeLimit: 15},
+  {id: 'cafe', amenityType: 2, name: '카페', icon: '☕', selected: false, timeLimit: 15},
+  {id: 'laundry', amenityType: 3, name: '코인세탁소', icon: '🧺', selected: false, timeLimit: 15},
   {
     id: 'fastfood',
     amenityType: 4,
@@ -74,7 +43,7 @@ const amenities = ref([
     selected: false,
     timeLimit: 15,
   },
-  { id: 'daiso', amenityType: 5, name: '다이소', icon: '🛒', selected: false, timeLimit: 15 },
+  {id: 'daiso', amenityType: 5, name: '다이소', icon: '🛒', selected: false, timeLimit: 15},
   {
     id: 'oliveyoung',
     amenityType: 6,
@@ -83,7 +52,7 @@ const amenities = ref([
     selected: false,
     timeLimit: 15,
   },
-  { id: 'mart', amenityType: 7, name: '대형마트', icon: '🏢', selected: false, timeLimit: 15 },
+  {id: 'mart', amenityType: 7, name: '대형마트', icon: '🏢', selected: false, timeLimit: 15},
 ]);
 
 // 선택된 편의시설만 필터링
@@ -91,16 +60,18 @@ const selectedAmenities = computed(() => {
   return amenities.value.filter((item) => item.selected);
 });
 
-const sliderStyle = (timeLimit) => {
-  const percent = (Number(timeLimit) / 30) * 100;
-  return {
-    background: `linear-gradient(to right, #3d55f6 0%, #3d55f6 ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
-  };
+// 편의시설 선택 토글 함수
+const toggleAmenity = (id) => {
+  const amenity = amenities.value.find((item) => item.id === id);
+  if (amenity) {
+    amenity.selected = !amenity.selected;
+    emit('selection-change', getSelectedAmenities());
+  }
 };
 
-// 편의시설 선택 토글 함수
-const toggleAmenity = (item) => {
-  item.selected = !item.selected;
+const updateTimeLimit = ({id, timeLimit}) => {
+  const amenity = amenities.value.find((item) => item.id === id);
+  if (amenity) amenity.timeLimit = timeLimit;
 };
 
 // 초기화 버튼 함수
@@ -120,7 +91,7 @@ const restoreAppliedFilters = (filters = []) => {
   });
 };
 
-watch(() => props.appliedFilters, restoreAppliedFilters, { immediate: true, deep: true });
+watch(() => props.appliedFilters, restoreAppliedFilters, {immediate: true, deep: true});
 
 // 적용완료 버튼 함수
 const getFilters = () => {
@@ -130,6 +101,8 @@ const getFilters = () => {
   }));
 };
 
+const getSelectedAmenities = () => selectedAmenities.value.map((item) => ({...item}));
+
 const applyFilters = () => {
   emit('apply', getFilters());
 };
@@ -137,6 +110,7 @@ defineExpose({
   resetFilters,
   applyFilters,
   getFilters,
+  getSelectedAmenities,
 });
 </script>
 
@@ -155,130 +129,4 @@ defineExpose({
   display: none;
 }
 
-/* 공통 섹션 스타일 */
-.section {
-  padding: 20px 0;
-  border-bottom: 1px solid #edf0f5;
-}
-
-.section:first-child {
-  padding-top: 10px;
-}
-
-.section:last-child {
-  border-bottom: 0;
-}
-
-.section-title {
-  margin: 0 0 14px;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-/* 편의시설 버튼 그리드 */
-.amenity-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.amenity-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 0;
-  background-color: #ffffff;
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.amenity-btn .icon {
-  font-size: 20px;
-  margin-bottom: 4px;
-}
-
-.amenity-btn .name {
-  font-size: 11px;
-  color: #888;
-  font-weight: 500;
-}
-
-.amenity-btn.selected {
-  background-color: #eef1ff;
-  border-color: #3d55f6;
-}
-
-.amenity-btn.selected .name {
-  color: #3b5bdb;
-  font-weight: 600;
-}
-
-/* 도보 시간 제한 슬라이더 */
-.slider-list {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.slider-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.slider-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 83px;
-  font-size: 13px;
-  color: #374151;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.slider-control {
-  flex: 1;
-  margin: 0 14px;
-}
-
-.styled-slider {
-  width: 100%;
-  height: 6px;
-  margin: 0;
-  appearance: none;
-  border-radius: 999px;
-  cursor: pointer;
-}
-
-.styled-slider::-webkit-slider-thumb {
-  width: 17px;
-  height: 17px;
-  appearance: none;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
-}
-
-.styled-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
-}
-
-.slider-value {
-  width: 40px;
-  text-align: right;
-  font-size: 12px;
-  font-weight: 800;
-  color: #3d55f6;
-}
 </style>

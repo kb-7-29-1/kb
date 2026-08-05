@@ -54,7 +54,8 @@ const handleReset = async () => {
 
 const handleApply = async () => {
   applyError.value = '';
-  const amenities = amenityFilterRef.value?.getFilters?.() ?? [];
+  const selectedAmenities = amenityFilterRef.value?.getFilters?.();
+  const amenities = Array.isArray(selectedAmenities) ? selectedAmenities : [];
   const filters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
   const { selectedDestination, ...onboardingFilters } = filters;
 

@@ -23,8 +23,13 @@ const closeFilter = () => {
 
 const applyFilters = ({ onboarding, amenities }) => {
   appliedOnboardingFilters.value = onboarding;
-  appliedAmenityFilters.value = amenities;
+  // 초기화 후 적용하면 빈 배열을 유지해 편의시설 조건을 적용하지 않는다.
+  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
   closeFilter();
+};
+
+const applyAmenityFilters = (amenities) => {
+  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
 };
 
 const resetFilters = () => {
@@ -54,6 +59,7 @@ const goMyPage = () => {
       :applied-amenity-filters="appliedAmenityFilters"
       :filter-reset-version="filterResetVersion"
       @open-filter="openFilter"
+      @apply-amenity-filters="applyAmenityFilters"
     />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->

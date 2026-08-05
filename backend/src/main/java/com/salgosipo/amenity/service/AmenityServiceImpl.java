@@ -7,13 +7,13 @@ import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,16 +25,12 @@ public class AmenityServiceImpl implements AmenityService {
 
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
-    private final AmenityCalculationQueue amenityCalculationQueue;
-
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
-            AmenityCalculationQueue amenityCalculationQueue,
-            @Value("${TMAP_API_KEY}") String tmapApiKey
+            WalkingApiClient walkingApiClient
     ) {
         this.amenityMapper = amenityMapper;
-        this.amenityCalculationQueue = amenityCalculationQueue;
-        this.walkingApiClient = new WalkingApiClient(tmapApiKey);
+        this.walkingApiClient = walkingApiClient;
     }
 
     @Override
@@ -131,24 +127,40 @@ public class AmenityServiceImpl implements AmenityService {
             return Collections.emptyMap();
         }
 
+        List<AmenityRequestDTO> validRequests = requests.stream()
+                .filter(this::isValidRequest)
+                .toList();
+        if (validRequests.isEmpty()) {
+            return Collections.emptyMap();
+        }
+
+        // 목록에 표시할 매물의 캐시를 한 번에 가져와, 캐시가 채워진 경우 N번의 DB 조회를 피한다.
+        Set<Integer> propertyIds = new HashSet<>();
+        validRequests.forEach(request -> propertyIds.add(request.getPropertyId()));
+        Map<Integer, List<AmenityResponseDTO>> cachedAmenitiesByProperty = new HashMap<>();
+        for (AmenityResponseDTO amenity : amenityMapper.getAmenitiesByPropertyIds(new ArrayList<>(propertyIds))) {
+            cachedAmenitiesByProperty
+                    .computeIfAbsent(amenity.getPropertyId(), ignored -> new ArrayList<>())
+                    .add(amenity);
+        }
+
         Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
-        for (AmenityRequestDTO request : requests) {
-            if (!isValidRequest(request)) {
-                continue;
-            }
-            if (request.getPropertyId() != null) {
-                List<AmenityResponseDTO> cachedAmenities = getCachedAmenities(request.getPropertyId());
+        for (AmenityRequestDTO request : validRequests) {
+            try {
+                List<AmenityResponseDTO> cachedAmenities = cachedAmenitiesByProperty
+                        .getOrDefault(request.getPropertyId(), Collections.emptyList());
                 Set<Integer> cachedTypes = new HashSet<>();
                 cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
 
-            amenitiesByProperty.put(
+                boolean hasAllRequestedTypes = request.getAmenities().stream()
+                        .allMatch(filter -> cachedTypes.contains(filter.getAmenityType()));
+
+                amenitiesByProperty.put(
                         request.getPropertyId(),
-                        filterByRequest(cachedAmenities, request.getAmenities())
+                        hasAllRequestedTypes
+                                ? filterByRequest(cachedAmenities, request.getAmenities())
+                                : getAmenitiesByFilter(request)
                 );
-                continue;
-            }
-            try {
-                amenitiesByProperty.put(request.getPropertyId(), getAmenitiesByFilter(request));
             } catch (RuntimeException e) {
                 // 한 매물의 조회 실패가 전체 목록 필터링을 중단시키지 않도록 빈 결과로 처리한다.
                 log.warn("Amenity calculation failed. PropertyId: {}", request.getPropertyId(), e);
@@ -156,32 +168,6 @@ public class AmenityServiceImpl implements AmenityService {
             }
         }
         return amenitiesByProperty;
-    }
-
-    @Override
-    public String startCalculationJob(List<AmenityRequestDTO> requests) {
-        List<AmenityCalculationQueue.Task> tasks = new ArrayList<>();
-        if (requests != null) {
-            for (AmenityRequestDTO request : requests) {
-                if (!isValidRequest(request)) continue;
-
-                Set<Integer> cachedTypes = new HashSet<>();
-                getCachedAmenities(request.getPropertyId())
-                        .forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
-
-                request.getAmenities().stream()
-                        .filter(filter -> !cachedTypes.contains(filter.getAmenityType()))
-                        .forEach(filter -> tasks.add(new AmenityCalculationQueue.Task(
-                                request.getPropertyId(), filter, null
-                        )));
-            }
-        }
-        return amenityCalculationQueue.createJob(tasks);
-    }
-
-    @Override
-    public String getCalculationStatus(String jobId) {
-        return amenityCalculationQueue.getJobStatus(jobId);
     }
 
     private boolean isValidRequest(AmenityRequestDTO request) {
