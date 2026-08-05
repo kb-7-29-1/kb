@@ -458,6 +458,11 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 const openAmenityDetailFilter = (selectedFilters) => {
+  if (isAmenityDetailFilterOpen.value) {
+    isAmenityDetailFilterOpen.value = false;
+    return;
+  }
+
   const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
   amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
