@@ -519,14 +519,18 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
 <template>
   <div
-    class="relative w-full flex-1 min-h-0 h-full overflow-hidden flex flex-col-reverse xl:flex-row bg-slate-100"
+    class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel w-full xl:w-[380px] rounded-t-[22px] xl:rounded-none bg-white border-t xl:border-t-0 xl:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out overflow-hidden"
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:rounded-none xl:border-t-0 xl:border-r"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
-        mobilePanelHeight === 'EXPANDED' ? 'h-[80vh] xl:h-full' : 'h-1/3 xl:h-full',
+        mobilePanelHeight === 'EXPANDED'
+          ? 'h-full xl:h-full'
+          : mobilePanelHeight === 'COLLAPSED'
+            ? 'h-[120px] xl:h-full'
+            : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -653,7 +657,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
     </aside>
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
-    <main class="flex-1 h-full relative z-10">
+    <main class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1">
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
       <div class="absolute top-4 left-4 z-30 pointer-events-none">
         <MapQuickFilterBar
