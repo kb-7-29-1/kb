@@ -8,6 +8,7 @@ import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
 import AmenityDetailFilterPanel from '@/components/map/AmenityDetailFilterPanel.vue';
+import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
@@ -33,12 +34,17 @@ const props = defineProps({
 
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
+const isDesktopSortExpanded = ref(false);
 const sortOptions = [
-  { key: 'RECOMMENDED', label: '추천순' },
-  { key: 'PRICE_ASC', label: '가격 낮은순' },
-  { key: 'PRICE_DESC', label: '가격 높은순' },
-  { key: 'SAFETY_DESC', label: '안전점수 높은순' },
-  { key: 'AREA_DESC', label: '면적 넓은순' },
+  { key: 'RECOMMENDED', label: '추천순', icon: 'fa-solid fa-thumbs-up' },
+  { key: 'PRICE_ASC', label: '가격 낮은순', icon: 'fa-solid fa-arrow-down-wide-short' },
+  { key: 'PRICE_DESC', label: '가격 높은순', icon: 'fa-solid fa-arrow-up-wide-short' },
+  { key: 'SAFETY_DESC', label: '안전점수 높은순', icon: 'fa-solid fa-shield-halved' },
+  {
+    key: 'AREA_DESC',
+    label: '면적 넓은순',
+    icon: 'fa-solid fa-up-right-and-down-left-from-center',
+  },
 ];
 
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
@@ -84,11 +90,7 @@ const getSearchRadiusKm = () => {
   const minutes = Number(filters.travelTime) || 15;
 
   if (filters.transportMode === 'WALK') {
-    const speedKmH = filters.walkPace === 'SLOW'
-      ? 3.6
-      : filters.walkPace === 'FAST'
-        ? 6.0
-        : 4.8;
+    const speedKmH = filters.walkPace === 'SLOW' ? 3.6 : filters.walkPace === 'FAST' ? 6.0 : 4.8;
     return speedKmH * (minutes / 60);
   }
 
@@ -231,21 +233,18 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode(
-        { query: searchQuery },
-        (status, response) => {
-          if (
-            status === window.naver.maps.Service.Status.OK &&
-            response.v2 &&
-            response.v2.addresses &&
-            response.v2.addresses.length > 0
-          ) {
-            const item = response.v2.addresses[0];
-            filterState.value.destinationLat = Number(item.y);
-            filterState.value.destinationLng = Number(item.x);
-          }
-        },
-      );
+      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
+        if (
+          status === window.naver.maps.Service.Status.OK &&
+          response.v2 &&
+          response.v2.addresses &&
+          response.v2.addresses.length > 0
+        ) {
+          const item = response.v2.addresses[0];
+          filterState.value.destinationLat = Number(item.y);
+          filterState.value.destinationLng = Number(item.x);
+        }
+      });
     }
   },
   { immediate: true },
@@ -332,14 +331,9 @@ const sortedProperties = computed(() => {
 
     if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
       const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(
-        propertyAmenities.map((amenity) => amenity.amenityType),
-      );
-      const requiredTypes = new Set(
-        activeAmenityFilters.value.map((filter) => filter.amenityType),
-      );
-      if (![...requiredTypes].every((type) => matchedTypes.has(type)))
-        return false;
+      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+      const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
+      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
     }
 
     return true;
@@ -347,16 +341,10 @@ const sortedProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -442,8 +430,7 @@ const selectedPropertyAmenities = computed(() => {
   if (!activeAmenityFilters.value.length) return [];
 
   const propertyId = selectedProperty.value.propertyId;
-  return amenitiesByProperty.value[propertyId]
-    ?? selectedPropertyDetailAmenities.value;
+  return amenitiesByProperty.value[propertyId] ?? selectedPropertyDetailAmenities.value;
 });
 
 watch(
@@ -478,9 +465,12 @@ const handleApplyAmenities = (selectedList) => {
 };
 
 const openAmenityDetailFilter = (selectedFilters) => {
-  const filters = selectedFilters
-    ?? amenityFilterRef.value?.getSelectedAmenities?.()
-    ?? [];
+  if (isAmenityDetailFilterOpen.value) {
+    isAmenityDetailFilterOpen.value = false;
+    return;
+  }
+
+  const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
   amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
@@ -500,9 +490,7 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
 
-  const selectedTypes = new Set(
-    selectedFilters.map((filter) => Number(filter.amenityType)),
-  );
+  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
   const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
     (filter) => !selectedTypes.has(Number(filter.amenityType)),
   );
@@ -539,93 +527,76 @@ const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
 };
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const {
-  mobilePanelHeight,
-  isDragging,
-  dragPixelHeight,
-  toggleMobilePanel,
-  startDrag,
-} = useMobilePanelDrag();
+const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
+  useMobilePanelDrag();
 </script>
 
 <template>
   <div
-    class="relative w-full flex-1 min-h-0 h-full overflow-hidden flex flex-col-reverse xl:flex-row bg-slate-100"
+    class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel w-full xl:w-[380px] bg-white border-t xl:border-t-0 xl:border-r border-slate-200 z-20 flex flex-col shrink-0 shadow-2xl transition-all ease-out"
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
-          ? 'h-[80vh] xl:h-full'
-          : 'h-1/3 xl:h-full',
+          ? 'h-full xl:h-full'
+          : mobilePanelHeight === 'COLLAPSED'
+            ? 'h-[120px] xl:h-full'
+            : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full py-2 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0 border-b border-slate-100"
+        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
       >
-        <span class="w-12 h-1.5 bg-slate-300 rounded-full mb-1"></span>
-        <span class="text-[10px] font-bold text-slate-400">
-          {{
-            mobilePanelHeight === 'EXPANDED'
-              ? '▼ 접고 지도 보기'
-              : '▲ 올리고 목록 더보기'
-          }}
-        </span>
+        <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
+
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div class="p-4 border-b border-slate-200 bg-white space-y-3">
-        <div class="flex items-center justify-between">
-          <h1 class="font-black text-slate-900 text-lg flex items-center gap-2">
-            <span>🛡️</span>
-            <span>살고싶오 매물 탐색</span>
-          </h1>
-          <span
-            class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full"
-          >
+      <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3">
+        <div class="flex items-center justify-between xl:hidden">
+          <span class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500">
             총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
 
+        <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
+        <OnboardingSummary
+          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
+          :destination="filterState.destination"
+          :transport-mode="filterState.transportMode"
+          :travel-time="filterState.travelTime"
+          :max-deposit="filterState.maxDeposit"
+          :max-rent="filterState.maxRent"
+          :min-safety-score="filterState.minSafetyScore"
+          :show-close="false"
+        />
+
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
-        <section class="relative !mt-5 hidden border-t border-slate-100 xl:block">
+        <section class="relative hidden border-b border-slate-200 py-3 xl:block">
           <div class="flex w-full items-center justify-between mb-1">
-            <h2 class="text-[17px] font-black text-slate-700">
-              편의시설 필터
-            </h2>
+            <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
             <button
-                type="button"
-                class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
-                @click="openAmenityDetailFilter()"
+              type="button"
+              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
+              @click="openAmenityDetailFilter()"
             >
-              <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.8"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-              >
-                <path d="M4 5h16l-6.5 7.2V18l-3 1.5v-7.3L4 5z" />
-              </svg>
-
+              <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
               <span>상세 필터</span>
+              <i class="fa-solid fa-chevron-right text-[9px]" aria-hidden="true"></i>
             </button>
           </div>
 
           <AmenityFilter
             ref="amenityFilterRef"
+            class="desktop-amenity-filter"
             :applied-filters="activeAmenityFilters"
             :show-walking-time="false"
             @apply="handleApplyAmenities"
@@ -643,37 +614,74 @@ const {
         </section>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div
-          class="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-none"
-        >
+        <!-- 모바일: 가로 스크롤 정렬 버튼 -->
+        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
             type="button"
-            class="px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
             :class="[
               currentSort === opt.key
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
             ]"
             @click="currentSort = opt.key"
           >
+            <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
           </button>
         </div>
+
+        <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
+        <section class="hidden space-y-2 pt-3 xl:block">
+          <p class="m-0 text-[13px] font-bold text-slate-500">
+            총 {{ visibleProperties.length }}개 매물
+          </p>
+          <div class="flex flex-wrap items-center gap-1.5 pb-1">
+            <button
+              v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
+              :key="opt.key"
+              type="button"
+              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+              :class="
+                currentSort === opt.key
+                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                  : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+              "
+              @click="currentSort = opt.key"
+            >
+              <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
+              {{ opt.label }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
+              :class="
+                isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
+                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+              "
+              :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
+              @click="isDesktopSortExpanded = !isDesktopSortExpanded"
+            >
+              <i
+                :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
+                aria-hidden="true"
+              ></i>
+            </button>
+          </div>
+        </section>
       </div>
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
-      <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
         <template v-if="visibleProperties.length > 0">
           <PropertyCard
             v-for="prop in visibleProperties"
             :key="prop.propertyId"
             :property="prop"
-            :is-selected="
-              selectedProperty &&
-              selectedProperty.propertyId === prop.propertyId
-            "
+            :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
             @select="handleSelectProperty"
             @toggle-bookmark="handleToggleBookmark"
           />
@@ -683,9 +691,7 @@ const {
           class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
-          <p class="text-sm font-bold text-slate-600">
-            조건에 맞는 매물이 없습니다.
-          </p>
+          <p class="text-sm font-bold text-slate-600">조건에 맞는 매물이 없습니다.</p>
           <p class="text-xs text-slate-400 mt-1">
             필터 조건을 변경하거나 검색어를 재설정해 보세요.
           </p>
@@ -700,7 +706,7 @@ const {
     </aside>
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
-    <main class="flex-1 h-full relative z-10">
+    <main class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1">
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
       <div class="absolute top-4 left-4 z-30 pointer-events-none">
         <MapQuickFilterBar
@@ -755,3 +761,39 @@ const {
     />
   </div>
 </template>
+
+<style scoped>
+.mobile-sort-options {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.mobile-sort-options::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .desktop-amenity-filter :deep(.filter-content) {
+    padding: 4px 0 8px;
+  }
+
+  .desktop-amenity-filter :deep(.amenity-type-filter) {
+    padding: 4px 0 8px;
+    border-bottom: 0;
+  }
+
+  .property-list-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #d7deea transparent;
+  }
+
+  .property-list-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .property-list-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d7deea;
+  }
+}
+</style>

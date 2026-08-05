@@ -16,7 +16,9 @@
             step="1"
             class="styled-slider"
             :style="sliderStyle(item.timeLimit)"
-            @input="$emit('update-time-limit', { id: item.id, timeLimit: Number($event.target.value) })"
+            @input="
+              $emit('update-time-limit', { id: item.id, timeLimit: Number($event.target.value) })
+            "
           />
         </div>
         <div class="slider-value">{{ item.timeLimit }}분</div>
@@ -38,14 +40,14 @@ defineEmits(['update-time-limit']);
 const sliderStyle = (timeLimit) => {
   const percent = (Number(timeLimit) / 30) * 100;
   return {
-    background: `linear-gradient(to right, #3d55f6 0%, #3d55f6 ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
+    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
   };
 };
 </script>
 
 <style scoped>
 .amenity-walking-time-filter {
-  padding: 20px 0;
+  padding: 16px 0 20px;
 }
 
 .section-title {
@@ -70,7 +72,7 @@ const sliderStyle = (timeLimit) => {
 .slider-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   width: 83px;
   color: #374151;
   font-size: 12px;
@@ -84,36 +86,37 @@ const sliderStyle = (timeLimit) => {
 
 .styled-slider {
   width: 100%;
-  height: 6px;
+  height: 10px;
   margin: 0;
   appearance: none;
   border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 8%);
   cursor: pointer;
 }
 
 .styled-slider::-webkit-slider-thumb {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   appearance: none;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 25%);
 }
 
 .styled-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 25%);
 }
 
 .slider-value {
   width: 40px;
   text-align: right;
-  color: #3d55f6;
+  color: #3b82f6;
   font-size: 12px;
   font-weight: 800;
 }

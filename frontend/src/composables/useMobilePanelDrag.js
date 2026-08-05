@@ -13,7 +13,12 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
 
   const toggleMobilePanel = () => {
     if (isDragging.value) return;
-    mobilePanelHeight.value = mobilePanelHeight.value === 'EXPANDED' ? 'HALF' : 'EXPANDED';
+    const nextPanelHeight = {
+      HALF: 'EXPANDED',
+      EXPANDED: 'COLLAPSED',
+      COLLAPSED: 'HALF',
+    };
+    mobilePanelHeight.value = nextPanelHeight[mobilePanelHeight.value] ?? 'HALF';
     dragPixelHeight.value = null;
   };
 
@@ -24,7 +29,9 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     dragStartY = clientY;
 
     const asideEl = document.querySelector(targetSelector);
-    dragStartHeightPx = asideEl ? asideEl.getBoundingClientRect().height : window.innerHeight * 0.33;
+    dragStartHeightPx = asideEl
+      ? asideEl.getBoundingClientRect().height
+      : window.innerHeight * 0.33;
 
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', stopDrag);
@@ -39,8 +46,8 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     const deltaY = dragStartY - clientY; // 위로 끌어올리면 양수
     const newHeight = dragStartHeightPx + deltaY;
 
-    const minHeight = window.innerHeight * 0.2;
-    const maxHeight = window.innerHeight * 0.85;
+    const minHeight = window.innerHeight * 0.13;
+    const maxHeight = window.innerHeight * 0.95;
 
     dragPixelHeight.value = Math.max(minHeight, Math.min(maxHeight, newHeight));
   };
@@ -58,6 +65,8 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     if (dragPixelHeight.value) {
       if (dragPixelHeight.value > window.innerHeight * 0.45) {
         mobilePanelHeight.value = 'EXPANDED';
+      } else if (dragPixelHeight.value < window.innerHeight * 0.28) {
+        mobilePanelHeight.value = 'COLLAPSED';
       } else {
         mobilePanelHeight.value = 'HALF';
       }

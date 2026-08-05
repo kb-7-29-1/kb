@@ -116,11 +116,6 @@ const goMyPage = () => {
         @reset="resetFilters"
       />
     </Transition>
-    <footer class="app-footer">
-      This footer 바닥 확인용 문구에요 | 세로 스크롤이 생기는지 , 넘치는 현상이 있는지 확인하고 추후
-      지워질 예정이에요 | 바닥 확인용 문구에요 | 세로 스크롤이 생기는지 , 넘치는 현상이 있는지
-      확인하고 추후 지워질 예정이에요 footer This
-    </footer>
   </main>
 </template>
 
@@ -252,20 +247,6 @@ const goMyPage = () => {
 .bottom-sheet-enter-to,
 .bottom-sheet-leave-from {
   transform: translateY(0);
-}
-
-.app-footer {
-  height: 3vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: #64748b;
-  background: #ffffff;
-  border-top: 1px solid #e2e8f0;
-  letter-spacing: -0.02em;
-  z-index: 30;
 }
 
 @media (min-width: 768px) {
