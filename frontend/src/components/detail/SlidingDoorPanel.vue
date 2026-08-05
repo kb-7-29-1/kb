@@ -120,7 +120,8 @@ const buildingAge = computed(() => {
       </div>
 
       <!-- 패널 메인 스크롤 콘텐츠 -->
-      <div v-if="property" class="flex-1 overflow-y-auto p-6 space-y-6 py-0">
+      <div v-if="property" class="property-detail-scroll min-h-0 flex-1 overflow-y-auto">
+        <div class="flex min-h-full flex-col gap-6 p-6 py-0">
         <!-- 매물 갤러리/대표 사진 -->
         <div class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
           <img
@@ -173,7 +174,7 @@ const buildingAge = computed(() => {
           </h3>
           <div class="grid grid-cols-2 gap-3">
             <div
-              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center"
+              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[124px]"
               :class="
                 property.isIllegalBuilding
                   ? 'border-rose-200 bg-rose-50'
@@ -198,7 +199,7 @@ const buildingAge = computed(() => {
               <p class="mt-0.5 text-[10px] text-slate-500">건축물대장 기준</p>
             </div>
             <div
-              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center"
+              class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
             >
               <p class="text-[18px] font-extrabold leading-none text-slate-800">
                 {{ buildingAge === null ? '-' : `${buildingAge}년` }}
@@ -269,6 +270,7 @@ const buildingAge = computed(() => {
             :property="property"
           />
         </section>
+        </div>
       </div>
     </aside>
   </div>
@@ -297,6 +299,26 @@ const buildingAge = computed(() => {
   padding: 14px 24px 16px;
   border-top: 1px solid #e2e8f0;
   background: #f5f7fb;
+}
+
+@media (min-width: 768px) {
+  .detail-community-section {
+    margin-top: auto;
+  }
+
+  .property-detail-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #d7deea transparent;
+  }
+
+  .property-detail-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .property-detail-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d7deea;
+  }
 }
 
 :deep(.comment-section.detail-section-flush) {
