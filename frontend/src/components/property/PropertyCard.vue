@@ -85,16 +85,6 @@ const safetyScoreClass = computed(() => {
       <div>
         <div class="flex items-center gap-1.5 mb-1">
           <span
-            class="hidden md:inline-flex px-1.5 py-0.5 rounded text-[11px] font-bold"
-            :class="
-              property.dataSource === 'DB'
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                : 'bg-indigo-100 text-indigo-700 border border-indigo-300'
-            "
-          >
-            {{ property.dataSource === 'DB' ? '🗄️ DB' : '🌐 공공' }}
-          </span>
-          <span
             class="inline-flex items-center rounded-md bg-[#eef1ff] px-1.5 py-0.5 text-[10px] font-bold text-[#4767f7] md:text-[11px]"
           >
             {{ buildingTypeText }} · {{ roomTypeText }}

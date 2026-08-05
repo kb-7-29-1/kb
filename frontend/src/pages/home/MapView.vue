@@ -33,6 +33,7 @@ const props = defineProps({
 
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
+const isDesktopSortExpanded = ref(false);
 const sortOptions = [
   { key: 'RECOMMENDED', label: '추천순', icon: 'fa-solid fa-thumbs-up' },
   { key: 'PRICE_ASC', label: '가격 낮은순', icon: 'fa-solid fa-arrow-down-wide-short' },
@@ -523,7 +524,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:rounded-none xl:border-t-0 xl:border-r"
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
@@ -545,14 +546,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       </div>
 
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div class="p-4 pt-1 pb-1 border-b-0 xl:border-b xl:border-slate-200 bg-white space-y-3">
+      <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3">
         <div class="flex items-center justify-between">
           <h1 class="hidden xl:flex font-black text-slate-900 text-lg items-center gap-2">
             <span>🛡️</span>
             <span>살고싶오 매물 탐색</span>
           </h1>
           <span
-            class="text-[13px] font-bold text-slate-500 xl:text-xs xl:text-blue-600 xl:bg-blue-50 xl:px-2.5 xl:py-1 xl:rounded-full"
+            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500 xl:hidden"
           >
             총 {{ visibleProperties.length }}개 매물
           </span>
@@ -606,27 +607,66 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </section>
 
         <!-- 5종 정렬 선택 탭 -->
-        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:gap-1">
+        <!-- 모바일: 가로 스크롤 정렬 버튼 -->
+        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden">
           <button
             v-for="opt in sortOptions"
             :key="opt.key"
             type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all xl:rounded-lg xl:border-0 xl:px-2.5 xl:text-xs xl:font-bold"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
             :class="[
               currentSort === opt.key
-                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5] xl:border-0 xl:bg-slate-900 xl:text-white xl:shadow-sm'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 xl:bg-slate-100 xl:text-slate-600 xl:hover:bg-slate-200',
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
             ]"
             @click="currentSort = opt.key"
           >
-            <i :class="[opt.icon, 'xl:hidden text-[10px]']" aria-hidden="true"></i>
+            <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
+          </button>
+        </div>
+
+        <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
+        <p class="m-0 hidden text-[13px] font-bold text-slate-500 xl:block">
+          총 {{ visibleProperties.length }}개 매물
+        </p>
+        <div class="hidden xl:flex flex-wrap items-center gap-1.5 pb-1">
+          <button
+            v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
+            :key="opt.key"
+            type="button"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+            :class="
+              currentSort === opt.key
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+            "
+            @click="currentSort = opt.key"
+          >
+            <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
+            {{ opt.label }}
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
+            :class="
+              isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
+                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+            "
+            :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
+            @click="isDesktopSortExpanded = !isDesktopSortExpanded"
+          >
+            <i
+              :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
+              aria-hidden="true"
+            ></i>
           </button>
         </div>
       </div>
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
-      <div class="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
         <template v-if="visibleProperties.length > 0">
           <PropertyCard
             v-for="prop in visibleProperties"
@@ -721,5 +761,21 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
 .mobile-sort-options::-webkit-scrollbar {
   display: none;
+}
+
+@media (min-width: 1280px) {
+  .property-list-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #d7deea transparent;
+  }
+
+  .property-list-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  .property-list-scroll::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: #d7deea;
+  }
 }
 </style>
