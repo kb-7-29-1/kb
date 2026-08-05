@@ -31,7 +31,10 @@ const walkingInfo = computed(() => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center cursor-default" :title="amenity.amenityName">
+  <div
+    class="flex flex-col items-center cursor-default transform -translate-x-1/2 -translate-y-full"
+    :title="amenity.amenityName"
+  >
     <div class="min-w-10 px-2.5 py-1.5 rounded-full bg-white border border-emerald-500 shadow-lg text-xs font-bold text-slate-800 whitespace-nowrap">
       <span class="mr-1">{{ icon }}</span>
       <span>{{ amenity.amenityName }}</span>
