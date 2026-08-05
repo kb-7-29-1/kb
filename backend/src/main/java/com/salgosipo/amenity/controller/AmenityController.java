@@ -19,12 +19,13 @@ public class AmenityController {
 
     private final AmenityService amenityService;
 
+    // 선택한 매물 한 건의 편의시설을 조회
     @PostMapping("/filter")
-    public List<AmenityResponseDTO> getAmenities(@RequestBody AmenityRequestDTO request){
+    public List<AmenityResponseDTO> getAmenities(@RequestBody AmenityRequestDTO request) {
         return amenityService.getAmenitiesByFilter(request);
     }
 
-    // 목록 필터링에 필요한 매물별 편의시설을 일괄 조회
+    // 지도와 목록의 편의시설 필터 적용을 위해 여러 매물의 결과를 일괄 조회
     @PostMapping("/filter/properties")
     public Map<Integer, List<AmenityResponseDTO>> getAmenitiesByProperties(
             @RequestBody List<AmenityRequestDTO> requests
