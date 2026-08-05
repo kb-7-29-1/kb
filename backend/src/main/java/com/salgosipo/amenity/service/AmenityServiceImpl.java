@@ -22,9 +22,19 @@ import java.util.LinkedHashMap;
 @Service
 public class AmenityServiceImpl implements AmenityService {
 
+    // 지구 반지름을 미터 단위로 둔 값, 위도·경도 두 점의 직선거리를 계산할 때 사용
+    private static final double EARTH_RADIUS_METERS = 6_371_000;
+
+    // 직선거리에 1.3배를 곱하는 보정값
+    private static final double WALKING_DISTANCE_FACTOR = 1.3;
+
+    // 분당 도보 속도 75m 기준
+    private static final double WALKING_SPEED_METERS_PER_MINUTE = 75;
+
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
     private final AmenityCacheService amenityCacheService;
+
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
             WalkingApiClient walkingApiClient,
@@ -37,7 +47,7 @@ public class AmenityServiceImpl implements AmenityService {
 
     @Override
     public List<AmenityResponseDTO> getAmenitiesByFilter(AmenityRequestDTO request) {
-        // 1. 요청 검증 및 기존 편의시설 조회
+        // 요청 검증 및 기존 편의시설 조회
         if (!isValidRequest(request)) {
             return Collections.emptyList();
         }
@@ -55,8 +65,7 @@ public class AmenityServiceImpl implements AmenityService {
             return filterByRequest(storedAmenities, request.getAmenities());
         }
 
-        // 2. DB에 없는 편의시설만 TMAP으로 계산 및 저장
-        // 북마크·상세 정보 없이 편의시설 계산에 필요한 좌표만 조회한다.
+        // DB에 없는 편의시설만 TMAP으로 계산 및 저장
         AmenityPropertyCoordinateDTO property =
                 amenityMapper.getPropertyCoordinates(request.getPropertyId());
         Double startLat = property == null ? null : property.getLatitude();
@@ -83,15 +92,19 @@ public class AmenityServiceImpl implements AmenityService {
                 continue;
             }
 
-            WalkingApiClient.WalkingRoute route = walkingApiClient.calculateWalkingRoute(
+            int straightDistanceMeters = calculateStraightDistanceMeters(
                     startLat,
                     startLng,
                     nearestPlaceCoords[0],
                     nearestPlaceCoords[1]
             );
-            if (route == null || route.walkTimeMinutes() == null || route.distanceMeters() == null) {
-                continue;
-            }
+            int estimatedWalkingDistanceMeters = (int) Math.ceil(
+                    straightDistanceMeters * WALKING_DISTANCE_FACTOR
+            );
+            int estimatedWalkingMinutes = Math.max(
+                    1,
+                    (int) Math.ceil(estimatedWalkingDistanceMeters / WALKING_SPEED_METERS_PER_MINUTE)
+            );
 
             AmenityResponseDTO amenity = AmenityResponseDTO.builder()
                     .propertyId(request.getPropertyId())
@@ -99,8 +112,8 @@ public class AmenityServiceImpl implements AmenityService {
                     .amenityName(keyword)
                     .amenityLatitude(nearestPlaceCoords[0])
                     .amenityLongitude(nearestPlaceCoords[1])
-                    .distanceMeters(route.distanceMeters())
-                    .walkTimeMinutes(route.walkTimeMinutes())
+                    .distanceMeters(estimatedWalkingDistanceMeters)
+                    .walkTimeMinutes(estimatedWalkingMinutes)
                     .build();
 
             // 동시 요청으로 이미 저장된 경우에도 예외 없이 기존 행을 유지한다.
@@ -108,7 +121,7 @@ public class AmenityServiceImpl implements AmenityService {
             storedTypes.add(type);
         }
 
-        // 3. 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
+        // 동시 요청이 먼저 저장했을 수 있으므로, 최종 결과는 DB에서 다시 읽어 반환한다.
         List<AmenityResponseDTO> finalAmenities = amenityMapper.getAmenitiesByFilter(request);
         return filterByRequest(finalAmenities, request.getAmenities());
     }
@@ -197,5 +210,24 @@ public class AmenityServiceImpl implements AmenityService {
             case 7 -> "대형마트";
             default -> null;
         };
+    }
+
+    // 직선거리 계산
+    private int calculateStraightDistanceMeters(
+            double startLat,
+            double startLng,
+            double endLat,
+            double endLng
+    ) {
+        double latDistance = Math.toRadians(endLat - startLat);
+        double lngDistance = Math.toRadians(endLng - startLng);
+        double startLatitude = Math.toRadians(startLat);
+        double endLatitude = Math.toRadians(endLat);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(startLatitude) * Math.cos(endLatitude)
+                * Math.sin(lngDistance / 2) * Math.sin(lngDistance / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return (int) Math.round(EARTH_RADIUS_METERS * c);
     }
 }
