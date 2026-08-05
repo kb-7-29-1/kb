@@ -567,7 +567,7 @@ const safetyAccentClass = computed(() => {
           <!-- 전세금/보증금 슬라이더 -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>전세금/보증금</span>
+              <span>보증금</span>
               <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
             <input

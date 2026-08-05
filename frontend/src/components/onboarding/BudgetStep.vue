@@ -69,7 +69,27 @@ const fetchLoan = async () => {
   }
 };
 
-watch([deposit, monthlyRent], fetchLoan);
+watch([deposit, monthlyRent], ([nextDeposit, nextMonthlyRent]) => {
+  emit('update:deposit', nextDeposit);
+  emit('update:monthly-rent', nextMonthlyRent);
+  fetchLoan();
+});
+
+watch(
+  () => props.deposit,
+  (nextDeposit) => {
+    const nextIndex = depositOptions.indexOf(Number(nextDeposit));
+    if (nextIndex >= 0) depositIndex.value = nextIndex;
+  },
+);
+
+watch(
+  () => props.monthlyRent,
+  (nextMonthlyRent) => {
+    monthlyRent.value = Number(nextMonthlyRent);
+  },
+);
+
 onMounted(fetchLoan);
 
 const estimatedLoan = computed(() => deposit.value * 4);
