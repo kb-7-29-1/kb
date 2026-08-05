@@ -67,28 +67,62 @@ const renderAmenityPin = (amenity) => {
   return content;
 };
 
-import { formatPropertyPrice } from '@/utils/priceFormatter';
+const getSafetyPinTheme = (score) => {
+  if (score >= 80) {
+    return {
+      borderClass: 'border-emerald-500',
+      badgeClass: 'bg-emerald-500/10 text-emerald-600',
+      pointerClass: 'bg-emerald-500',
+      activeClass: 'bg-emerald-500',
+    };
+  }
+
+  if (score >= 60) {
+    return {
+      borderClass: 'border-amber-500',
+      badgeClass: 'bg-amber-500/10 text-amber-600',
+      pointerClass: 'bg-amber-500',
+      activeClass: 'bg-amber-500',
+    };
+  }
+
+  return {
+    borderClass: 'border-rose-500',
+    badgeClass: 'bg-rose-500/10 text-rose-600',
+    pointerClass: 'bg-rose-500',
+    activeClass: 'bg-rose-500',
+  };
+};
+
+const formatMarkerPrice = (deposit, monthlyRent) => {
+  const depositValue = Number(deposit || 0);
+  const rentValue = Number(monthlyRent || 0);
+  const depositText =
+    depositValue >= 10000
+      ? `${(Math.floor((depositValue / 10000) * 10) / 10).toFixed(1).replace(/\.0$/, '')}억`
+      : `${depositValue.toLocaleString()}만`;
+
+  return rentValue === 0 ? `전세 ${depositText}` : `${depositText}/${rentValue}`;
+};
 
 // 매물 마커 핀 (PropertyPin 컴포넌트 렌더링)
 const renderPropertyPin = (prop, isSelected) => {
-  const priceText = formatPropertyPrice(prop.deposit, prop.monthlyRent);
-  const bgClass = isSelected
-    ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
-    : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10';
-
-  let icon = '🏠';
-  if (isSelected) {
-    icon = '📍';
-  } else if (prop.buildingType === 3) {
-    icon = '🏢';
-  } else if (prop.buildingType === 1) {
-    icon = '🏡';
-  }
+  const priceText = formatMarkerPrice(prop.deposit, prop.monthlyRent);
+  const safetyScore = Number(prop.safetyScore ?? 85);
+  const safetyTheme = getSafetyPinTheme(safetyScore);
+  const stateClass = isSelected
+    ? `${safetyTheme.activeClass} text-white z-30`
+    : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
+  const scoreClass = isSelected ? 'bg-white/20 text-white' : safetyTheme.badgeClass;
 
   return `
-    <div class="px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-lg border transition-all cursor-pointer flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-full select-none ${bgClass}">
-      <span>${icon}</span>
-      <span>${priceText}</span>
+    <div class="flex flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full select-none">
+      <div class="px-2.5 py-1.5 rounded-full text-xs font-bold shadow-lg border transition-all flex items-center gap-1.5 ${safetyTheme.borderClass} ${stateClass}">
+        <span>${priceText}</span>
+        <span class="rounded-md px-1.5 py-0.5 text-[10px] font-bold ${scoreClass}">${safetyScore}점</span>
+      </div>
+      <div class="w-2.5 h-2.5 ${safetyTheme.pointerClass} rotate-45 -mt-1.5"></div>
+      <div class="w-6 h-2 bg-black/20 rounded-full blur-sm mt-1"></div>
     </div>
   `;
 };
