@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { checkId, signup } from '@/api/authService.js';
 
 const router = useRouter();
@@ -18,6 +18,14 @@ const form = ref({
 const idChecked = ref(false);
 const idCheckMessage = ref('');
 const errorMessage = ref('');
+
+watch(
+  () => form.value.loginId,
+  () => {
+    idChecked.value = false;
+    idCheckMessage.value = '';
+  },
+);
 
 const handleCheckId = async () => {
   if (!form.value.loginId) {

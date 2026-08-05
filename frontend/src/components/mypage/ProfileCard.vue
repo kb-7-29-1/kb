@@ -4,13 +4,10 @@ import { getProfile, updateProfile } from '@/api/authService.js';
 
 const profile = ref(null);
 const isEditing = ref(false);
-const isChangingPassword = ref(false);
 
 const editForm = ref({ name: '', email: '' });
-const passwordForm = ref({ currentPassword: '', newPassword: '', newPasswordConfirm: '' });
 
 const updateError = ref('');
-const passwordError = ref('');
 
 const fetchProfile = async () => {
   const response = await getProfile();
@@ -108,52 +105,6 @@ const handleUpdateProfile = async () => {
           <button type="button" class="profile-cancel-button" @click="cancelEdit">취소</button>
           <button type="button" class="profile-save-button" @click="handleUpdateProfile">
             저장하기
-          </button>
-        </div>
-      </div>
-    </div>
-    <div
-      v-if="isChangingPassword"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-    >
-      <div class="bg-white rounded-2xl w-full max-w-md p-6">
-        <h3 class="font-bold text-lg mb-4">비밀번호 변경</h3>
-
-        <label class="block text-sm text-gray-600 mb-1">현재 비밀번호</label>
-        <input
-          v-model="passwordForm.currentPassword"
-          type="password"
-          class="w-full border rounded-lg px-4 py-3 mb-3"
-          placeholder="현재 비밀번호를 입력해 주세요"
-        />
-
-        <label class="block text-sm text-gray-600 mb-1">새 비밀번호</label>
-        <input
-          v-model="passwordForm.newPassword"
-          type="password"
-          class="w-full border rounded-lg px-4 py-3 mb-3"
-          placeholder="새 비밀번호를 입력해 주세요"
-        />
-
-        <label class="block text-sm text-gray-600 mb-1">새 비밀번호 재확인</label>
-        <input
-          v-model="passwordForm.newPasswordConfirm"
-          type="password"
-          class="w-full border rounded-lg px-4 py-3 mb-4"
-          placeholder="새 비밀번호를 다시 입력해 주세요"
-        />
-
-        <p v-if="passwordError" class="text-red-500 text-sm mb-3">{{ passwordError }}</p>
-
-        <div class="flex gap-2">
-          <button @click="isChangingPassword = false" class="flex-1 border rounded-lg py-3">
-            취소
-          </button>
-          <button
-            @click="handleChangePassword"
-            class="flex-1 bg-indigo-600 text-white rounded-lg py-3"
-          >
-            변경 완료
           </button>
         </div>
       </div>
