@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
 import FilterTabs from './FilterTabs.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
+import { LOAN_PRODUCTS, formatDepositAmount } from '@/utils/budget';
 
 const props = defineProps({
   isOpen: {
@@ -452,6 +453,34 @@ const notifyUpdate = () => {
                   step="10"
                   class="w-full accent-blue-600 cursor-pointer"
                 />
+              </div>
+
+              <!-- 🏦 맞춤 대출 상품 연동 섹션 -->
+              <div class="pt-3 border-t border-slate-100 space-y-2">
+                <div class="text-xs font-bold text-slate-700 flex items-center justify-between">
+                  <span>🏦 맞춤 대출 상품 (한도 우대)</span>
+                  <span class="text-[10px] text-blue-600 font-bold">한도 최대 80% 레버리지</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button
+                    v-for="product in LOAN_PRODUCTS"
+                    :key="product.id"
+                    type="button"
+                    class="p-2 rounded-xl border text-left transition-all"
+                    :class="
+                      filters.selectedLoanId === product.id
+                        ? 'border-blue-500 bg-blue-50/70 text-blue-700 font-extrabold ring-1 ring-blue-200'
+                        : 'border-slate-200 bg-slate-50 text-slate-600'
+                    "
+                    @click="filters.selectedLoanId = product.id"
+                  >
+                    <div class="text-[11px] truncate flex items-center gap-1">
+                      <span>{{ product.icon }}</span>
+                      <span>{{ product.shortName }}</span>
+                    </div>
+                    <div class="text-[9px] text-slate-400 mt-0.5">{{ product.rateInfo }}</div>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
