@@ -547,7 +547,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       </div>
 
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3">
+      <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3">
         <div class="flex items-center justify-between xl:hidden">
           <span class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500">
             총 {{ visibleProperties.length }}개 매물
@@ -556,7 +556,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
         <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
         <OnboardingSummary
-          class="hidden xl:block"
+          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
           :destination="filterState.destination"
           :transport-mode="filterState.transportMode"
           :travel-time="filterState.travelTime"
@@ -567,36 +567,24 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         />
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
-        <section class="relative !mt-5 hidden border-t border-slate-100 xl:block">
+        <section class="relative hidden border-b border-slate-200 py-3 xl:block">
           <div class="flex w-full items-center justify-between mb-1">
-            <h2 class="text-[17px] font-black text-slate-700">편의시설 필터</h2>
+            <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
             <button
               type="button"
-              class="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
               @click="openAmenityDetailFilter()"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M4 5h16l-6.5 7.2V18l-3 1.5v-7.3L4 5z" />
-              </svg>
-
+              <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
               <span>상세 필터</span>
+              <i class="fa-solid fa-chevron-right text-[9px]" aria-hidden="true"></i>
             </button>
           </div>
 
           <AmenityFilter
             ref="amenityFilterRef"
+            class="desktop-amenity-filter"
             :applied-filters="activeAmenityFilters"
             :show-walking-time="false"
             @apply="handleApplyAmenities"
@@ -634,42 +622,44 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </div>
 
         <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
-        <p class="m-0 hidden text-[13px] font-bold text-slate-500 xl:block">
-          총 {{ visibleProperties.length }}개 매물
-        </p>
-        <div class="hidden xl:flex flex-wrap items-center gap-1.5 pb-1">
-          <button
-            v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
-            :key="opt.key"
-            type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-            :class="
-              currentSort === opt.key
-                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-            "
-            @click="currentSort = opt.key"
-          >
-            <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
-            {{ opt.label }}
-          </button>
-          <button
-            type="button"
-            class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
-            :class="
-              isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
-                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-            "
-            :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
-            @click="isDesktopSortExpanded = !isDesktopSortExpanded"
-          >
-            <i
-              :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
-              aria-hidden="true"
-            ></i>
-          </button>
-        </div>
+        <section class="hidden space-y-2 pt-3 xl:block">
+          <p class="m-0 text-[13px] font-bold text-slate-500">
+            총 {{ visibleProperties.length }}개 매물
+          </p>
+          <div class="flex flex-wrap items-center gap-1.5 pb-1">
+            <button
+              v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
+              :key="opt.key"
+              type="button"
+              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+              :class="
+                currentSort === opt.key
+                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                  : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+              "
+              @click="currentSort = opt.key"
+            >
+              <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
+              {{ opt.label }}
+            </button>
+            <button
+              type="button"
+              class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
+              :class="
+                isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
+                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+              "
+              :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
+              @click="isDesktopSortExpanded = !isDesktopSortExpanded"
+            >
+              <i
+                :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
+                aria-hidden="true"
+              ></i>
+            </button>
+          </div>
+        </section>
       </div>
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
@@ -771,6 +761,15 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 }
 
 @media (min-width: 1280px) {
+  .desktop-amenity-filter :deep(.filter-content) {
+    padding: 4px 0 8px;
+  }
+
+  .desktop-amenity-filter :deep(.amenity-type-filter) {
+    padding: 4px 0 8px;
+    border-bottom: 0;
+  }
+
   .property-list-scroll {
     scrollbar-width: thin;
     scrollbar-color: #d7deea transparent;

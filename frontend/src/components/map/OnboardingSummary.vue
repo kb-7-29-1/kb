@@ -83,6 +83,10 @@ const priceLabel = computed(() => {
   padding-right: 0;
 }
 
+.summary--sidebar {
+  margin: 0;
+}
+
 .summary-top {
   display: flex;
   align-items: flex-start;
