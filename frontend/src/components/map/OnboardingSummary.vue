@@ -43,7 +43,7 @@ const priceLabel = computed(() => {
 </script>
 
 <template>
-  <section class="summary">
+  <section class="summary" :class="{ 'summary--without-close': !showClose }">
     <div class="summary-top">
       <div>
         <p class="summary-label">목적지</p>
@@ -77,6 +77,14 @@ const priceLabel = computed(() => {
   position: relative;
   padding-right: 42px;
   margin: 20px 0px;
+}
+
+.summary--without-close {
+  padding-right: 0;
+}
+
+.summary--sidebar {
+  margin: 0;
 }
 
 .summary-top {
