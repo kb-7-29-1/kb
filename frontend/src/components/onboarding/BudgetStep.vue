@@ -1,7 +1,17 @@
 <script setup>
-import {computed, onMounted, ref, watch} from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import api from '@/api/api';
-import {useAuthStore} from "@/stores/useAuthStore.js";
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import {
+  DEPOSIT_MAX_LABEL,
+  DEPOSIT_MIN_LABEL,
+  DEPOSIT_OPTIONS,
+  RENT_MAX,
+  RENT_MAX_LABEL,
+  RENT_MIN,
+  RENT_MIN_LABEL,
+  RENT_STEP,
+} from '@/utils/budget';
 
 const emit = defineEmits(['update:deposit', 'update:monthly-rent']);
 const props = defineProps({
@@ -15,14 +25,11 @@ const props = defineProps({
   },
 });
 
-const depositOptions = [
-  100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
-];
+const depositOptions = DEPOSIT_OPTIONS;
 const depositIndex = ref(Math.max(0, depositOptions.indexOf(props.deposit)));
 const monthlyRent = ref(props.monthlyRent);
 
 const deposit = computed(() => depositOptions[depositIndex.value]);
-
 
 const depositLabel = computed(() => {
   if (deposit.value === 10000) return '1억원';
@@ -38,31 +45,31 @@ const authStore = useAuthStore();
 const loan = ref(null);
 const loanLoading = ref(false);
 
-const age = computed(()=>{
+const age = computed(() => {
   const birthDate = authStore.user?.birthDate;
-  if(!birthDate) return null;
+  if (!birthDate) return null;
   const birthYear = new Date(birthDate).getFullYear();
   return new Date().getFullYear() - birthYear + 1;
-})
+});
 
 const fetchLoan = async () => {
   loanLoading.value = true;
   try {
-    const response = await api.get('/loan/onboarding-recommend',{
-      params :{
+    const response = await api.get('/loan/onboarding-recommend', {
+      params: {
         deposit: deposit.value,
         monthlyRent: monthlyRent.value,
         age: age.value,
-      }
+      },
     });
     loan.value = response.data;
-  }catch (error){
+  } catch (error) {
     console.log('대출상품 조회 실패', error);
     loan.value = null;
-  }finally {
-    loanLoading.value= false;
+  } finally {
+    loanLoading.value = false;
   }
-}
+};
 
 watch([deposit, monthlyRent], fetchLoan);
 onMounted(fetchLoan);
@@ -71,7 +78,7 @@ const estimatedLoan = computed(() => deposit.value * 4);
 const estimatedPropertyBudget = computed(() => deposit.value + estimatedLoan.value);
 
 const formatAmount = (amount) => {
-  if(amount === null || amount === undefined) return '-';
+  if (amount === null || amount === undefined) return '-';
   if (amount >= 10000) {
     const eok = Math.floor(amount / 10000);
     const remainder = amount % 10000;
@@ -115,8 +122,8 @@ const rangeStyle = (value, min, max) => {
           :style="rangeStyle(depositIndex, 0, depositOptions.length - 1)"
         />
         <div class="range-labels">
-          <span>100만원</span>
-          <span>1억원</span>
+          <span>{{ DEPOSIT_MIN_LABEL }}</span>
+          <span>{{ DEPOSIT_MAX_LABEL }}</span>
         </div>
       </div>
 
@@ -129,19 +136,19 @@ const rangeStyle = (value, min, max) => {
           id="monthly-rent"
           v-model.number="monthlyRent"
           type="range"
-          min="0"
-          max="150"
-          step="5"
-          :style="rangeStyle(monthlyRent, 0, 150)"
+          :min="RENT_MIN"
+          :max="RENT_MAX"
+          :step="RENT_STEP"
+          :style="rangeStyle(monthlyRent, RENT_MIN, RENT_MAX)"
         />
         <div class="range-labels">
-          <span>전세</span>
-          <span>150만원</span>
+          <span>{{ RENT_MIN_LABEL }}</span>
+          <span>{{ RENT_MAX_LABEL }}</span>
         </div>
       </div>
 
       <aside v-if="loanLoading" class="loan-panel">
-        <p style="color:#64748b; font-size:12px;">맞춤 금융 상품을 찾고 있어요...</p>
+        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
       </aside>
 
       <aside v-else-if="loan" class="loan-panel">
@@ -167,7 +174,7 @@ const rangeStyle = (value, min, max) => {
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
             <strong>{{ loan.loanLimit }} 대출 가능!</strong>
           </template>
-          <p v-if="loan.target" class="target-info">대상 : {{ loan.target }} </p>
+          <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>
       </aside>
     </div>

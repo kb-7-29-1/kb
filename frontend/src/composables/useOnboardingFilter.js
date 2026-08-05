@@ -1,5 +1,6 @@
 import { ref } from 'vue';
 import onboardingApi from '@/api/onboardingApi.js';
+import { DEFAULT_DEPOSIT, DEFAULT_RENT } from '@/utils/budget';
 
 const ONBOARDING_DRAFT_KEY = 'salgosipo-onboarding-draft';
 
@@ -13,8 +14,8 @@ export function useOnboardingFilter() {
     destinationLat: 37.5502,
     destinationLng: 127.0731,
     tradeType: 'MONTHLY',
-    maxDeposit: 5000,
-    maxRent: 100,
+    maxDeposit: DEFAULT_DEPOSIT,
+    maxRent: DEFAULT_RENT,
     minSafetyScore: 0,
     transportMode: 'WALK',
     travelTime: 15,
