@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-import { formatPropertyPrice } from '@/utils/priceFormatter';
 
 const props = defineProps({
   property: {
@@ -27,10 +26,26 @@ const roomTypeText = computed(() => {
   return rooms[props.property.roomType] || '원룸';
 });
 
-// 가격 포맷팅 (예: 100만/65, 3,500만/50, 전세 1.5억)
-const formattedPrice = computed(() => {
-  return formatPropertyPrice(props.property.deposit, props.property.monthlyRent);
-});
+const formatPriceAmount = (amount, rent = false) => {
+  const value = Number(amount || 0);
+
+  if (value >= 10000) {
+    const eok = value / 10000;
+    return {
+      value: Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, ''),
+      unit: rent ? '억' : '억원',
+    };
+  }
+
+  return {
+    value: value.toLocaleString(),
+    unit: rent ? '만' : '만원',
+  };
+};
+
+const formattedDeposit = computed(() => formatPriceAmount(props.property.deposit));
+const formattedMonthlyRent = computed(() => formatPriceAmount(props.property.monthlyRent, true));
+const isJeonse = computed(() => Number(props.property.monthlyRent || 0) === 0);
 
 // 안전점수 색상 클래스
 const safetyScoreClass = computed(() => {
@@ -94,9 +109,28 @@ const safetyScoreClass = computed(() => {
         </div>
 
         <h3
-          class="font-bold text-slate-900 text-[15px] group-hover:text-blue-600 transition-colors truncate md:text-base"
+          class="flex items-baseline gap-1 whitespace-nowrap text-[15px] font-bold text-slate-900 md:text-base"
         >
-          {{ formattedPrice }}
+          <template v-if="isJeonse">
+            <span>전세</span>
+            <span>{{ formattedDeposit.value }}</span>
+            <span class="-ml-0.5 text-[11px] font-medium text-slate-400">{{
+              formattedDeposit.unit
+            }}</span>
+          </template>
+          <template v-else>
+            <span>보증</span>
+            <span>{{ formattedDeposit.value }}</span>
+            <span class="-ml-0.5 text-[11px] font-medium text-slate-400">{{
+              formattedDeposit.unit
+            }}</span>
+            <span class="mx-0 text-slate-300">/</span>
+            <span>월</span>
+            <span>{{ formattedMonthlyRent.value }}</span>
+            <span class="-ml-0.5 text-[11px] font-medium text-slate-400">{{
+              formattedMonthlyRent.unit
+            }}</span>
+          </template>
         </h3>
 
         <p class="text-xs text-slate-500 truncate mt-0.5">
@@ -104,7 +138,7 @@ const safetyScoreClass = computed(() => {
         </p>
       </div>
 
-      <div class="text-[10px] text-slate-500 mt-1.5 md:mt-2 md:text-[11px]">
+      <div class="text-[10px] text-slate-500 mt-0.5 md:mt-2 md:text-[11px]">
         <span
           >{{ property.floor ? `${property.floor}층` : '3층' }} ·
           {{ property.area ? `${property.area}m²` : '24.5m²' }}</span
