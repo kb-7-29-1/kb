@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
@@ -20,6 +20,23 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'toggle-bookmark']);
+
+const detailScrollRef = ref(null);
+const detailSessionKey = ref(0);
+
+watch(
+  () => props.isOpen,
+  async (isOpen, wasOpen) => {
+    if (!isOpen || wasOpen) return;
+
+    detailSessionKey.value += 1;
+    await nextTick();
+
+    if (detailScrollRef.value) {
+      detailScrollRef.value.scrollTop = 0;
+    }
+  },
+);
 
 // 가격 포맷팅
 const formattedPrice = computed(() => {
@@ -120,7 +137,11 @@ const buildingAge = computed(() => {
       </div>
 
       <!-- 패널 메인 스크롤 콘텐츠 -->
-      <div v-if="property" class="property-detail-scroll min-h-0 flex-1 overflow-y-auto">
+      <div
+        v-if="property"
+        ref="detailScrollRef"
+        class="property-detail-scroll min-h-0 flex-1 overflow-y-auto"
+      >
         <div class="flex min-h-full flex-col gap-6 p-6 py-0">
           <!-- 매물 갤러리/대표 사진 -->
           <div
@@ -271,7 +292,11 @@ const buildingAge = computed(() => {
             </div>
           </section>
 
-          <WalkingTime class="detail-section-flush detail-section-divider" :amenities="amenities" />
+          <WalkingTime
+            :key="detailSessionKey"
+            class="detail-section-flush detail-section-divider"
+            :amenities="amenities"
+          />
           <section class="detail-community-section">
             <CommentSection
               class="detail-section-flush"
@@ -320,6 +345,7 @@ const buildingAge = computed(() => {
   }
 
   .property-detail-scroll {
+    scrollbar-gutter: stable both-edges;
     scrollbar-width: thin;
     scrollbar-color: #d7deea transparent;
   }
