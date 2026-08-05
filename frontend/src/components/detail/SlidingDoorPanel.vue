@@ -120,7 +120,7 @@ const buildingAge = computed(() => {
       </div>
 
       <!-- 패널 메인 스크롤 콘텐츠 -->
-      <div v-if="property" class="flex-1 overflow-y-auto p-6 space-y-6 pt-0">
+      <div v-if="property" class="flex-1 overflow-y-auto p-6 space-y-6 py-0">
         <!-- 매물 갤러리/대표 사진 -->
         <div class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
           <img
@@ -168,7 +168,7 @@ const buildingAge = computed(() => {
         <!-- 건물 안전 정보 -->
         <section class="border-t border-slate-200 pt-5">
           <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
-            <i class="fa-solid fa-shield-halved text-[14px] text-[#4767f7]" aria-hidden="true"></i>
+            <span aria-hidden="true">🏢</span>
             건물 안전 정보
           </h3>
           <div class="grid grid-cols-2 gap-3">
@@ -214,59 +214,61 @@ const buildingAge = computed(() => {
         </section>
 
         <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
-        <div
-          class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
-        >
-          <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <div class="flex items-center gap-2">
-              <span class="text-xl">🛡️</span>
-              <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
+        <section class="border-t border-slate-200 pt-5">
+          <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+            <span aria-hidden="true">💡</span>
+            귀갓길 안전 점수
+          </h3>
+          <div
+            class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
+          >
+            <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <div class="flex items-center gap-2">
+                <span class="text-xl">🛡️</span>
+                <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
+              </div>
+              <span
+                class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              >
+                안심 등급 🟢
+              </span>
             </div>
-            <span
-              class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-            >
-              안심 등급 🟢
-            </span>
-          </div>
 
-          <div class="grid grid-cols-2 gap-3 pt-1">
-            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-              <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
-              <div class="text-lg font-bold text-emerald-400">{{ property.cctvCount || 0 }}개</div>
-            </div>
-            <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-              <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
-              <div class="text-lg font-bold text-amber-400">
-                {{ property.streetlightCount || 0 }}개
+            <div class="grid grid-cols-2 gap-3 pt-1">
+              <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
+                <div class="text-lg font-bold text-emerald-400">
+                  {{ property.cctvCount || 0 }}개
+                </div>
+              </div>
+              <div class="p-3 rounded-xl bg-white/5 border border-white/10">
+                <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
+                <div class="text-lg font-bold text-amber-400">
+                  {{ property.streetlightCount || 0 }}개
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
-            <span
-              >건물 위반건축물 여부:
-              <strong class="text-white">{{
-                property.isIllegalBuilding ? '위반' : '정상 (미해당)'
-              }}</strong></span
-            >
-            <span>경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span>
+            <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
+              <span
+                >건물 위반건축물 여부:
+                <strong class="text-white">{{
+                  property.isIllegalBuilding ? '위반' : '정상 (미해당)'
+                }}</strong></span
+              >
+              <span>경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <!-- 상세 설명 -->
-        <div>
-          <h3 class="font-bold text-slate-900 mb-2 text-sm">매물 특징 & 안내</h3>
-          <p
-            class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200"
-          >
-            {{
-              property.description ||
-              '풀옵션(세탁기, 냉장고, 에어컨 포함), 채광 좋고 늦은 밤 귀갓길도 가로등과 CCTV가 촘촘하여 안심하고 거주할 수 있는 매물입니다.'
-            }}
-          </p>
-        </div>
-        <WalkingTime :amenities="amenities" />
-        <CommentSection :property-id="property.propertyId" :property="property" />
+        <WalkingTime class="detail-section-flush detail-section-divider" :amenities="amenities" />
+        <section class="detail-community-section">
+          <CommentSection
+            class="detail-section-flush"
+            :property-id="property.propertyId"
+            :property="property"
+          />
+        </section>
       </div>
     </aside>
   </div>
@@ -276,5 +278,28 @@ const buildingAge = computed(() => {
 .property-detail-backdrop,
 .property-detail-panel {
   top: var(--app-header-height, 56px);
+}
+
+:deep(.detail-section-divider) {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px !important;
+}
+
+:deep(.walking-time.detail-section-flush) {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.detail-community-section {
+  width: calc(100% + 48px);
+  margin: 0 -24px;
+  padding: 14px 24px 16px;
+  border-top: 1px solid #e2e8f0;
+  background: #f5f7fb;
+}
+
+:deep(.comment-section.detail-section-flush) {
+  border-top: 0 !important;
 }
 </style>
