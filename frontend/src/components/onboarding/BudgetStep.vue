@@ -189,21 +189,18 @@ const rangeStyle = (value, min, max) => {
           <small>{{ loan.companyName }} · {{ loan.rateInfo }}</small>
         </div>
         <div class="recommendation-result">
-          <template v-if="loan.loanRatio > 0">
+          <template v-if="loan.expectedLoanAmount > 0">
             <p>
               보유 자금 <b>{{ depositLabel }}</b> + 예상 대출
               <b>{{ formatAmount(loan.expectedLoanAmount) }}</b>
-              ({{ Math.round(loan.loanRatio * 100) }}% 적용)
+              <template v-if="loan.loanRatio > 0">({{ Math.round(loan.loanRatio * 100) }}% 적용)</template>
             </p>
             <strong>최대 {{ formatAmount(loan.maxSearchAmount) }} 매물 탐색 가능</strong>
           </template>
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>
-              {{ loan.loanLimit }}
-              <span v-if="loan.shortfallAmount" class="shortfall-info">(초과분 {{ formatAmount(loan.shortfallAmount) }}은 본인부담)</span>
-            </strong>
+            <strong>{{ loan.loanLimit }}까지 대출 가능해요 !</strong>
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>

@@ -30,12 +30,7 @@ public class LoanService {
         Double ratio = extractLoanRatio(best.getLoanLimit());
 
         if(ratio == null){
-            // 비율 정보가 없으면 절대금액 한도에서 부족분만 계산해서 응답
-            Integer loanLimitAmount = extractLoanLimitAmount(best.getLoanLimit());
-            Integer shortfallAmount = (loanLimitAmount != null && deposit > loanLimitAmount)
-                    ? deposit - loanLimitAmount
-                    : null;
-
+            // 비율(%) 공시가 없는 상품은 보증금 대비 개인화 계산을 할 근거가 없으므로 원문 정보만 응답
             return new LoanRecommendationDto(
                     best.getProductName(),
                     best.getCompanyName(),
@@ -44,8 +39,7 @@ public class LoanService {
                     best.getTarget(),
                     0,
                     0,
-                    0,
-                    shortfallAmount
+                    0
             );
         }
 
@@ -60,8 +54,7 @@ public class LoanService {
                 best.getTarget(),
                 ratio,
                 expectedLoanAmount,
-                maxSearchAmount,
-                null
+                maxSearchAmount
         );
     }
 
@@ -95,14 +88,13 @@ public class LoanService {
                             base.getProductName(),
                             base.getLoanLimit(),
                             rateInfo,
-                            null,
+                            "자세한 자격요건은 해당 은행에서 확인해주세요",
                             base.getJoinWay()
                     );
                     return new LoanProductDtoWithRate(dto,minRate != null ? minRate : 999.0);
                 })
-                .sorted(Comparator.comparing((LoanProductDtoWithRate p) -> !(isYouth && p.getDto().getProductName().contains("청년")))
-                        .thenComparing((LoanProductDtoWithRate p) ->!p.getDto().getCompanyName().contains("국민은행"))
-                        .thenComparing(LoanProductDtoWithRate::getRate))
+                .sorted(Comparator.comparing(LoanProductDtoWithRate::getRate)
+                        .thenComparing((LoanProductDtoWithRate p) ->!p.getDto().getCompanyName().contains("국민은행")))
                 .map(LoanProductDtoWithRate::getDto)
                 .collect(Collectors.toList());
     }
@@ -144,8 +136,8 @@ public class LoanService {
         }
 
         String limitInfo = (monthlyRent != null && monthlyRent <= 60)
-                    ? "월세 전액(" + monthlyRent + "만원) 지원 가능"
-                    : "월 최대 60만원까지 지원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
+                    ? "월세 전액(" + monthlyRent + "만원) 대출 가능"
+                    : "월 최대 60만원까지 대출" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
 
         return List.of(new LoanProductDto(
                 "주택도시기금 (KB국민은행 등 수탁은행 취급)",
@@ -164,24 +156,6 @@ public class LoanService {
         Matcher matcher = Pattern.compile("(\\d+)%").matcher(loanLimit);
         if(matcher.find()){
             return Integer.parseInt(matcher.group(1)) / 100.0;
-        }
-        return null;
-    }
-
-    // 절대금액 추출
-    private Integer extractLoanLimitAmount(String loanLimit){
-        if(loanLimit == null) return null;
-
-        Matcher eokmatcher = Pattern.compile("([\\d.]+)\\s*억").matcher(loanLimit);
-
-        if(eokmatcher.find()){
-            return (int) Math.round(Double.parseDouble(eokmatcher.group(1)) * 10000);
-        }
-
-        Matcher beakManMatcher = Pattern.compile("([\\d.]+)\\s*백만").matcher(loanLimit);
-
-        if (beakManMatcher.find()){
-            return (int) Math.round(Double.parseDouble(beakManMatcher.group(1)) * 100);
         }
         return null;
     }

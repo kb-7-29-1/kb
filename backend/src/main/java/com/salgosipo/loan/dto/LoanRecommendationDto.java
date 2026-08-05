@@ -16,5 +16,4 @@ public class LoanRecommendationDto {
     private double loanRatio;
     private int expectedLoanAmount;
     private int maxSearchAmount;
-    private Integer shortfallAmount;
 }
