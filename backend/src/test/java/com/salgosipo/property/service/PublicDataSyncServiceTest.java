@@ -23,7 +23,8 @@ public class PublicDataSyncServiceTest {
 
     /**
      * 서울 전역 25개 자치구 x 최근 3개월 실거래 매물 3종 세트 수동 수집 배치 실행 테스트
-     * 실행 방법: cd backend; .\gradlew test --tests
+     * 실행 방법:
+     * cd backend; .\gradlew test --tests
      * com.salgosipo.property.service.PublicDataSyncServiceTest.manualBatchTest
      */
     @Test
@@ -35,7 +36,9 @@ public class PublicDataSyncServiceTest {
 
     /**
      * DB 전체 기존 오피스텔 매물 주소를 네이버 지오코딩 API로 100% 정밀 GPS 위경도 일괄 갱신
-     * 실행 방법: cd backend; .\gradlew test --tests com.salgosipo.property.service.PublicDataSyncServiceTest.updateGeocodesTest
+     * 실행 방법:
+     * cd backend; .\gradlew test --tests
+     * com.salgosipo.property.service.PublicDataSyncServiceTest.updateGeocodesTest
      */
     @Test
     public void updateGeocodesTest() {

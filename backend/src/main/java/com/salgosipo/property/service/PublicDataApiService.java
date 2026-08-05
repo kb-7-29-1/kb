@@ -443,13 +443,69 @@ public class PublicDataApiService {
     }
 
     /**
-     * 0초 컷 로컬 주소 ➡️ 정밀 위도/경도 실시간 계산기 (비용 0원 / 무제한)
+     * 주소 ➡️ 정밀 위도/경도 실시간 네이버 지도 지오코딩 API 연동
      */
     public double[] getRealCoordinatesFromAddress(String fullAddress) {
         if (fullAddress == null || fullAddress.trim().isEmpty()) {
             return null;
         }
 
+        if (geocodeCache.containsKey(fullAddress)) {
+            return geocodeCache.get(fullAddress);
+        }
+
+        log.info("Attempting Naver Geocoding for address: {}, clientId: {}", fullAddress, naverClientId);
+
+        // 1. 네이버 클라우드 플랫폼(NCP) 지오코딩 Open API 100% 실시간 호출 시도
+        if (naverClientId != null && !naverClientId.trim().isEmpty()
+                && naverClientSecret != null && !naverClientSecret.trim().isEmpty()) {
+            try {
+                // 주소 내 괄호 비고선인 (케이타워 오피스텔 등) 정제
+                String cleanAddress = fullAddress.replaceAll("\\s*\\([^)]*\\)", "").trim();
+                String encodedQuery = URLEncoder.encode(cleanAddress, StandardCharsets.UTF_8.name());
+                String apiUri = "https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=" + encodedQuery;
+
+                URL url = new URL(apiUri);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setRequestProperty("X-NCP-APIGW-API-KEY-ID", naverClientId.trim());
+                conn.setRequestProperty("X-NCP-APIGW-API-KEY", naverClientSecret.trim());
+                conn.setConnectTimeout(3000);
+                conn.setReadTimeout(3000);
+
+                int responseCode = conn.getResponseCode();
+                if (responseCode == 200) {
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                        StringBuilder sb = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            sb.append(line);
+                        }
+                        ObjectMapper mapper = new ObjectMapper();
+                        JsonNode root = mapper.readTree(sb.toString());
+                        JsonNode addresses = root.path("addresses");
+                        if (addresses.isArray() && addresses.size() > 0) {
+                            JsonNode first = addresses.get(0);
+                            double lat = Double.parseDouble(first.path("y").asText());
+                            double lng = Double.parseDouble(first.path("x").asText());
+                            double[] coords = new double[]{ lat, lng };
+                            log.info("Naver Geocoding Success for {}: lat={}, lng={}", cleanAddress, lat, lng);
+                            geocodeCache.put(fullAddress, coords);
+                            return coords;
+                        } else {
+                            log.warn("Naver Geocoding API returned 0 addresses for: {}", cleanAddress);
+                        }
+                    }
+                } else {
+                    log.warn("Naver Geocoding API Http Error response code: {}, address: {}", responseCode, cleanAddress);
+                }
+            } catch (Exception e) {
+                log.warn("Naver Geocoding API Call Failed for address: {}. Error: {}", fullAddress, e.getMessage());
+            }
+        }
+
+        /* 
+        // 기존 로컬 주소 오프셋 계산기 (주석 처리)
         double baseLat = 37.5502;
         double baseLng = 127.0731;
 
@@ -467,7 +523,12 @@ public class PublicDataApiService {
 
         double lat = Math.round((baseLat + latOffset) * 1000000.0) / 1000000.0;
         double lng = Math.round((baseLng + lngOffset) * 1000000.0) / 1000000.0;
-        return new double[] { lat, lng };
+        double[] coords = new double[] { lat, lng };
+        geocodeCache.put(fullAddress, coords);
+        return coords;
+        */
+
+        return null;
     }
 
     private double getDistrictLat(String lawdCd) {
