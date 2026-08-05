@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
-import CommentSection from "@/components/detail/CommentSection.vue";
+import CommentSection from '@/components/detail/CommentSection.vue';
 
 const props = defineProps({
   isOpen: {
@@ -24,10 +24,7 @@ const emit = defineEmits(['close', 'toggle-bookmark']);
 // 가격 포맷팅
 const formattedPrice = computed(() => {
   if (!props.property) return '';
-  return formatPropertyPriceDetail(
-    props.property.deposit,
-    props.property.monthlyRent,
-  );
+  return formatPropertyPriceDetail(props.property.deposit, props.property.monthlyRent);
 });
 
 // 안전점수 색상
@@ -45,13 +42,13 @@ const safetyScoreClass = computed(() => {
     <!-- Backdrop Overlay (패널 열렸을 때 오버레이) -->
     <div
       v-if="isOpen"
-      class="fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
+      class="property-detail-backdrop fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
       @click="emit('close')"
     ></div>
 
     <!-- 560px Slide-Over Panel -->
     <aside
-      class="fixed top-0 right-0 bottom-0 w-full sm:w-[560px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[560px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
@@ -70,9 +67,7 @@ const safetyScoreClass = computed(() => {
             class="p-2 rounded-lg hover:bg-slate-100 transition-colors text-slate-600"
             @click="property && emit('toggle-bookmark', property.propertyId)"
           >
-            <span class="text-lg">{{
-              property?.isBookmarked ? '❤️' : '🤍'
-            }}</span>
+            <span class="text-lg">{{ property?.isBookmarked ? '❤️' : '🤍' }}</span>
           </button>
 
           <!-- 닫기 버튼 -->
@@ -89,9 +84,7 @@ const safetyScoreClass = computed(() => {
       <!-- 패널 메인 스크롤 콘텐츠 -->
       <div v-if="property" class="flex-1 overflow-y-auto p-6 space-y-6">
         <!-- 매물 갤러리/대표 사진 -->
-        <div
-          class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
-        >
+        <div class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200">
           <img
             :src="
               property.thumbnailUrl ||
@@ -115,10 +108,7 @@ const safetyScoreClass = computed(() => {
             >
               {{ property.buildingType === 3 ? '오피스텔' : '빌라/연립' }}
             </span>
-            <span
-              class="px-2.5 py-1 rounded-md text-xs font-bold border"
-              :class="safetyScoreClass"
-            >
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold border" :class="safetyScoreClass">
               안전지수 {{ property.safetyScore || 85 }}점
             </span>
             <span
@@ -143,15 +133,11 @@ const safetyScoreClass = computed(() => {
         >
           <div>
             <div class="text-xs text-slate-500 mb-1">전용면적</div>
-            <div class="font-bold text-slate-900 text-sm">
-              {{ property.area || 24.5 }}m²
-            </div>
+            <div class="font-bold text-slate-900 text-sm">{{ property.area || 24.5 }}m²</div>
           </div>
           <div class="border-x border-slate-200">
             <div class="text-xs text-slate-500 mb-1">층수</div>
-            <div class="font-bold text-slate-900 text-sm">
-              {{ property.floor || 3 }}층
-            </div>
+            <div class="font-bold text-slate-900 text-sm">{{ property.floor || 3 }}층</div>
           </div>
           <div>
             <div class="text-xs text-slate-500 mb-1">준공연도</div>
@@ -165,9 +151,7 @@ const safetyScoreClass = computed(() => {
         <div
           class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
         >
-          <div
-            class="flex items-center justify-between border-b border-slate-700/80 pb-3"
-          >
+          <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <div class="flex items-center gap-2">
               <span class="text-xl">🛡️</span>
               <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
@@ -182,41 +166,30 @@ const safetyScoreClass = computed(() => {
           <div class="grid grid-cols-2 gap-3 pt-1">
             <div class="p-3 rounded-xl bg-white/5 border border-white/10">
               <div class="text-xs text-slate-400 mb-1">500m 내 CCTV</div>
-              <div class="text-lg font-bold text-emerald-400">
-                {{ property.cctvCount || 0 }}개
-              </div>
+              <div class="text-lg font-bold text-emerald-400">{{ property.cctvCount || 0 }}개</div>
             </div>
             <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-              <div class="text-xs text-slate-400 mb-1">
-                경로 내 가로등/보안등
-              </div>
+              <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
               <div class="text-lg font-bold text-amber-400">
                 {{ property.streetlightCount || 0 }}개
               </div>
             </div>
           </div>
 
-          <div
-            class="flex items-center justify-between text-xs text-slate-300 pt-1"
-          >
+          <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
             <span
               >건물 위반건축물 여부:
               <strong class="text-white">{{
                 property.isIllegalBuilding ? '위반' : '정상 (미해당)'
               }}</strong></span
             >
-            <span
-              >경찰서/파출소:
-              <strong class="text-emerald-400">도보 0분 내 위치</strong></span
-            >
+            <span>경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span>
           </div>
         </div>
 
         <!-- 상세 설명 -->
         <div>
-          <h3 class="font-bold text-slate-900 mb-2 text-sm">
-            매물 특징 & 안내
-          </h3>
+          <h3 class="font-bold text-slate-900 mb-2 text-sm">매물 특징 & 안내</h3>
           <p
             class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200"
           >
@@ -227,12 +200,15 @@ const safetyScoreClass = computed(() => {
           </p>
         </div>
         <WalkingTime :amenities="amenities" />
-        <CommentSection
-            :property-id="property.propertyId"
-            :property="property"
-        />
+        <CommentSection :property-id="property.propertyId" :property="property" />
       </div>
     </aside>
-
   </div>
 </template>
+
+<style scoped>
+.property-detail-backdrop,
+.property-detail-panel {
+  top: var(--app-header-height, 56px);
+}
+</style>
