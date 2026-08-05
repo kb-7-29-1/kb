@@ -2,6 +2,54 @@
  * 초고속 격자 클러스터링 (Grid Marker Clustering) 및 바운즈 연산 유틸리티
  */
 
+import { formatPropertyPrice } from '@/utils/priceFormatter';
+
+// 매물 마커 핀 HTML 렌더러
+export const renderPropertyPinHTML = (prop, isSelected) => {
+  const priceText = formatPropertyPrice(prop.deposit, prop.monthlyRent);
+  const safetyScore = prop.safetyScore || 85;
+  const bgClass = isSelected
+    ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-400 scale-110 z-30'
+    : 'bg-slate-900/95 text-white hover:bg-blue-600 border-slate-700 backdrop-blur-md z-10';
+
+  let icon = '🏠';
+  if (isSelected) {
+    icon = '📍';
+  } else if (prop.buildingType === 3) {
+    icon = '🏢';
+  } else if (prop.buildingType === 1) {
+    icon = '🏡';
+  }
+
+  return `
+    <div class="px-2.5 py-1 rounded-xl text-xs font-black shadow-2xl border transition-all cursor-pointer flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-full select-none leading-tight ${bgClass}">
+      <div class="flex items-center gap-1">
+        <span class="text-xs">${icon}</span>
+        <span class="text-emerald-400 font-extrabold flex items-center gap-0.5 text-[11px]"><i class="fa-solid fa-shield-halved text-[9px]"></i> ${safetyScore}점</span>
+      </div>
+      <div class="text-[11px] font-black text-white whitespace-nowrap mt-0.5">
+        ${priceText}
+      </div>
+    </div>
+  `;
+};
+
+// 주 목적지 마커 핀 HTML 렌더러
+export const renderDestinationPinHTML = (destination) => {
+  const rawName = destination?.name || destination?.destName || '주 목적지';
+  const name = rawName.replace(/\s*\(주 목적지\)$/, '');
+  return `
+    <div class="flex flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
+      <div class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-bold text-xs shadow-xl flex items-center gap-1.5 border border-blue-400 hover:bg-blue-700 transition-all">
+        <span class="inline-block animate-bounce">🚩</span>
+        <span>${name}</span>
+      </div>
+      <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
+      <div class="w-8 h-8 bg-black/20 rounded-full blur-xs mt-1"></div>
+    </div>
+  `;
+};
+
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
 export const renderClusterPinHTML = (count, items = []) => {
   let icon = '🏘️'; // 2종류 이상 혼합 묶음
