@@ -199,8 +199,10 @@ const renderMarkers = () => {
     const amenityMarker = new window.naver.maps.Marker({
       position: amenityLatLng,
       map: mapInstance.value,
+      zIndex: 30,
       icon: {
         content: renderAmenityPin(amenity),
+        anchor: new window.naver.maps.Point(0, 0),
       },
     });
 
