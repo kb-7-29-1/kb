@@ -12,7 +12,7 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
-import { DEFAULT_DEPOSIT, DEFAULT_RENT } from '@/utils/budget';
+import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 
@@ -291,9 +291,22 @@ const sortedProperties = computed(() => {
     // 1. 거래 유형 필터 (전세/월세)
     if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0) return false;
 
-    // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원)
-    if (currentFilters.maxDeposit < DEFAULT_DEPOSIT && p.deposit > currentFilters.maxDeposit)
-      return false;
+    // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
+    let effectiveMaxDeposit = currentFilters.maxDeposit;
+    if (
+      currentFilters.selectedLoanId &&
+      currentFilters.selectedLoanId !== 'NONE'
+    ) {
+      const loan = LOAN_PRODUCTS.find(
+        (l) => l.id === currentFilters.selectedLoanId,
+      );
+      if (loan && loan.ratio > 0) {
+        effectiveMaxDeposit = Math.round(
+          currentFilters.maxDeposit * (1 + loan.ratio),
+        );
+      }
+    }
+    if (p.deposit > effectiveMaxDeposit) return false;
 
     // 3. 월세 필터 (maxRent 단위: 만원)
     if (

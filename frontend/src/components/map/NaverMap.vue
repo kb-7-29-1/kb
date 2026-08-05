@@ -2,9 +2,12 @@
 import { createApp, ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
-import PropertyPin from './PropertyPin.vue';
-import DestinationPin from './DestinationPin.vue';
-import { getClusteredMarkers, renderClusterPinHTML } from '@/utils/mapClustering';
+import {
+  getClusteredMarkers,
+  renderClusterPinHTML,
+  renderPropertyPinHTML,
+  renderDestinationPinHTML,
+} from '@/utils/mapClustering';
 
 const props = defineProps({
   properties: {
@@ -67,81 +70,6 @@ const renderAmenityPin = (amenity) => {
   return content;
 };
 
-const getSafetyPinTheme = (score) => {
-  if (score >= 80) {
-    return {
-      borderClass: 'border-emerald-500',
-      badgeClass: 'bg-emerald-500/10 text-emerald-600',
-      pointerClass: 'bg-emerald-500',
-      activeClass: 'bg-emerald-500',
-    };
-  }
-
-  if (score >= 60) {
-    return {
-      borderClass: 'border-amber-500',
-      badgeClass: 'bg-amber-500/10 text-amber-600',
-      pointerClass: 'bg-amber-500',
-      activeClass: 'bg-amber-500',
-    };
-  }
-
-  return {
-    borderClass: 'border-rose-500',
-    badgeClass: 'bg-rose-500/10 text-rose-600',
-    pointerClass: 'bg-rose-500',
-    activeClass: 'bg-rose-500',
-  };
-};
-
-const formatMarkerPrice = (deposit, monthlyRent) => {
-  const depositValue = Number(deposit || 0);
-  const rentValue = Number(monthlyRent || 0);
-  const depositText =
-    depositValue >= 10000
-      ? `${(Math.floor((depositValue / 10000) * 10) / 10).toFixed(1).replace(/\.0$/, '')}억`
-      : `${depositValue.toLocaleString()}만`;
-
-  return rentValue === 0 ? `전세 ${depositText}` : `${depositText}/${rentValue}`;
-};
-
-// 매물 마커 핀 (PropertyPin 컴포넌트 렌더링)
-const renderPropertyPin = (prop, isSelected) => {
-  const priceText = formatMarkerPrice(prop.deposit, prop.monthlyRent);
-  const safetyScore = Number(prop.safetyScore ?? 85);
-  const safetyTheme = getSafetyPinTheme(safetyScore);
-  const stateClass = isSelected
-    ? `${safetyTheme.activeClass} text-white z-30`
-    : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
-  const scoreClass = isSelected ? 'bg-white/20 text-white' : safetyTheme.badgeClass;
-
-  return `
-    <div class="flex flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full select-none">
-      <div class="px-2.5 py-1.5 rounded-full text-xs font-bold shadow-lg border transition-all flex items-center gap-1.5 ${safetyTheme.borderClass} ${stateClass}">
-        <span>${priceText}</span>
-        <span class="rounded-md px-1.5 py-0.5 text-[10px] font-bold ${scoreClass}">${safetyScore}점</span>
-      </div>
-      <div class="w-2.5 h-2.5 ${safetyTheme.pointerClass} rotate-45 -mt-1.5"></div>
-      <div class="w-6 h-2 bg-black/20 rounded-full blur-sm mt-1"></div>
-    </div>
-  `;
-};
-
-// 목적지 마커 핀 (DestinationPin 컴포넌트 렌더링)
-const renderDestinationPin = (destination) => {
-  const name = destination?.name || '주 목적지';
-  return `
-    <div class="flex flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
-      <div class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-bold text-xs shadow-xl flex items-center gap-1.5 border border-blue-400 hover:bg-blue-700 transition-all">
-        <span class="inline-block animate-bounce">🚩</span>
-        <span>${name}</span>
-      </div>
-      <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
-      <div class="w-8 h-8 bg-black/20 rounded-full blur-xs mt-1"></div>
-    </div>
-  `;
-};
-
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
 const renderMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
@@ -163,7 +91,7 @@ const renderMarkers = () => {
     position: destLatLng,
     map: mapInstance.value,
     icon: {
-      content: renderDestinationPin(props.destination),
+      content: renderDestinationPinHTML(props.destination),
     },
   });
   markersMap.value.push(destMarker);
@@ -201,7 +129,7 @@ const renderMarkers = () => {
         position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
         map: mapInstance.value,
         icon: {
-          content: renderPropertyPin(prop, isSelected),
+          content: renderPropertyPinHTML(prop, isSelected),
         },
       });
 
@@ -430,13 +358,11 @@ const checkDistanceToDestination = () => {
   isFarFromDestination.value = bounds ? !bounds.hasLatLng(destLatLng) : false;
 };
 
-// 내 목적지로 카메라 빠른 이동
+// 내 목적지로 카메라 빠른 이동 (도보/대중교통 및 이동시간 범위에 맞추어 줌 레벨 자동 조율)
 const moveMapToDestination = () => {
   if (!mapInstance.value || !props.destination) return;
-  const targetLat = Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng = Number(props.destination.lng || props.destination.destLongitude) || 127.0731;
-
-  mapInstance.value.morph(new window.naver.maps.LatLng(targetLat, targetLng), 15);
+  // 선택된 이동 수단(도보/대중교통), 걸음 속도, 이동 시간에 맞춰 최적 줌 레벨 및 위치로 이동
+  fitToIsochroneRadius();
   isFarFromDestination.value = false;
 };
 </script>

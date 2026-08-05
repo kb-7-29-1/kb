@@ -41,7 +41,10 @@ watch(
 // 가격 포맷팅
 const formattedPrice = computed(() => {
   if (!props.property) return '';
-  return formatPropertyPriceDetail(props.property.deposit, props.property.monthlyRent);
+  return formatPropertyPriceDetail(
+    props.property.deposit,
+    props.property.monthlyRent,
+  );
 });
 
 // 안전점수 색상
@@ -75,7 +78,9 @@ const buildingAge = computed(() => {
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
-      <div class="min-h-[76px] px-5 py-5 flex items-center justify-between gap-3 bg-white shrink-0">
+      <div
+        class="min-h-[76px] px-5 py-5 flex items-center justify-between gap-3 bg-white shrink-0"
+      >
         <div v-if="property" class="min-w-0">
           <div class="mb-1.5 flex items-center gap-1.5">
             <span
@@ -87,7 +92,10 @@ const buildingAge = computed(() => {
               class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold"
               :class="safetyScoreClass"
             >
-              <i class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
+              <i
+                class="fa-solid fa-shield-halved text-[10px]"
+                aria-hidden="true"
+              ></i>
               {{ property.safetyScore || 85 }}점
             </span>
           </div>
@@ -96,7 +104,9 @@ const buildingAge = computed(() => {
           </p>
         </div>
 
-        <h2 class="hidden font-bold text-lg text-slate-900 flex items-center gap-2">
+        <h2
+          class="hidden font-bold text-lg text-slate-900 flex items-center gap-2"
+        >
           <span>🏠</span>
           <span>매물 상세 리포트</span>
         </h2>
@@ -111,7 +121,11 @@ const buildingAge = computed(() => {
             <svg
               viewBox="0 0 24 24"
               class="h-5 w-5 transition-colors"
-              :class="property?.isBookmarked ? 'fill-[#dc4b5d] text-[#dc4b5d]' : 'fill-none'"
+              :class="
+                property?.isBookmarked
+                  ? 'fill-[#dc4b5d] text-[#dc4b5d]'
+                  : 'fill-none'
+              "
               fill="none"
               stroke="currentColor"
               stroke-width="1.7"
@@ -196,7 +210,9 @@ const buildingAge = computed(() => {
 
           <!-- 건물 안전 정보 -->
           <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+            <h3
+              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
+            >
               <span aria-hidden="true">🏢</span>
               건물 안전 정보
             </h3>
@@ -220,7 +236,11 @@ const buildingAge = computed(() => {
                 ></i>
                 <p
                   class="text-sm font-bold"
-                  :class="property.isIllegalBuilding ? 'text-rose-500' : 'text-emerald-600'"
+                  :class="
+                    property.isIllegalBuilding
+                      ? 'text-rose-500'
+                      : 'text-emerald-600'
+                  "
                 >
                   {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
                 </p>
@@ -229,14 +249,18 @@ const buildingAge = computed(() => {
               <div
                 class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
               >
-                <p class="text-[18px] font-extrabold leading-none text-slate-800">
+                <p
+                  class="text-[18px] font-extrabold leading-none text-slate-800"
+                >
                   {{ buildingAge === null ? '-' : `${buildingAge}년` }}
                 </p>
                 <p class="mt-1 text-[11px] font-medium text-slate-500">
                   {{ property.builtYear || '2022' }}년 준공
                 </p>
                 <p class="mt-0.5 text-[10px] font-bold text-emerald-500">
-                  {{ buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축' }}
+                  {{
+                    buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축'
+                  }}
                 </p>
               </div>
             </div>
@@ -244,14 +268,18 @@ const buildingAge = computed(() => {
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
           <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+            <h3
+              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
+            >
               <span aria-hidden="true">💡</span>
               귀갓길 안전 점수
             </h3>
             <div
               class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
             >
-              <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <div
+                class="flex items-center justify-between border-b border-slate-700/80 pb-3"
+              >
                 <div class="flex items-center gap-2">
                   <span class="text-xl">🛡️</span>
                   <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
@@ -271,14 +299,18 @@ const buildingAge = computed(() => {
                   </div>
                 </div>
                 <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
+                  <div class="text-xs text-slate-400 mb-1">
+                    경로 내 가로등/보안등
+                  </div>
                   <div class="text-lg font-bold text-amber-400">
                     {{ property.streetlightCount || 0 }}개
                   </div>
                 </div>
               </div>
 
-              <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
+              <div
+                class="flex items-center justify-between text-xs text-slate-300 pt-1"
+              >
                 <span
                   >건물 위반건축물 여부:
                   <strong class="text-white">{{
@@ -286,7 +318,10 @@ const buildingAge = computed(() => {
                   }}</strong></span
                 >
                 <span
-                  >경찰서/파출소: <strong class="text-emerald-400">도보 0분 내 위치</strong></span
+                  >경찰서/파출소:
+                  <strong class="text-emerald-400"
+                    >도보 0분 내 위치</strong
+                  ></span
                 >
               </div>
             </div>
