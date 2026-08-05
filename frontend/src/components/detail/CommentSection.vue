@@ -63,7 +63,7 @@ watch(
 </script>
 
 <template>
-  <section class="comment-section">
+  <section class="comment-section" v-bind="$attrs">
     <div class="section-header">
       <div class="section-title">
         <span class="title-icon">💬</span>
