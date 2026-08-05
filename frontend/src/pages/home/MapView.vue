@@ -8,6 +8,7 @@ import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
 import AmenityDetailFilterPanel from '@/components/map/AmenityDetailFilterPanel.vue';
+import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
@@ -547,17 +548,23 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
       <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3">
-        <div class="flex items-center justify-between">
-          <h1 class="hidden xl:flex font-black text-slate-900 text-lg items-center gap-2">
-            <span>🛡️</span>
-            <span>살고싶오 매물 탐색</span>
-          </h1>
-          <span
-            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500 xl:hidden"
-          >
+        <div class="flex items-center justify-between xl:hidden">
+          <span class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500">
             총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
+
+        <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
+        <OnboardingSummary
+          class="hidden xl:block"
+          :destination="filterState.destination"
+          :transport-mode="filterState.transportMode"
+          :travel-time="filterState.travelTime"
+          :max-deposit="filterState.maxDeposit"
+          :max-rent="filterState.maxRent"
+          :min-safety-score="filterState.minSafetyScore"
+          :show-close="false"
+        />
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
         <section class="relative !mt-5 hidden border-t border-slate-100 xl:block">
