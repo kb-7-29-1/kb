@@ -117,6 +117,12 @@ const safetyGradeText = computed(() => {
           >
             안전 {{ property.safetyScore || 0 }}점 ({{ safetyGradeText }})
           </span>
+          <span
+            v-if="property.dealCount && property.dealCount > 1"
+            class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200"
+          >
+            🏢 거래 {{ property.dealCount }}건
+          </span>
         </div>
 
         <h3
