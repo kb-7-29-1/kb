@@ -258,7 +258,7 @@ const destinationConfig = computed(() => {
   const lng = filterState.value.destinationLng || 127.0731;
 
   return {
-    name: `${name} (주 목적지)`,
+    name,
     lat,
     lng,
   };

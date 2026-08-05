@@ -5,7 +5,7 @@ const props = defineProps({
   destination: {
     type: Object,
     default: () => ({
-      name: '세종대학교 (주 목적지)',
+      name: '세종대학교',
       lat: 37.5502,
       lng: 127.0731,
     }),

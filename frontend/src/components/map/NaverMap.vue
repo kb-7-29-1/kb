@@ -1,21 +1,10 @@
 <script setup>
-import {
-  createApp,
-  ref,
-  shallowRef,
-  computed,
-  onMounted,
-  onUnmounted,
-  watch,
-} from 'vue';
+import { createApp, ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
 import PropertyPin from './PropertyPin.vue';
 import DestinationPin from './DestinationPin.vue';
-import {
-  getClusteredMarkers,
-  renderClusterPinHTML,
-} from '@/utils/mapClustering';
+import { getClusteredMarkers, renderClusterPinHTML } from '@/utils/mapClustering';
 
 const props = defineProps({
   properties: {
@@ -33,7 +22,7 @@ const props = defineProps({
   destination: {
     type: Object,
     default: () => ({
-      name: '세종대학교 (주 목적지)',
+      name: '세종대학교',
       lat: 37.5502,
       lng: 127.0731,
     }),
@@ -146,11 +135,7 @@ const renderMarkers = () => {
   markersMap.value.push(destMarker);
 
   // 3. 🏢 / 🏠 매물 및 클러스터 마커 렌더링
-  const clusteredNodes = getClusteredMarkers(
-    props.properties,
-    currentZoom,
-    bounds,
-  );
+  const clusteredNodes = getClusteredMarkers(props.properties, currentZoom, bounds);
 
   clusteredNodes.forEach((node) => {
     if (node.isCluster) {
@@ -176,8 +161,7 @@ const renderMarkers = () => {
     } else {
       const prop = node.item;
       const isSelected =
-        props.selectedProperty &&
-        props.selectedProperty.propertyId === prop.propertyId;
+        props.selectedProperty && props.selectedProperty.propertyId === prop.propertyId;
 
       const propMarker = new window.naver.maps.Marker({
         position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
@@ -211,18 +195,14 @@ const renderAmenityMarkers = () => {
 
   const nextKeys = new Set();
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
-      return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
 
     const key = getAmenityMarkerKey(amenity);
     nextKeys.add(key);
     if (amenityMarkers.has(key)) return;
 
     const amenityMarker = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(
-        amenity.amenityLatitude,
-        amenity.amenityLongitude,
-      ),
+      position: new window.naver.maps.LatLng(amenity.amenityLatitude, amenity.amenityLongitude),
       map: mapInstance.value,
       zIndex: 30,
       icon: {
@@ -279,13 +259,9 @@ const initMap = () => {
         renderMarkers();
         checkDistanceToDestination();
       });
-      window.naver.maps.Event.addListener(
-        mapInstance.value,
-        'center_changed',
-        () => {
-          checkDistanceToDestination();
-        },
-      );
+      window.naver.maps.Event.addListener(mapInstance.value, 'center_changed', () => {
+        checkDistanceToDestination();
+      });
 
       renderMarkers();
       renderAmenityMarkers();
@@ -298,11 +274,7 @@ const initMap = () => {
 };
 
 watch(
-  [
-    () => props.properties,
-    () => props.destination,
-    () => props.selectedProperty,
-  ],
+  [() => props.properties, () => props.destination, () => props.selectedProperty],
   () => {
     renderMarkers();
     checkDistanceToDestination();
@@ -336,10 +308,7 @@ const fitToIsochroneRadius = () => {
     radiusMeters = Math.max(200, props.travelTime * speedMetersPerMin);
   } else {
     const transitBaseRadius = Math.max(500, props.travelTime * 180);
-    radiusMeters = Math.max(
-      transitBaseRadius + 200,
-      (props.travelTime + props.flexTime) * 180,
-    );
+    radiusMeters = Math.max(transitBaseRadius + 200, (props.travelTime + props.flexTime) * 180);
   }
 
   const earthRadius = 6378137;
@@ -349,9 +318,7 @@ const fitToIsochroneRadius = () => {
 
   // 15% 여유 공간 마진
   const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI) * 1.15;
-  const lngOffset =
-    (((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI) *
-    1.15;
+  const lngOffset = (((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI) * 1.15;
 
   const bounds = new window.naver.maps.LatLngBounds(
     new window.naver.maps.LatLng(centerLat - latOffset, centerLng - lngOffset),
@@ -413,18 +380,14 @@ onUnmounted(() => {
 const isFarFromDestination = ref(false);
 
 const destinationName = computed(() => {
-  const raw =
-    props.destination?.name || props.destination?.destName || '내 목적지';
+  const raw = props.destination?.name || props.destination?.destName || '내 목적지';
   return raw.replace(/\s*\(주 목적지\)$/, '');
 });
 
 const checkDistanceToDestination = () => {
   if (!mapInstance.value || !props.destination || !window.naver || !window.naver.maps) return;
-  const targetLat =
-    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng =
-    Number(props.destination.lng || props.destination.destLongitude) ||
-    127.0731;
+  const targetLat = Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
+  const targetLng = Number(props.destination.lng || props.destination.destLongitude) || 127.0731;
 
   const bounds = mapInstance.value.getBounds();
   const destLatLng = new window.naver.maps.LatLng(targetLat, targetLng);
@@ -436,16 +399,10 @@ const checkDistanceToDestination = () => {
 // 내 목적지로 카메라 빠른 이동
 const moveMapToDestination = () => {
   if (!mapInstance.value || !props.destination) return;
-  const targetLat =
-    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng =
-    Number(props.destination.lng || props.destination.destLongitude) ||
-    127.0731;
+  const targetLat = Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
+  const targetLng = Number(props.destination.lng || props.destination.destLongitude) || 127.0731;
 
-  mapInstance.value.morph(
-    new window.naver.maps.LatLng(targetLat, targetLng),
-    15,
-  );
+  mapInstance.value.morph(new window.naver.maps.LatLng(targetLat, targetLng), 15);
   isFarFromDestination.value = false;
 };
 </script>

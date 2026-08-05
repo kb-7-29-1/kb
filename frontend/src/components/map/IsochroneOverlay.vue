@@ -9,7 +9,7 @@ const props = defineProps({
   destination: {
     type: Object,
     default: () => ({
-      name: '세종대학교 (주 목적지)',
+      name: '세종대학교',
       lat: 37.5502,
       lng: 127.0731,
     }),
@@ -41,20 +41,14 @@ const maskPolygonInstance = shallowRef(null);
 let boundsListener = null;
 
 // 고해상도 측지선 원형 경로 정점 생성 (128정점 - 확대 시 찌그러짐 방지)
-const createCirclePath = (
-  centerLat,
-  centerLng,
-  radiusMeters,
-  numPoints = 128,
-) => {
+const createCirclePath = (centerLat, centerLng, radiusMeters, numPoints = 128) => {
   if (!window.naver || !window.naver.maps) return [];
   const points = [];
   const latRad = (centerLat * Math.PI) / 180;
   const earthRadius = 6378137; // 지구 반지름 (m)
 
   const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI);
-  const lngOffset =
-    ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
+  const lngOffset = ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
 
   // Polygon Hole 구멍 생성을 위해 역순(Counter-Clockwise) 생성
   for (let i = numPoints; i >= 0; i--) {
