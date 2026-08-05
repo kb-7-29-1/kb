@@ -70,12 +70,7 @@ watch(
         <span>실거주 커뮤니티</span>
       </div>
 
-      <button
-          type="button"
-          class="view-all-button"
-          @click="openCommentList"
-      >
-
+      <button type="button" class="view-all-button" @click="openCommentList">
         댓글 {{ commentCount }}개 전체보기
         <span class="arrow">›</span>
       </button>
@@ -96,9 +91,11 @@ watch(
 
     <div class="notice">
       <span class="notice-icon" aria-hidden="true">⚠</span>
-      <p>본 키워드는 인터넷 커뮤니티 게시물을 바탕으로 자동 분석된 결과이며, 당사는 사실 여부를 보증하지 않습니다. (단순 참고용)</p>
+      <p>
+        본 키워드는 인터넷 커뮤니티 게시물을 바탕으로 자동 분석된 결과이며, 당사는 사실 여부를
+        보증하지 않습니다. (단순 참고용)
+      </p>
     </div>
-
   </section>
 
   <aside v-if="showCommentList" class="comment-list-panel">
@@ -123,9 +120,18 @@ watch(
 <style scoped>
 .comment-section {
   width: 100%;
-  padding: 12px 18px;
-  background: #fff;
+  padding: 14px 0 16px;
+  border: 0;
+  background: transparent;
   box-sizing: border-box;
+}
+
+.comment-section.detail-section-flush {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .comment-list-panel {
@@ -172,20 +178,20 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .section-title {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #1f2937;
-  font-size: 16px;
+  color: #1e293b;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .title-icon {
-  font-size: 17px;
+  font-size: 15px;
 }
 
 .bigdata-label {
@@ -206,14 +212,14 @@ watch(
   background: transparent;
   color: #4f64ff;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .arrow {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
 }
 
