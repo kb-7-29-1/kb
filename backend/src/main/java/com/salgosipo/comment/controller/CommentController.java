@@ -2,6 +2,7 @@ package com.salgosipo.comment.controller;
 
 import com.salgosipo.comment.dto.CommentRequestDTO;
 import com.salgosipo.comment.dto.CommentResponseDTO;
+import com.salgosipo.comment.dto.CommentTagResponseDTO;
 import com.salgosipo.comment.service.CommentService;
 import com.salgosipo.global.security.account.domain.CustomUser;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,11 @@ public class CommentController {
                         customUser == null ? null : customUser.getUsername()
                 )
         );
+    }
+
+    @GetMapping("/tags")
+    public ResponseEntity<List<CommentTagResponseDTO>> getTags(@PathVariable Long propertyId) {
+        return ResponseEntity.ok(commentService.getTagsByPropertyId(propertyId));
     }
 
     @PostMapping
