@@ -69,10 +69,20 @@ const fetchLoan = async () => {
   }
 };
 
+function debounce(fn, delay) {
+  let timer = null;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delay);
+  };
+}
+
+const debouncedFetchLoan = debounce(fetchLoan, 400);
+
 watch([deposit, monthlyRent], ([nextDeposit, nextMonthlyRent]) => {
   emit('update:deposit', nextDeposit);
   emit('update:monthly-rent', nextMonthlyRent);
-  fetchLoan();
+  debouncedFetchLoan();
 });
 
 watch(
