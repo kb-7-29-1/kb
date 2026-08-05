@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -26,17 +27,31 @@ public class LoanService {
             return null;
         }
 
-        LoanProductDto best = loans.get(0);
-        Double ratio = extractLoanRatio(best.getLoanLimit());
+        return buildRecommendationDto(loans.get(0), deposit);
+    }
+
+    // 전체 리스트 반환
+    public List<LoanRecommendationDto> getLoanRecommendation(Integer deposit, Integer monthlyRent, Integer age){
+        boolean isJeonse = (monthlyRent == null || monthlyRent == 0);
+        List<LoanProductDto> loans = isJeonse ? getJeonseLoans(age) : getWolseLoans(age, deposit, monthlyRent);
+        if(deposit == null) return List.of();
+        return loans.stream()
+                .map(product -> buildRecommendationDto(product,deposit))
+                .collect(Collectors.toList());
+    }
+
+    // 기존 getOnboardingRecommendation 안에 있던 로직
+    private LoanRecommendationDto buildRecommendationDto(LoanProductDto product, Integer deposit){
+        Double ratio = extractLoanRatio(product.getLoanLimit());
 
         if(ratio == null){
             // 비율(%) 공시가 없는 상품은 보증금 대비 개인화 계산을 할 근거가 없으므로 원문 정보만 응답
             return new LoanRecommendationDto(
-                    best.getProductName(),
-                    best.getCompanyName(),
-                    best.getRateInfo(),
-                    best.getLoanLimit(),
-                    best.getTarget(),
+                    product.getProductName(),
+                    product.getCompanyName(),
+                    product.getRateInfo(),
+                    product.getLoanLimit(),
+                    product.getTarget(),
                     0,
                     0,
                     0
@@ -47,11 +62,11 @@ public class LoanService {
         int maxSearchAmount = deposit + expectedLoanAmount;
 
         return new LoanRecommendationDto(
-                best.getProductName(),
-                best.getCompanyName(),
-                best.getRateInfo(),
-                best.getLoanLimit(),
-                best.getTarget(),
+                product.getProductName(),
+                product.getCompanyName(),
+                product.getRateInfo(),
+                product.getLoanLimit(),
+                product.getTarget(),
                 ratio,
                 expectedLoanAmount,
                 maxSearchAmount
@@ -86,7 +101,7 @@ public class LoanService {
                     LoanProductDto dto = new LoanProductDto(
                             base.getCompanyName(),
                             base.getProductName(),
-                            base.getLoanLimit(),
+                            normalizeLoanLimitText(base.getLoanLimit()),
                             rateInfo,
                             "자세한 자격요건은 해당 은행에서 확인해주세요",
                             base.getJoinWay()
@@ -96,6 +111,15 @@ public class LoanService {
                 .sorted(Comparator.comparing(LoanProductDtoWithRate::getRate)
                         .thenComparing((LoanProductDtoWithRate p) ->!p.getDto().getCompanyName().contains("국민은행")))
                 .map(LoanProductDtoWithRate::getDto)
+                // 은행별로 여러 상품이 있으면 이미 금리순 정렬돼 있으니 가장 앞(최저금리) 것만 남김
+                .collect(Collectors.toMap(
+                        LoanProductDto::getCompanyName,
+                        product -> product,
+                        (best, other) -> best,
+                        LinkedHashMap::new
+                ))
+                .values()
+                .stream()
                 .collect(Collectors.toList());
     }
 
@@ -107,7 +131,7 @@ public class LoanService {
 
         if (isYouth && fitsYouthLoan) {
             String depositLimitInfo = (deposit != null && deposit <= 4500)
-                    ? "보증금 전액(" + deposit + "만원)"
+                    ? "보증금 전액(" + deposit + "만원) "
                     : "보증금 최대 4,500만원" + (deposit != null ? " (초과분 " + (deposit - 4500) + "만원은 본인 부담)" : "");
 
             String monthlyLimitInfo = (monthlyRent != null && monthlyRent <= 50)
@@ -136,8 +160,8 @@ public class LoanService {
         }
 
         String limitInfo = (monthlyRent != null && monthlyRent <= 60)
-                    ? "월세 전액(" + monthlyRent + "만원) 대출 가능"
-                    : "월 최대 60만원까지 대출" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
+                    ? "월세 전액(" + monthlyRent + "만원) "
+                    : "월 최대 60만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
 
         return List.of(new LoanProductDto(
                 "주택도시기금 (KB국민은행 등 수탁은행 취급)",
@@ -158,5 +182,20 @@ public class LoanService {
             return Integer.parseInt(matcher.group(1)) / 100.0;
         }
         return null;
+    }
+
+    // "400백만원" 같은 표기를 "4억원"으로 통일 (100백만원 = 1억원)
+    private String normalizeLoanLimitText(String loanLimit){
+        if(loanLimit == null) return null;
+
+        Matcher matcher = Pattern.compile("([\\d.]+)\\s*백만원").matcher(loanLimit);
+        if(!matcher.find()) return loanLimit;
+
+        double eok = Double.parseDouble(matcher.group(1)) / 100.0;
+        String eokText = (eok == Math.floor(eok))
+                ? String.valueOf((int) eok)
+                : String.valueOf(eok);
+
+        return matcher.replaceFirst(eokText + "억원");
     }
 }
