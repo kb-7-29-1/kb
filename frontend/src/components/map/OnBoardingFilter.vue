@@ -36,7 +36,24 @@ const searchKeyword = ref('');
 const searchResults = ref([]);
 const isSearching = ref(false);
 const searchError = ref('');
+const isComposing = ref(false);
 let searchTimer;
+let searchRequestId = 0;
+
+const handleCompositionStart = () => {
+  isComposing.value = true;
+};
+
+const handleCompositionEnd = (event) => {
+  isComposing.value = false;
+  searchKeyword.value = event.target.value;
+  scheduleSearch(searchKeyword.value);
+};
+
+const handleSearchInput = (event) => {
+  searchKeyword.value = event.target.value;
+  scheduleSearch(event.target.value);
+};
 
 const rangeStyle = (value, min, max, color = '#3d55f6') => {
   const percent = ((value - min) / (max - min)) * 100;
@@ -68,9 +85,10 @@ const clearSearch = () => {
   searchError.value = '';
 };
 
-watch(searchKeyword, (value) => {
+const scheduleSearch = (value) => {
   clearTimeout(searchTimer);
   searchError.value = '';
+  const requestId = ++searchRequestId;
 
   const keyword = value.trim();
   if (keyword.length < 2 || selectedDestination.value?.destName === value) {
@@ -79,19 +97,25 @@ watch(searchKeyword, (value) => {
     return;
   }
 
+  searchResults.value = [];
+  isSearching.value = true;
   searchTimer = setTimeout(async () => {
-    isSearching.value = true;
     try {
-      searchResults.value = await onboardingApi.searchDestinations(keyword);
+      const results = await onboardingApi.searchDestinations(keyword);
+      if (requestId !== searchRequestId) return;
+      searchResults.value = results;
     } catch (error) {
+      if (requestId !== searchRequestId) return;
       searchResults.value = [];
       searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('FILTER DESTINATION SEARCH ERROR: ', error);
     } finally {
-      isSearching.value = false;
+      if (requestId === searchRequestId) isSearching.value = false;
     }
   }, 300);
-});
+};
+
+watch(searchKeyword, scheduleSearch);
 
 watch(
   [() => props.onboarding, () => props.appliedFilters],
@@ -156,6 +180,9 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input
           v-model="searchKeyword"
+          @input="handleSearchInput"
+          @compositionstart="handleCompositionStart"
+          @compositionend="handleCompositionEnd"
           type="text"
           autocomplete="off"
           placeholder="예: 연세대학교, 삼성전자 서초사옥"
@@ -427,10 +454,18 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
 .search-result-list {
   margin: 8px 0 0;
   padding: 0;
-  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
   border: 1px solid #e1e5eb;
   border-radius: 10px;
   list-style: none;
+}
+.search-result-list::-webkit-scrollbar {
+  width: 4px;
+}
+.search-result-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 .search-result-list li + li {
   border-top: 1px solid #edf0f5;
