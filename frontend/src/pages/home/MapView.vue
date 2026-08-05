@@ -12,6 +12,7 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { DEFAULT_DEPOSIT, DEFAULT_RENT } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 
@@ -291,12 +292,13 @@ const sortedProperties = computed(() => {
     if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0) return false;
 
     // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원)
-    if (currentFilters.maxDeposit < 5000 && p.deposit > currentFilters.maxDeposit) return false;
+    if (currentFilters.maxDeposit < DEFAULT_DEPOSIT && p.deposit > currentFilters.maxDeposit)
+      return false;
 
     // 3. 월세 필터 (maxRent 단위: 만원)
     if (
       currentFilters.tradeType === 'MONTHLY' &&
-      currentFilters.maxRent < 100 &&
+      currentFilters.maxRent < DEFAULT_RENT &&
       p.monthlyRent > currentFilters.maxRent
     )
       return false;

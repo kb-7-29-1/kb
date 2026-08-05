@@ -1,6 +1,17 @@
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
+import {
+  DEPOSIT_MAX_LABEL,
+  DEPOSIT_MIN_LABEL,
+  DEPOSIT_OPTIONS,
+  RENT_MAX,
+  RENT_MAX_LABEL,
+  RENT_MIN,
+  RENT_MIN_LABEL,
+  RENT_STEP,
+  formatDepositAmount,
+} from '@/utils/budget';
 
 const props = defineProps({
   onboarding: {
@@ -14,9 +25,7 @@ const props = defineProps({
 });
 
 const minSafetyScore = ref(40);
-const depositOptions = [
-  100, 200, 300, 400, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
-];
+const depositOptions = DEPOSIT_OPTIONS;
 const depositIndex = ref(depositOptions.length - 1);
 const maxRent = ref(120);
 const transportMode = ref('walk');
@@ -38,9 +47,7 @@ const rangeStyle = (value, min, max, color = '#3d55f6') => {
 };
 
 const maxDeposit = computed(() => depositOptions[depositIndex.value]);
-const depositLabel = computed(() =>
-  maxDeposit.value === 10000 ? '1억원' : `${maxDeposit.value.toLocaleString()}만원`,
-);
+const depositLabel = computed(() => formatDepositAmount(maxDeposit.value));
 const rentLabel = computed(() => `${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
@@ -203,7 +210,10 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
         step="1"
         :style="rangeStyle(depositIndex, 0, depositOptions.length - 1)"
       />
-      <div class="range-labels"><span>100만원</span><span>1억원</span></div>
+      <div class="range-labels">
+        <span>{{ DEPOSIT_MIN_LABEL }}</span
+        ><span>{{ DEPOSIT_MAX_LABEL }}</span>
+      </div>
     </div>
 
     <div class="filter-section">
@@ -215,12 +225,15 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       <input
         v-model.number="maxRent"
         type="range"
-        min="0"
-        max="150"
-        step="5"
-        :style="rangeStyle(maxRent, 0, 150)"
+        :min="RENT_MIN"
+        :max="RENT_MAX"
+        :step="RENT_STEP"
+        :style="rangeStyle(maxRent, RENT_MIN, RENT_MAX)"
       />
-      <div class="range-labels"><span>전세</span><span>150만원</span></div>
+      <div class="range-labels">
+        <span>{{ RENT_MIN_LABEL }}</span
+        ><span>{{ RENT_MAX_LABEL }}</span>
+      </div>
     </div>
 
     <div class="filter-section">
