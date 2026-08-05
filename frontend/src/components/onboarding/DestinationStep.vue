@@ -304,10 +304,18 @@ input::placeholder {
 .suggestion-list {
   margin: 12px 0 0;
   padding: 0;
-  overflow: hidden;
+  max-height: 248px;
+  overflow-y: auto;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   list-style: none;
+}
+.suggestion-list::-webkit-scrollbar {
+  width: 4px;
+}
+.suggestion-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 .suggestion-list li + li {
   border-top: 1px solid #eef2f7;

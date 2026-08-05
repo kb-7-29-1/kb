@@ -454,10 +454,18 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
 .search-result-list {
   margin: 8px 0 0;
   padding: 0;
-  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
   border: 1px solid #e1e5eb;
   border-radius: 10px;
   list-style: none;
+}
+.search-result-list::-webkit-scrollbar {
+  width: 4px;
+}
+.search-result-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #cbd5e1;
 }
 .search-result-list li + li {
   border-top: 1px solid #edf0f5;
