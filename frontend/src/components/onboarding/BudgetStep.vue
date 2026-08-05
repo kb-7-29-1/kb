@@ -11,6 +11,7 @@ import {
   RENT_MIN,
   RENT_MIN_LABEL,
   RENT_STEP,
+  formatDepositAmount,
 } from '@/utils/budget';
 
 const emit = defineEmits(['update:deposit', 'update:monthly-rent']);
@@ -31,10 +32,7 @@ const monthlyRent = ref(props.monthlyRent);
 
 const deposit = computed(() => depositOptions[depositIndex.value]);
 
-const depositLabel = computed(() => {
-  if (deposit.value === 10000) return '1억원';
-  return `${deposit.value.toLocaleString()}만원`;
-});
+const depositLabel = computed(() => formatDepositAmount(deposit.value));
 
 const monthlyRentLabel = computed(() => {
   if (monthlyRent.value === 0) return '전세';

@@ -39,3 +39,27 @@ export const RENT_MAX_LABEL = '200만원';
 
 export const DEFAULT_DEPOSIT = 5000;
 export const DEFAULT_RENT = 100;
+
+export const formatDepositAmount = (amount) => {
+  const value = Number(amount || 0);
+
+  if (value >= 10000) {
+    const eok = value / 10000;
+    const formatted = Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '');
+    return `${formatted}억원`;
+  }
+
+  return `${value.toLocaleString()}만원`;
+};
+
+export const formatDepositShort = (amount) => {
+  const value = Number(amount || 0);
+
+  if (value >= 10000) {
+    const eok = value / 10000;
+    const formatted = Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, '');
+    return `${formatted}억`;
+  }
+
+  return value.toLocaleString();
+};

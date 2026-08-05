@@ -11,6 +11,8 @@ import {
   RENT_MIN,
   RENT_MIN_LABEL,
   RENT_STEP,
+  formatDepositAmount,
+  formatDepositShort,
 } from '@/utils/budget';
 
 const props = defineProps({
@@ -253,7 +255,7 @@ const activeFilterCount = computed(() => {
 // 가격 요약 텍스트
 const priceSummaryText = computed(() => {
   const { maxDeposit, maxRent } = appliedQuickFilters.value;
-  const deposit = maxDeposit === 10000 ? '1억' : maxDeposit;
+  const deposit = formatDepositShort(maxDeposit);
   if (maxRent === 0) return `전세: ${deposit}`;
   return `월세: ${deposit}/${maxRent}`;
 });
@@ -268,9 +270,7 @@ const depositIndex = computed({
   },
 });
 
-const depositAmountLabel = computed(() =>
-  filters.value.maxDeposit === 10000 ? '1억원' : `${filters.value.maxDeposit.toLocaleString()}만원`,
-);
+const depositAmountLabel = computed(() => formatDepositAmount(filters.value.maxDeposit));
 const rentAmountLabel = computed(() =>
   filters.value.maxRent === 0 ? '전세' : `${filters.value.maxRent}만원`,
 );

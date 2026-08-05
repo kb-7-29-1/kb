@@ -10,6 +10,7 @@ import {
   RENT_MIN,
   RENT_MIN_LABEL,
   RENT_STEP,
+  formatDepositAmount,
 } from '@/utils/budget';
 
 const props = defineProps({
@@ -46,9 +47,7 @@ const rangeStyle = (value, min, max, color = '#3d55f6') => {
 };
 
 const maxDeposit = computed(() => depositOptions[depositIndex.value]);
-const depositLabel = computed(() =>
-  maxDeposit.value === 10000 ? '1억원' : `${maxDeposit.value.toLocaleString()}만원`,
-);
+const depositLabel = computed(() => formatDepositAmount(maxDeposit.value));
 const rentLabel = computed(() => `${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
