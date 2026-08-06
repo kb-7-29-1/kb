@@ -351,6 +351,15 @@ const togglePopover = (name) => {
   activePopover.value = activePopover.value === name ? null : name;
 };
 
+const selectTradeType = (tradeType) => {
+  filters.value.tradeType = tradeType;
+
+  // 전세 탭 선택 시 월세 값 0으로 초기화
+  if (tradeType === 'JEONSE') {
+    filters.value.maxRent = 0;
+  }
+};
+
 // 이소크론 영역 토글 (ON <-> OFF)
 const toggleIsochrone = () => {
   filters.value.showIsochrone = !filters.value.showIsochrone;
@@ -775,7 +784,7 @@ const safetyAccentClass = computed(() => {
                   ? 'bg-white text-blue-600 shadow-sm font-black'
                   : 'text-slate-500 hover:text-slate-700'
               "
-              @click="filters.tradeType = t.key"
+              @click="selectTradeType(t.key)"
             >
               {{ t.label }}
             </button>
@@ -857,8 +866,7 @@ const safetyAccentClass = computed(() => {
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
-            appliedQuickFilters.selectedLoanId &&
-            appliedQuickFilters.selectedLoanId !== 'NONE'
+            appliedQuickFilters.selectedLoanId && appliedQuickFilters.selectedLoanId !== 'NONE'
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
@@ -876,9 +884,7 @@ const safetyAccentClass = computed(() => {
           class="absolute top-full left-0 mt-2 w-84 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <span class="text-sm font-black text-slate-800"
-              >🏦 맞춤 대출 상품 & 한도 우대</span
-            >
+            <span class="text-sm font-black text-slate-800">🏦 맞춤 대출 상품 & 한도 우대</span>
             <button
               type="button"
               class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
@@ -896,9 +902,7 @@ const safetyAccentClass = computed(() => {
             <div class="flex items-center gap-1.5">
               <span>✨</span>
               <div>
-                <div class="text-[10px] text-blue-600 font-extrabold">
-                  금융감독원/KB 추천 1위
-                </div>
+                <div class="text-[10px] text-blue-600 font-extrabold">금융감독원/KB 추천 1위</div>
                 <div class="text-xs font-black text-slate-800">
                   {{ recommendedLoanFromApi.productName }}
                 </div>
@@ -938,10 +942,7 @@ const safetyAccentClass = computed(() => {
                 <div class="text-xs font-black text-blue-600">
                   {{ product.rateInfo }}
                 </div>
-                <div
-                  v-if="product.ratio > 0"
-                  class="text-[10px] font-bold text-emerald-600"
-                >
+                <div v-if="product.ratio > 0" class="text-[10px] font-bold text-emerald-600">
                   {{ Math.round(product.ratio * 100) }}% 한도
                 </div>
               </div>
@@ -952,21 +953,16 @@ const safetyAccentClass = computed(() => {
             v-if="filters.selectedLoanId && filters.selectedLoanId !== 'NONE'"
             class="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-blue-950 text-white space-y-1.5 shadow-md"
           >
-            <div
-              class="flex items-center justify-between text-xs font-bold text-blue-200"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-blue-200">
               <span>내 보유 자금</span>
               <span>{{ depositAmountLabel }}</span>
             </div>
-            <div
-              class="flex items-center justify-between text-xs font-bold text-emerald-300"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-emerald-300">
               <span>+ 예상 대출금 (한도 적용)</span>
               <span>{{
                 formatDepositAmount(
                   filters.maxDeposit *
-                    (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)
-                      ?.ratio || 0),
+                    (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)?.ratio || 0),
                 )
               }}</span>
             </div>
@@ -978,9 +974,7 @@ const safetyAccentClass = computed(() => {
                   formatDepositAmount(
                     filters.maxDeposit *
                       (1 +
-                        (LOAN_PRODUCTS.find(
-                          (l) => l.id === filters.selectedLoanId,
-                        )?.ratio || 0)),
+                        (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)?.ratio || 0)),
                   )
                 }}
               </span>
@@ -1225,7 +1219,9 @@ const safetyAccentClass = computed(() => {
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              기준 이동시간({{ filters.travelTime }}분) 대비 ±{{ filters.flexTime }}분 범위 매물을 함께 표시해요.
+              기준 이동시간({{ filters.travelTime }}분) 대비 ±{{
+                filters.flexTime
+              }}분 범위 매물을 함께 표시해요.
             </p>
           </div>
 
