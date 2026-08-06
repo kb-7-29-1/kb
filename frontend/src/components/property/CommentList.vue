@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue';
+import {computed, ref} from 'vue';
 
 const props = defineProps({
   property: {
@@ -89,7 +89,7 @@ const submitEdit = (commentId) => {
   const trimmedContent = editingContent.value.trim();
   if (!trimmedContent) return;
 
-  emit('update-comment', { commentId, content: trimmedContent });
+  emit('update-comment', {commentId, content: trimmedContent});
   cancelEdit();
 };
 </script>
@@ -165,10 +165,13 @@ const submitEdit = (commentId) => {
       <article
           v-for="comment in comments"
           :key="comment.commentId"
-        class="comment-card"
+          class="comment-card"
       >
         <div class="comment-header">
-          <strong class="comment-nickname">{{ comment.nickname || '익명 사용자' }}</strong>
+          <div class="nickname-wrapper">
+            <strong class="comment-nickname">👤 {{ comment.nickname || '익명 사용자' }}</strong>
+            <span v-if="comment.isMine" class="my-badge">MY</span>
+          </div>
           <div class="comment-meta">
             <span class="created-at">{{ formatDateTime(comment.createdAt) }}</span>
             <template v-if="comment.isMine">
@@ -433,6 +436,29 @@ const submitEdit = (commentId) => {
   white-space: nowrap;
 }
 
+
+.nickname-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.my-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+  border: 1.5px solid #5B89FF;
+  border-radius: 6px;
+  background: #E8F0FF;
+  color: #12379D;
+  font-size: 10px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .comment-meta {
   display: flex;
   flex-shrink: 0;
@@ -624,9 +650,8 @@ const submitEdit = (commentId) => {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition:
-      background 0.2s,
-      opacity 0.2s;
+  transition: background 0.2s,
+  opacity 0.2s;
 }
 
 .submit-button:hover:not(:disabled) {
