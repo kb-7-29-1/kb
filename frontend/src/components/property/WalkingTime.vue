@@ -14,7 +14,7 @@
           @click.stop="isOpen = !isOpen"
       >
         <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path :d="isOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" />
+          <path :d="isOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'"/>
         </svg>
       </button>
     </div>
@@ -35,7 +35,7 @@
           <span>{{ amenity.name }}</span>
         </div>
 
-        <!-- 진행 바 -->
+        <!-- 진행 바 (최대 20분 기준) -->
         <div class="progress-area">
           <div class="progress-bar">
             <div
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import {computed, ref, watch} from 'vue';
 
 const isOpen = ref(false);
 
@@ -68,40 +68,42 @@ const props = defineProps({
 });
 
 watch(
-  () => props.amenities,
-  (amenities) => {
-    console.log('WalkingTime 받은 amenities:', amenities);
-    console.table(amenities);
-  },
-  { immediate: true, deep: true },
+    () => props.amenities,
+    (amenities) => {
+      console.log('WalkingTime 받은 amenities:', amenities);
+      console.table(amenities);
+    },
+    {immediate: true, deep: true},
 );
 
 const amenityIcons = {
   1: '🏪',
   2: '☕',
-  3: '🏥',
-  4: '🏫',
+  3: '🧺',
+  4: '🍔',
   5: '🛒',
-  6: '🏦',
-  7: '🏋️',
+  6: '💄',
+  7: '🏢',
 };
 
 const displayAmenities = computed(() =>
-  props.amenities
-    .filter((amenity) => amenity.walkTimeMinutes != null || amenity.walkingTime != null)
-    .map((amenity) => ({
-      type: amenity.amenityType ?? amenity.type,
-      name: amenity.amenityName ?? amenity.name,
-      icon: amenityIcons[amenity.amenityType] ?? amenity.icon ?? '📍',
-      walkingTime: amenity.walkTimeMinutes ?? amenity.walkingTime,
-    })),
+    props.amenities
+        .filter((amenity) => amenity.walkTimeMinutes != null || amenity.walkingTime != null)
+        .map((amenity) => ({
+          type: amenity.amenityType ?? amenity.type,
+          name: amenity.amenityName ?? amenity.name,
+          icon: amenityIcons[amenity.amenityType ?? amenity.type] ?? amenity.icon ?? '📍',
+          walkingTime: amenity.walkTimeMinutes ?? amenity.walkingTime,
+        })),
 );
 
-const MAX_WALKING_TIME = 30;
+// 도보 소요 시간 게이지 최대 스케일 (20분 간격/범위 기준)
+const MAX_WALKING_TIME = 20;
 
 const getProgressWidth = (walkingTime) => {
   const minutes = Number(walkingTime) || 0;
-  return `${Math.min(Math.max(minutes, 0), MAX_WALKING_TIME) / MAX_WALKING_TIME * 100}%`;
+  const clampedMinutes = Math.min(Math.max(minutes, 0), MAX_WALKING_TIME);
+  return `${(clampedMinutes / MAX_WALKING_TIME) * 100}%`;
 };
 </script>
 
@@ -244,7 +246,7 @@ const getProgressWidth = (walkingTime) => {
   display: flex;
   align-items: center;
 
-  width: 43px;
+  width: 45px;
   flex-shrink: 0;
 
   gap: 2px;
@@ -275,7 +277,7 @@ const getProgressWidth = (walkingTime) => {
   }
 
   .walking-minute {
-    width: 40px;
+    width: 42px;
     font-size: 12px;
   }
 }
