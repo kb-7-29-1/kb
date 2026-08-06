@@ -56,9 +56,11 @@ const priceText = computed(() => {
 </script>
 
 <template>
-  <div class="flex -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform">
+  <div
+    class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform"
+  >
     <div
-      class="flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all"
+      class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all"
       :class="[
         safetyPinTheme.border,
         isSelected
@@ -66,9 +68,9 @@ const priceText = computed(() => {
           : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10',
       ]"
     >
-      <span>{{ priceText }}</span>
+      <span class="shrink-0">{{ priceText }}</span>
       <span
-        class="rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+        class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
         :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
       >
         {{ safetyScore }}점
