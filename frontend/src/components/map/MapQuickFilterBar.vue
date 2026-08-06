@@ -47,6 +47,7 @@ const emit = defineEmits([
   'reset',
   'apply',
   'open-filter',
+  'popover-change',
 ]);
 
 // 로컬 반응형 상태
@@ -66,6 +67,10 @@ const appliedQuickFilters = computed(() => props.modelValue);
 // 모바일 바텀시트 모달 상태
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
+
+watch(activePopover, (newVal) => {
+  emit('popover-change', newVal);
+});
 const destinationSearchKeyword = ref('');
 const destinationSearchResults = ref([]);
 const selectedDestination = ref(null);
@@ -346,10 +351,20 @@ const togglePopover = (name) => {
   activePopover.value = activePopover.value === name ? null : name;
 };
 
+const selectTradeType = (tradeType) => {
+  filters.value.tradeType = tradeType;
+
+  // 전세 탭 선택 시 월세 값 0으로 초기화
+  if (tradeType === 'JEONSE') {
+    filters.value.maxRent = 0;
+  }
+};
+
 // 이소크론 영역 토글 (ON <-> OFF)
 const toggleIsochrone = () => {
   filters.value.showIsochrone = !filters.value.showIsochrone;
   updateFilters();
+  emit('apply');
 };
 
 // 필터 초기화
@@ -769,7 +784,7 @@ const safetyAccentClass = computed(() => {
                   ? 'bg-white text-blue-600 shadow-sm font-black'
                   : 'text-slate-500 hover:text-slate-700'
               "
-              @click="filters.tradeType = t.key"
+              @click="selectTradeType(t.key)"
             >
               {{ t.label }}
             </button>
@@ -844,14 +859,14 @@ const safetyAccentClass = computed(() => {
         </div>
       </div>
 
-      <!-- 🏦 퀵버튼 4: 대출 상품 (order-1) -->
+      <!-- 🏦 퀵버튼 4: 대출 상품 (주석 처리) -->
+      <!--
       <div class="relative order-4">
         <button
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
-            appliedQuickFilters.selectedLoanId &&
-            appliedQuickFilters.selectedLoanId !== 'NONE'
+            appliedQuickFilters.selectedLoanId && appliedQuickFilters.selectedLoanId !== 'NONE'
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
@@ -864,15 +879,12 @@ const safetyAccentClass = computed(() => {
           <span class="text-[10px] text-slate-400">▼</span>
         </button>
 
-        <!-- 대출 상품 팝업 -->
         <div
           v-if="activePopover === 'loan'"
           class="absolute top-full left-0 mt-2 w-84 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <span class="text-sm font-black text-slate-800"
-              >🏦 맞춤 대출 상품 & 한도 우대</span
-            >
+            <span class="text-sm font-black text-slate-800">🏦 맞춤 대출 상품 & 한도 우대</span>
             <button
               type="button"
               class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
@@ -883,7 +895,6 @@ const safetyAccentClass = computed(() => {
             </button>
           </div>
 
-          <!-- 백엔드 API 연동 최저 금리 추천 배너 -->
           <div
             v-if="recommendedLoanFromApi"
             class="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 font-bold flex items-center justify-between"
@@ -891,9 +902,7 @@ const safetyAccentClass = computed(() => {
             <div class="flex items-center gap-1.5">
               <span>✨</span>
               <div>
-                <div class="text-[10px] text-blue-600 font-extrabold">
-                  금융감독원/KB 추천 1위
-                </div>
+                <div class="text-[10px] text-blue-600 font-extrabold">금융감독원/KB 추천 1위</div>
                 <div class="text-xs font-black text-slate-800">
                   {{ recommendedLoanFromApi.productName }}
                 </div>
@@ -906,7 +915,6 @@ const safetyAccentClass = computed(() => {
             </div>
           </div>
 
-          <!-- 대출 상품 선택 리스트 -->
           <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
             <div
               v-for="product in LOAN_PRODUCTS"
@@ -934,36 +942,27 @@ const safetyAccentClass = computed(() => {
                 <div class="text-xs font-black text-blue-600">
                   {{ product.rateInfo }}
                 </div>
-                <div
-                  v-if="product.ratio > 0"
-                  class="text-[10px] font-bold text-emerald-600"
-                >
+                <div v-if="product.ratio > 0" class="text-[10px] font-bold text-emerald-600">
                   {{ Math.round(product.ratio * 100) }}% 한도
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 대출 레버리지 계산 카드 -->
           <div
             v-if="filters.selectedLoanId && filters.selectedLoanId !== 'NONE'"
             class="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-blue-950 text-white space-y-1.5 shadow-md"
           >
-            <div
-              class="flex items-center justify-between text-xs font-bold text-blue-200"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-blue-200">
               <span>내 보유 자금</span>
               <span>{{ depositAmountLabel }}</span>
             </div>
-            <div
-              class="flex items-center justify-between text-xs font-bold text-emerald-300"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-emerald-300">
               <span>+ 예상 대출금 (한도 적용)</span>
               <span>{{
                 formatDepositAmount(
                   filters.maxDeposit *
-                    (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)
-                      ?.ratio || 0),
+                    (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)?.ratio || 0),
                 )
               }}</span>
             </div>
@@ -975,16 +974,13 @@ const safetyAccentClass = computed(() => {
                   formatDepositAmount(
                     filters.maxDeposit *
                       (1 +
-                        (LOAN_PRODUCTS.find(
-                          (l) => l.id === filters.selectedLoanId,
-                        )?.ratio || 0)),
+                        (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)?.ratio || 0)),
                   )
                 }}
               </span>
             </div>
           </div>
 
-          <!-- 팝업 하단 적용하기 버튼 -->
           <button
             type="button"
             class="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-black text-white shadow-md transition-all hover:bg-blue-700"
@@ -998,6 +994,7 @@ const safetyAccentClass = computed(() => {
           </button>
         </div>
       </div>
+      -->
 
       <!-- 🚶‍♂️/🚌 퀵버튼 5: 이동 시간 & 수단 (고정 너비 min-w-[155px]) -->
       <div class="relative order-5">
@@ -1059,6 +1056,7 @@ const safetyAccentClass = computed(() => {
                 filters.transportMode = 'WALK';
                 if (filters.travelTime < 5) filters.travelTime = 5;
                 if (filters.travelTime > 40) filters.travelTime = 40;
+                updateFilters();
               "
             >
               <span>🚶</span>
@@ -1080,6 +1078,7 @@ const safetyAccentClass = computed(() => {
               @click="
                 filters.transportMode = 'TRANSIT';
                 if (filters.travelTime < 15) filters.travelTime = 15;
+                updateFilters();
               "
             >
               <span>🚌</span>
@@ -1122,6 +1121,7 @@ const safetyAccentClass = computed(() => {
                 ) {
                   filters.flexTime = filters.travelTime;
                 }
+                updateFilters();
               "
             />
             <div
@@ -1165,7 +1165,10 @@ const safetyAccentClass = computed(() => {
                     ? 'bg-white text-blue-600 shadow-sm font-black'
                     : 'text-slate-500 hover:text-slate-800'
                 "
-                @click="filters.walkPace = pace.key"
+                @click="
+                  filters.walkPace = pace.key;
+                  updateFilters();
+                "
               >
                 {{ pace.label }}
               </button>
@@ -1177,7 +1180,7 @@ const safetyAccentClass = computed(() => {
             </p>
           </div>
 
-          <!-- 🚌 [대중교통 모드]: 최소 이동 시간 -->
+          <!-- 🚌 [대중교통 모드]: 앞뒤여유 시간 -->
           <div
             v-if="filters.transportMode === 'TRANSIT'"
             class="space-y-1.5 pt-1"
@@ -1185,9 +1188,9 @@ const safetyAccentClass = computed(() => {
             <div
               class="flex items-center justify-between text-xs font-bold text-slate-800"
             >
-              <span>⏳ 최소 이동 시간</span>
+              <span>⏳ 앞뒤여유 시간</span>
               <span class="text-amber-500 font-extrabold text-sm"
-                >{{ filters.flexTime }}분 이상</span
+                >±{{ filters.flexTime }}분</span
               >
             </div>
             <input
@@ -1205,18 +1208,20 @@ const safetyAccentClass = computed(() => {
                   '#f59e0b',
                 )
               "
+              @input="updateFilters()"
             />
             <div
               class="flex justify-between text-[11px] font-bold text-slate-400"
             >
-              <span>5분</span>
-              <span>{{ Math.min(30, filters.travelTime) }}분</span>
+              <span>±5분</span>
+              <span>±{{ Math.min(30, filters.travelTime) }}분</span>
             </div>
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              {{ filters.flexTime }}분~{{ filters.travelTime }}분 이내 매물을
-              조회해요.
+              기준 이동시간({{ filters.travelTime }}분) 대비 ±{{
+                filters.flexTime
+              }}분 범위 매물을 함께 표시해요.
             </p>
           </div>
 
