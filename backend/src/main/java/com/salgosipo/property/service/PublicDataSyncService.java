@@ -237,7 +237,7 @@ public class PublicDataSyncService {
     }
 
     /**
-     * 최근 3개월 YYYYMM 포맷 계산 헬퍼 메소드
+     * 90일 이상 보장을 위해 현재월 포함 최근 4개월(YYYYMM) 포맷 계산 헬퍼 메소드
      */
     private List<String> getRecent3MonthsYmd() {
         List<String> months = new ArrayList<>();
@@ -247,14 +247,8 @@ public class PublicDataSyncService {
         months.add(current.format(formatter));
         months.add(current.minusMonths(1).format(formatter));
         months.add(current.minusMonths(2).format(formatter));
+        months.add(current.minusMonths(3).format(formatter));
 
-        // 공공데이터 API 실데이터 보장용 거래년월 (202403, 202402, 202401)
-        // if (!months.contains("202403"))
-        // months.add("202403");
-        // if (!months.contains("202402"))
-        // months.add("202402");
-        // if (!months.contains("202401"))
-        // months.add("202401");
         return months;
     }
 }
