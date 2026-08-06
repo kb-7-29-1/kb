@@ -73,14 +73,46 @@ const amenityMarkers = new Map();
 const expandedAmenityMarkerKeys = ref(new Set());
 let resizeObserver = null;
 
-// 편의시설 마커 핀
+// 편의시설 마커 핀 (순수 초고속 HTML 스트링 템플릿)
+const amenityIcons = {
+  1: '🏪',
+  2: '☕',
+  3: '🧺',
+  4: '🍔',
+  5: '🛍️',
+  6: '💄',
+  7: '🛒',
+};
+
 const renderAmenityPin = (amenity, isExpanded = false) => {
-  const container = document.createElement('div');
-  const pinApp = createApp(AmenityPin, { amenity, isExpanded });
-  pinApp.mount(container);
-  const content = container.innerHTML;
-  pinApp.unmount();
-  return content;
+  const icon = amenityIcons[amenity.amenityType] ?? '📍';
+  let walkingInfo = '';
+  const minutes = amenity.walkTimeMinutes;
+  const distance = amenity.distanceMeters;
+
+  if (minutes != null || distance != null) {
+    if (distance == null) walkingInfo = `도보 ${minutes}분`;
+    else if (minutes == null) walkingInfo = `${distance}m`;
+    else walkingInfo = `도보 ${minutes}분 · ${distance}m`;
+  }
+
+  const detailBadge = isExpanded && walkingInfo
+    ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
+    : '';
+
+  const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
+
+  return `
+    <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
+      <div class="relative z-10 flex w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
+        <span class="shrink-0 text-violet-600">${icon}</span>
+        <span class="shrink-0">${amenity.amenityName || ''}</span>
+        ${detailBadge}
+      </div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 border-b border-r border-violet-400 bg-white transition-colors duration-200 group-hover:bg-violet-50"></div>
+      <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
+    </div>
+  `;
 };
 
 const activePropertyMarkersMap = new Map();
