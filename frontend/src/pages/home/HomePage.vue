@@ -21,11 +21,10 @@ const closeFilter = () => {
   isFilterOpen.value = false;
 };
 
-const applyFilters = ({ onboarding, amenities }) => {
+const applyOnboardingFilters = (onboarding) => {
   appliedOnboardingFilters.value = onboarding;
-  // 초기화 후 적용하면 빈 배열을 유지해 편의시설 조건을 적용하지 않는다.
-  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
-  closeFilter();
+  // 온보딩 기준이 바뀌면 편의시설 필터는 다음 단계에서 다시 적용한다.
+  appliedAmenityFilters.value = [];
 };
 
 const applyAmenityFilters = (amenities) => {
@@ -55,11 +54,11 @@ const goMyPage = () => {
       </button>
     </header>
     <MapView
-      :applied-onboarding-filters="appliedOnboardingFilters"
-      :applied-amenity-filters="appliedAmenityFilters"
-      :filter-reset-version="filterResetVersion"
-      @open-filter="openFilter"
-      @apply-amenity-filters="applyAmenityFilters"
+        :applied-onboarding-filters="appliedOnboardingFilters"
+        :applied-amenity-filters="appliedAmenityFilters"
+        :filter-reset-version="filterResetVersion"
+        @open-filter="openFilter"
+        @apply-amenity-filters="applyAmenityFilters"
     />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
@@ -112,7 +111,8 @@ const goMyPage = () => {
         :applied-filters="appliedOnboardingFilters"
         :applied-amenity-filters="appliedAmenityFilters"
         @close="closeFilter"
-        @apply="applyFilters"
+        @apply-onboarding="applyOnboardingFilters"
+        @apply-amenities="applyAmenityFilters"
         @reset="resetFilters"
       />
     </Transition>

@@ -98,24 +98,45 @@ const getSearchRadiusKm = () => {
   return 18.0 * (minutes / 60);
 };
 
+// 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
+const propertyCache = new Map();
+
 // 백엔드 실제 DB 매물 API 조회 (/api/properties)
-const fetchPropertiesFromBackend = async () => {
+const fetchPropertiesFromBackend = async (forceRefetch = false) => {
+  const targetLat = Number(destinationConfig.value.lat || 37.5502);
+  const targetLng = Number(destinationConfig.value.lng || 127.0731);
+  const destKey = `${targetLat.toFixed(4)}_${targetLng.toFixed(4)}`;
+  const neededRadius = Math.max(10.0, getSearchRadiusKm() * 1.5);
+
+  const cached = propertyCache.get(destKey);
+  if (!forceRefetch && cached && cached.maxRadius >= getSearchRadiusKm()) {
+    properties.value = cached.properties;
+    isPropertyApiError.value = false;
+    return;
+  }
+
   try {
     const res = await api.get('/properties', {
       params: {
-        lat: destinationConfig.value.lat,
-        lng: destinationConfig.value.lng,
-        radius: getSearchRadiusKm(),
+        lat: targetLat,
+        lng: targetLng,
+        radius: neededRadius,
       },
     });
     if (res.data && Array.isArray(res.data)) {
       properties.value = res.data;
+      propertyCache.set(destKey, {
+        properties: res.data,
+        maxRadius: neededRadius,
+      });
       isPropertyApiError.value = false;
     }
   } catch (error) {
     console.error('Backend DB API connection failed:', error);
-    properties.value = [];
-    isPropertyApiError.value = true;
+    if (!cached) {
+      properties.value = [];
+      isPropertyApiError.value = true;
+    }
   }
 };
 
@@ -137,7 +158,7 @@ const handleApplyFilters = () => {
 const handleResetFilters = async () => {
   await loadOnboardingDefaultFilters();
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
-  await fetchPropertiesFromBackend();
+  await fetchPropertiesFromBackend(true);
 };
 
 const applyMobileOnboardingFilters = (filters) => {
@@ -180,7 +201,7 @@ watch(() => props.filterResetVersion, handleResetFilters);
 const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = activeAmenityFilters.value;
-  const propertyIds = properties.value
+  const propertyIds = baseFilteredProperties.value
     .map((property) => property.propertyId)
     .filter((propertyId) => propertyId != null);
   const sequence = ++amenityRequestSequence;
@@ -211,8 +232,6 @@ const scheduleAmenityLoad = () => {
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
 };
-
-watch([activeAmenityFilters, properties], scheduleAmenityLoad, { deep: true });
 
 onUnmounted(() => {
   amenityRequestSequence += 1;
@@ -265,7 +284,7 @@ const destinationConfig = computed(() => {
 });
 
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
-const sortedProperties = computed(() => {
+const baseFilteredProperties = computed(() => {
   // 실시간 주 목적지 좌표
   const destLat = destinationConfig.value.lat;
   const destLng = destinationConfig.value.lng;
@@ -340,13 +359,6 @@ const sortedProperties = computed(() => {
       if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
     }
 
-    if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
-      const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
-      const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
-      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
-    }
-
     return true;
   });
 
@@ -366,8 +378,24 @@ const sortedProperties = computed(() => {
   return list; // RECOMMENDED
 });
 
+// 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
+watch([activeAmenityFilters, baseFilteredProperties], scheduleAmenityLoad, { deep: true });
+
+const amenityFilteredProperties = computed(() => {
+  if (!activeAmenityFilters.value.length || amenityFilterLoading.value) {
+    return baseFilteredProperties.value;
+  }
+
+  const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
+  return baseFilteredProperties.value.filter((property) => {
+    const propertyAmenities = amenitiesByProperty.value[property.propertyId] ?? [];
+    const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+    return [...requiredTypes].every((type) => matchedTypes.has(type));
+  });
+});
+
 const visibleProperties = computed(() =>
-  amenityFilterLoading.value ? [] : sortedProperties.value,
+  activeAmenityFilters.value.length && amenityFilterLoading.value ? [] : amenityFilteredProperties.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
