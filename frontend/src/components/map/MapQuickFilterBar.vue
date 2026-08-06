@@ -1180,7 +1180,7 @@ const safetyAccentClass = computed(() => {
             </p>
           </div>
 
-          <!-- 🚌 [대중교통 모드]: 앞뒤여유 시간 -->
+          <!-- 🚌 [대중교통 모드]: 최소 이동시간 -->
           <div
             v-if="filters.transportMode === 'TRANSIT'"
             class="space-y-1.5 pt-1"
@@ -1188,9 +1188,9 @@ const safetyAccentClass = computed(() => {
             <div
               class="flex items-center justify-between text-xs font-bold text-slate-800"
             >
-              <span>⏳ 앞뒤여유 시간</span>
+              <span>⏳ 최소 이동시간</span>
               <span class="text-amber-500 font-extrabold text-sm"
-                >±{{ filters.flexTime }}분</span
+                >{{ Math.max(0, filters.travelTime - filters.flexTime) }}분</span
               >
             </div>
             <input
@@ -1213,15 +1213,13 @@ const safetyAccentClass = computed(() => {
             <div
               class="flex justify-between text-[11px] font-bold text-slate-400"
             >
-              <span>±5분</span>
-              <span>±{{ Math.min(30, filters.travelTime) }}분</span>
+              <span>{{ Math.max(0, filters.travelTime - Math.min(30, filters.travelTime)) }}분</span>
+              <span>{{ Math.max(0, filters.travelTime - 5) }}분</span>
             </div>
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              기준 이동시간({{ filters.travelTime }}분) 대비 ±{{
-                filters.flexTime
-              }}분 범위 매물을 함께 표시해요.
+              {{ Math.max(0, filters.travelTime - filters.flexTime) }}분 미만(너무 가까운 지역) 매물은 제외하고 표시해요.
             </p>
           </div>
 
