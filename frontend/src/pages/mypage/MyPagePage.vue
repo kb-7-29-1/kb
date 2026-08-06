@@ -16,6 +16,7 @@ const onboarding = ref(null);
 const isOnboardingLoading = ref(true);
 const isMovingToOnboarding = ref(false);
 const isOpeningBookmark = ref(false);
+const isReturningToMap = ref(false);
 
 const formatAmount = (amount) => {
   const value = Number(amount);
@@ -63,6 +64,15 @@ const goEditOnboarding = () => {
   isMovingToOnboarding.value = true;
   setTimeout(() => {
     router.push({ path: '/onboarding', query: { from: 'mypage' } });
+  }, 160);
+};
+
+const goHome = () => {
+  if (isReturningToMap.value) return;
+
+  isReturningToMap.value = true;
+  setTimeout(() => {
+    router.push({ name: 'home' });
   }, 160);
 };
 
@@ -154,15 +164,12 @@ onMounted(loadOnboarding);
 <template>
   <div
     class="mypage-page"
-    :class="{ 'mypage-page--leaving': isMovingToOnboarding || isOpeningBookmark }"
+    :class="{
+      'mypage-page--leaving': isMovingToOnboarding || isOpeningBookmark || isReturningToMap,
+    }"
   >
     <header class="mypage-header">
-      <button
-        type="button"
-        class="mypage-back-button"
-        aria-label="지도로 돌아가기"
-        @click="router.push({ name: 'home' })"
-      >
+      <button type="button" class="mypage-back-button" aria-label="지도로 돌아가기" @click="goHome">
         <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
         <span class="mypage-back-label">지도 화면으로</span>
       </button>
@@ -347,11 +354,23 @@ onMounted(loadOnboarding);
   background: #f6f8fc;
   display: flex;
   flex-direction: column;
+  animation: mypage-enter 0.2s ease-out;
 }
 
 .mypage-page--leaving {
   pointer-events: none;
   animation: mypage-leave 0.16s ease-in forwards;
+}
+
+@keyframes mypage-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes mypage-leave {
