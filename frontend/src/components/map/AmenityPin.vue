@@ -6,6 +6,10 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  isExpanded: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const amenityIcons = {
@@ -32,15 +36,41 @@ const walkingInfo = computed(() => {
 
 <template>
   <div
-    class="flex flex-col items-center cursor-default transform -translate-x-1/2 -translate-y-full"
+    class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]"
     :title="amenity.amenityName"
   >
-    <div class="min-w-10 px-2.5 py-1.5 rounded-full bg-white border border-emerald-500 shadow-lg text-xs font-bold text-slate-800 whitespace-nowrap">
-      <span class="mr-1">{{ icon }}</span>
-      <span>{{ amenity.amenityName }}</span>
-      <span v-if="walkingInfo" class="ml-1 text-emerald-600">{{ walkingInfo }}</span>
+    <div
+      class="relative z-10 flex w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl"
+      :class="isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5'"
+    >
+      <span class="shrink-0 text-violet-600">{{ icon }}</span>
+      <span class="shrink-0">{{ amenity.amenityName }}</span>
+      <span
+        v-if="isExpanded && walkingInfo"
+        class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700"
+      >
+        {{ walkingInfo }}
+      </span>
     </div>
-    <div class="w-2.5 h-2.5 bg-emerald-500 rotate-45 -mt-1.5"></div>
+    <div class="relative z-0 -mt-1.5 h-2.5 w-2.5 rotate-45 bg-violet-500"></div>
     <div class="w-6 h-2 bg-black/20 rounded-full blur-sm mt-1"></div>
   </div>
 </template>
+
+<style scoped>
+.amenity-detail {
+  animation: amenity-detail-in 180ms ease-out;
+}
+
+@keyframes amenity-detail-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+</style>

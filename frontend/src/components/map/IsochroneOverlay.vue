@@ -9,7 +9,7 @@ const props = defineProps({
   destination: {
     type: Object,
     default: () => ({
-      name: '세종대학교 (주 목적지)',
+      name: '세종대학교',
       lat: 37.5502,
       lng: 127.0731,
     }),
@@ -41,20 +41,14 @@ const maskPolygonInstance = shallowRef(null);
 let boundsListener = null;
 
 // 고해상도 측지선 원형 경로 정점 생성 (128정점 - 확대 시 찌그러짐 방지)
-const createCirclePath = (
-  centerLat,
-  centerLng,
-  radiusMeters,
-  numPoints = 128,
-) => {
+const createCirclePath = (centerLat, centerLng, radiusMeters, numPoints = 128) => {
   if (!window.naver || !window.naver.maps) return [];
   const points = [];
   const latRad = (centerLat * Math.PI) / 180;
   const earthRadius = 6378137; // 지구 반지름 (m)
 
   const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI);
-  const lngOffset =
-    ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
+  const lngOffset = ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
 
   // Polygon Hole 구멍 생성을 위해 역순(Counter-Clockwise) 생성
   for (let i = numPoints; i >= 0; i--) {
@@ -111,8 +105,8 @@ const updateIsochroneOverlays = () => {
       radius: outerBoundaryMeters,
       fillColor: 'transparent',
       fillOpacity: 0,
-      strokeColor: '#10b981', // Emerald
-      strokeWeight: 3,
+      strokeColor: '#2563eb',
+      strokeWeight: 2,
       strokeOpacity: 0.95,
     });
     circlesList.value.push(walkCircle);
@@ -133,8 +127,8 @@ const updateIsochroneOverlays = () => {
       radius: transitMaxRadius,
       fillColor: 'transparent',
       fillOpacity: 0,
-      strokeColor: '#6366f1', // Indigo
-      strokeWeight: 3,
+      strokeColor: '#4767f7', // 서비스 메인 블루
+      strokeWeight: 2,
       strokeStyle: 'dash font-bold',
       strokeOpacity: 0.9,
     });
@@ -144,10 +138,10 @@ const updateIsochroneOverlays = () => {
       map: props.mapInstance,
       center: destLatLng,
       radius: transitBaseRadius,
-      fillColor: '#0f172a', // 외접원 바깥 암영과 동일한 슬레이트 베이스 색상
-      fillOpacity: 0.25, // 반투명 음영
-      strokeColor: '#2563eb', // Blue
-      strokeWeight: 3,
+      fillColor: '#0f172a',
+      fillOpacity: 0.25,
+      strokeColor: '#f59e0b', // Amber
+      strokeWeight: 2,
       strokeOpacity: 0.95,
     });
 
