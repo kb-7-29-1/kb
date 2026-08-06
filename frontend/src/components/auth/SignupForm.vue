@@ -1,6 +1,9 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { ref, watch } from 'vue';
+import { VueDatePicker } from '@vuepic/vue-datepicker';
+import '@vuepic/vue-datepicker/dist/main.css';
+import { ko } from 'date-fns/locale';
 import { checkId, signup } from '@/api/authService.js';
 
 const router = useRouter();
@@ -14,6 +17,9 @@ const form = ref({
   birthDate: '',
   gender: 'M',
 });
+
+const today = new Date().toISOString().split('T')[0];
+const maxBirthDate = new Date();
 
 const idChecked = ref(false);
 const idCheckMessage = ref('');
@@ -56,6 +62,12 @@ const handleSignup = async () => {
     errorMessage.value = '비밀번호가 일치하지 않습니다.';
     return;
   }
+
+  if (form.value.birthDate > today) {
+    errorMessage.value = '출생연도는 오늘 이후로 설정할 수 없습니다.';
+    return;
+  }
+
   try {
     await signup({
       loginId: form.value.loginId,
@@ -135,20 +147,21 @@ const handleSignup = async () => {
     <div class="signup-birth-gender-row flex gap-4">
       <div class="signup-birth-field flex-[1.8]">
         <label class="block text-sm text-gray-600 mb-1">출생연도</label>
-        <div class="birth-date-field relative">
-          <i
-            class="fa-regular fa-calendar absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400"
-            aria-hidden="true"
-          ></i>
-          <span v-if="!form.birthDate" class="birth-date-placeholder">YYYY-MM-DD</span>
-          <input
-            v-model="form.birthDate"
-            type="date"
-            class="w-full border rounded-lg py-3 pl-9 pr-4"
-            :class="{ 'is-empty': !form.birthDate }"
-            required
-          />
-        </div>
+        <VueDatePicker
+          v-model="form.birthDate"
+          model-type="yyyy-MM-dd"
+          :formats="{ input: 'yyyy-MM-dd' }"
+          :time-config="{ enableTimePicker: false }"
+          :max-date="maxBirthDate"
+          :locale="ko"
+          :clearable="false"
+          :auto-apply="true"
+          :text-input="{ format: 'yyyy-MM-dd' }"
+          :floating="{ placement: 'bottom-start', flip: false }"
+          :year-first="true"
+          placeholder="YYYY-MM-DD"
+          class="birth-date-picker"
+        />
       </div>
       <div class="signup-gender-field flex-[0.8]">
         <label class="block text-sm text-gray-600 mb-1">성별</label>
@@ -208,6 +221,10 @@ const handleSignup = async () => {
 </template>
 
 <style scoped>
+.birth-date-picker {
+  width: 100%;
+}
+
 @media (min-width: 481px) {
   .signup-form {
     gap: 16px;
@@ -232,24 +249,11 @@ const handleSignup = async () => {
     top: 49px;
   }
 
-  .signup-form input:not([type='date']) {
+  .signup-form input {
     min-height: 48px;
     padding-left: 38px;
     border-radius: 12px;
     font-size: 14px;
-  }
-
-  .signup-form input[type='date'] {
-    border-radius: 12px;
-    font-size: 14px;
-  }
-
-  .signup-form input[type='date'].is-empty {
-    color: transparent;
-  }
-
-  .signup-form input[type='date'].is-empty::-webkit-datetime-edit {
-    color: transparent;
   }
 
   .signup-form input:focus {
@@ -270,19 +274,6 @@ const handleSignup = async () => {
   .signup-birth-field,
   .signup-gender-field {
     min-width: 0;
-  }
-
-  .birth-date-placeholder {
-    position: absolute;
-    top: 50%;
-    left: 36px;
-    z-index: 1;
-    padding-right: 4px;
-    background: #fff;
-    color: #a7afbd;
-    font-size: 13px;
-    pointer-events: none;
-    transform: translateY(-50%);
   }
 
   .gender-select button {
@@ -348,21 +339,8 @@ const handleSignup = async () => {
     bottom: auto;
   }
 
-  .signup-form input:not([type='date']) {
+  .signup-form input {
     padding-left: 36px;
-  }
-
-  .birth-date-placeholder {
-    position: absolute;
-    top: 50%;
-    left: 36px;
-    z-index: 1;
-    padding-right: 4px;
-    background: #fff;
-    color: #a7afbd;
-    font-size: 12px;
-    pointer-events: none;
-    transform: translateY(-50%);
   }
 
   .signup-submit-area {
@@ -385,5 +363,20 @@ const handleSignup = async () => {
     background: #4051db;
     font-size: 16px;
   }
+}
+</style>
+
+<style>
+/* vue-datepicker의 팝업 캘린더는 body로 teleport돼서 scoped 스타일이
+   안 먹기 때문에, 폼 색감(#4058f5)에 맞추려면 :root 변수를 전역으로 덮어써야 한다. */
+:root {
+  --dp-primary-color: #4058f5;
+  --dp-border-radius: 12px;
+  --dp-font-family: inherit;
+  --dp-font-size: 14px;
+  --dp-border-color: #d1d5db;
+  --dp-border-color-hover: #4058f5;
+  --dp-border-color-focus: #4058f5;
+  --dp-input-padding: 12px 30px 12px 16px;
 }
 </style>

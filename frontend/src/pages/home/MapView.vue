@@ -12,6 +12,7 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { useMapStore } from '@/stores/useMapStore.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
@@ -51,6 +52,7 @@ const sortOptions = [
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
 const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
 const isQuickFilterReady = ref(false);
+const mapStore = useMapStore();
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
 const amenityFilterRef = ref(null);
@@ -148,8 +150,15 @@ const fetchPropertiesFromBackend = async (forceRefetch = false) => {
 };
 
 onMounted(async () => {
-  await loadOnboardingDefaultFilters();
-  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  if (mapStore.hasSavedFilterState) {
+    // 마이페이지 등에서 돌아온 경우, 온보딩 값으로 리셋하지 않고
+    // 지도에서 마지막으로 조정해둔 필터 상태를 그대로 복원한다.
+    filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
+    appliedFilterState.value = JSON.parse(JSON.stringify(mapStore.appliedFilterState));
+  } else {
+    await loadOnboardingDefaultFilters();
+    appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  }
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend();
 });
@@ -272,6 +281,7 @@ const scheduleAmenityLoad = () => {
 };
 
 onUnmounted(() => {
+  mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   amenityRequestSequence += 1;
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
 });
