@@ -98,24 +98,45 @@ const getSearchRadiusKm = () => {
   return 18.0 * (minutes / 60);
 };
 
+// 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
+const propertyCache = new Map();
+
 // 백엔드 실제 DB 매물 API 조회 (/api/properties)
-const fetchPropertiesFromBackend = async () => {
+const fetchPropertiesFromBackend = async (forceRefetch = false) => {
+  const targetLat = Number(destinationConfig.value.lat || 37.5502);
+  const targetLng = Number(destinationConfig.value.lng || 127.0731);
+  const destKey = `${targetLat.toFixed(4)}_${targetLng.toFixed(4)}`;
+  const neededRadius = Math.max(10.0, getSearchRadiusKm() * 1.5);
+
+  const cached = propertyCache.get(destKey);
+  if (!forceRefetch && cached && cached.maxRadius >= getSearchRadiusKm()) {
+    properties.value = cached.properties;
+    isPropertyApiError.value = false;
+    return;
+  }
+
   try {
     const res = await api.get('/properties', {
       params: {
-        lat: destinationConfig.value.lat,
-        lng: destinationConfig.value.lng,
-        radius: getSearchRadiusKm(),
+        lat: targetLat,
+        lng: targetLng,
+        radius: neededRadius,
       },
     });
     if (res.data && Array.isArray(res.data)) {
       properties.value = res.data;
+      propertyCache.set(destKey, {
+        properties: res.data,
+        maxRadius: neededRadius,
+      });
       isPropertyApiError.value = false;
     }
   } catch (error) {
     console.error('Backend DB API connection failed:', error);
-    properties.value = [];
-    isPropertyApiError.value = true;
+    if (!cached) {
+      properties.value = [];
+      isPropertyApiError.value = true;
+    }
   }
 };
 
@@ -137,7 +158,7 @@ const handleApplyFilters = () => {
 const handleResetFilters = async () => {
   await loadOnboardingDefaultFilters();
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
-  await fetchPropertiesFromBackend();
+  await fetchPropertiesFromBackend(true);
 };
 
 const applyMobileOnboardingFilters = (filters) => {
