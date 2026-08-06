@@ -17,7 +17,9 @@ const emit = defineEmits(['select', 'toggle-bookmark']);
 // 건물 종류 텍스트 변환
 const buildingTypeText = computed(() => {
   const types = { 1: '빌라/연립', 2: '다가구', 3: '오피스텔' };
-  return types[props.property.buildingType] || props.property.propertyType || '주택';
+  return (
+    types[props.property.buildingType] || props.property.propertyType || '주택'
+  );
 });
 
 // 방 종류 텍스트 변환
@@ -32,7 +34,9 @@ const formatPriceAmount = (amount, rent = false) => {
   if (value >= 10000) {
     const eok = value / 10000;
     return {
-      value: Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, ''),
+      value: Number.isInteger(eok)
+        ? String(eok)
+        : eok.toFixed(1).replace(/\.0$/, ''),
       unit: rent ? '억' : '억원',
     };
   }
@@ -43,8 +47,12 @@ const formatPriceAmount = (amount, rent = false) => {
   };
 };
 
-const formattedDeposit = computed(() => formatPriceAmount(props.property.deposit));
-const formattedMonthlyRent = computed(() => formatPriceAmount(props.property.monthlyRent, true));
+const formattedDeposit = computed(() =>
+  formatPriceAmount(props.property.deposit),
+);
+const formattedMonthlyRent = computed(() =>
+  formatPriceAmount(props.property.monthlyRent, true),
+);
 const isJeonse = computed(() => Number(props.property.monthlyRent || 0) === 0);
 
 // 안전점수 색상 클래스
@@ -93,15 +101,18 @@ const safetyScoreClass = computed(() => {
             class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold md:text-[11px]"
             :class="safetyScoreClass"
           >
-            <i class="fa-solid fa-shield-halved text-[9px]" aria-hidden="true"></i>
+            <i
+              class="fa-solid fa-shield-halved text-[9px]"
+              aria-hidden="true"
+            ></i>
             {{ property.safetyScore || 85 }}점
           </span>
-          <span
+          <!-- <span
             v-if="property.dealCount && property.dealCount > 1"
             class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200"
           >
             🏢 거래 {{ property.dealCount }}건
-          </span>
+          </span> -->
         </div>
 
         <h3

@@ -319,29 +319,25 @@ const sortedProperties = computed(() => {
     // 4. 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
-    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터
-    if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
-      const distMeters = distKm * 1000;
+    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터 (매물 필터링은 항시 유지)
+    const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
+    const distMeters = distKm * 1000;
 
-      if (currentFilters.transportMode === 'WALK') {
-        let speedMetersPerMin = 75;
-        if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
-        if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
-        const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
-        if (distMeters > maxReachMeters) return false;
-      } else {
-        // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 링 구역만 허용
-        const transitBaseRadius = Math.max(500, currentFilters.travelTime * 180); // 내부원 (10분 이내)
-        const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
-        const transitMaxRadius = Math.max(
-          transitBaseRadius + 200,
-          (currentFilters.travelTime + flexMins) * 180,
-        ); // 외부원 (30분 이내)
+    if (currentFilters.transportMode === 'WALK') {
+      let speedMetersPerMin = 75;
+      if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
+      if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
+      const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
+      if (distMeters > maxReachMeters) return false;
+    } else {
+      // 대중교통 모드 (TRANSIT): 외접원(transitMaxRadius) ~ 내접원(transitBaseRadius) 범위만 허용
+      const transitMaxRadius = Math.max(500, currentFilters.travelTime * 180);
+      const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+      const minTime = Math.max(0, currentFilters.travelTime - flexMins);
+      const transitBaseRadius = Math.max(200, minTime * 180);
 
-        // 10분 이내 내부원 안쪽 및 30분 초과 외부원 바깥 매물 제외
-        if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
-      }
+      // 내접원 안쪽(너무 가까움) 및 외접원 바깥(너무 돎) 매물 제외
+      if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
     }
 
     if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
@@ -541,6 +537,22 @@ const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
   if (item) item.timeLimit = timeLimit;
 };
 
+const activePopoverName = ref(null);
+const handlePopoverChange = (name) => {
+  activePopoverName.value = name;
+};
+
+const isPreviewingIsochrone = computed(() => {
+  if (activePopoverName.value === 'travel') return true;
+  if (!filterState.value || !appliedFilterState.value) return false;
+  return (
+    filterState.value.travelTime !== appliedFilterState.value.travelTime ||
+    filterState.value.flexTime !== appliedFilterState.value.flexTime ||
+    filterState.value.transportMode !== appliedFilterState.value.transportMode ||
+    filterState.value.walkPace !== appliedFilterState.value.walkPace
+  );
+});
+
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
 const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
   useMobilePanelDrag();
@@ -730,6 +742,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           :total-count="visibleProperties.length"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
+          @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
           @update-filters="handleApplyFilters"
           @reset="handleResetFilters"
@@ -741,11 +754,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
-        :show-isochrone="filterState.showIsochrone"
-        :transport-mode="filterState.transportMode || 'WALK'"
-        :travel-time="filterState.travelTime || 15"
-        :walk-pace="filterState.walkPace || 'NORMAL'"
-        :flex-time="filterState.flexTime || 10"
+        :applied-filter="appliedFilterState"
+        :live-filter="filterState"
+        :is-preview-mode="isPreviewingIsochrone"
         @select-property="handleSelectProperty"
       />
 
