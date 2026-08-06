@@ -13,6 +13,7 @@ const authStore = useAuthStore();
 
 // --- 온보딩 ---
 const onboarding = ref(null);
+const isOnboardingLoading = ref(true);
 
 const formatAmount = (amount) => {
   const value = Number(amount);
@@ -49,6 +50,8 @@ const loadOnboarding = async () => {
     if (error.response?.status !== 404) {
       console.error('ONBOARDING GET ERROR: ', error);
     }
+  } finally {
+    isOnboardingLoading.value = false;
   }
 };
 
@@ -141,7 +144,21 @@ onMounted(loadOnboarding);
     <main class="mypage-content">
       <ProfileCard />
 
+      <section v-if="isOnboardingLoading" class="onboarding-panel-skeleton" aria-busy="true">
+        <div class="skeleton-row skeleton-row--heading">
+          <span class="skeleton-block skeleton-title"></span>
+          <span class="skeleton-block skeleton-edit"></span>
+        </div>
+        <div v-for="index in 5" :key="index" class="skeleton-row skeleton-row--condition">
+          <span class="skeleton-block skeleton-icon"></span>
+          <span class="skeleton-block skeleton-label"></span>
+          <span class="skeleton-block skeleton-value"></span>
+        </div>
+      </section>
+
       <OnboardingPanel
+        v-else
+        class="onboarding-panel--loaded"
         :destination="destination"
         :transport="transport"
         :deposit="deposit"
@@ -356,6 +373,82 @@ onMounted(loadOnboarding);
   background: #fff;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
   margin-top: 0;
+}
+
+.onboarding-panel-skeleton {
+  box-sizing: border-box;
+  padding: 18px 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+}
+
+.skeleton-row--heading {
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.skeleton-row--condition {
+  min-height: 20px;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.skeleton-block {
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #edf1f7 25%, #f7f9fc 45%, #edf1f7 65%);
+  background-size: 220% 100%;
+  animation: mypage-skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+.skeleton-title {
+  width: 74px;
+  height: 15px;
+}
+.skeleton-edit {
+  width: 32px;
+  height: 12px;
+}
+.skeleton-icon {
+  width: 13px;
+  height: 13px;
+}
+.skeleton-label {
+  width: 64px;
+  height: 12px;
+}
+.skeleton-value {
+  width: 86px;
+  height: 12px;
+  margin-left: auto;
+}
+
+.onboarding-panel--loaded {
+  animation: mypage-content-reveal 0.24s ease-out;
+}
+
+@keyframes mypage-skeleton-shimmer {
+  to {
+    background-position: -120% 0;
+  }
+}
+
+@keyframes mypage-content-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mypage-actions h2 {
