@@ -15,6 +15,8 @@ import DestinationPin from './DestinationPin.vue';
 import {
   getClusteredMarkers,
   renderClusterPinHTML,
+  renderPropertyPinHTML,
+  renderDestinationPinHTML,
 } from '@/utils/mapClustering';
 
 const props = defineProps({
@@ -78,47 +80,6 @@ const renderAmenityPin = (amenity) => {
   return content;
 };
 
-import { formatPropertyPrice } from '@/utils/priceFormatter';
-
-// 매물 마커 핀 (PropertyPin 컴포넌트 렌더링)
-const renderPropertyPin = (prop, isSelected) => {
-  const priceText = formatPropertyPrice(prop.deposit, prop.monthlyRent);
-  const bgClass = isSelected
-    ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-700 scale-110 z-30'
-    : 'bg-slate-900 text-white hover:bg-blue-600 border-slate-700 z-10';
-
-  let icon = '🏠';
-  if (isSelected) {
-    icon = '📍';
-  } else if (prop.buildingType === 3) {
-    icon = '🏢';
-  } else if (prop.buildingType === 1) {
-    icon = '🏡';
-  }
-
-  return `
-    <div class="px-2.5 py-1.5 rounded-2xl text-xs font-black shadow-lg border transition-all cursor-pointer flex items-center gap-1.5 transform -translate-x-1/2 -translate-y-full select-none ${bgClass}">
-      <span>${icon}</span>
-      <span>${priceText}</span>
-    </div>
-  `;
-};
-
-// 목적지 마커 핀 (DestinationPin 컴포넌트 렌더링)
-const renderDestinationPin = (destination) => {
-  const name = destination?.name || '주 목적지';
-  return `
-    <div class="flex flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
-      <div class="px-3.5 py-1.5 rounded-full bg-blue-600 text-white font-bold text-xs shadow-xl flex items-center gap-1.5 border border-blue-400 hover:bg-blue-700 transition-all">
-        <span class="inline-block animate-bounce">🚩</span>
-        <span>${name}</span>
-      </div>
-      <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
-      <div class="w-8 h-8 bg-black/20 rounded-full blur-xs mt-1"></div>
-    </div>
-  `;
-};
-
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
 const renderMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
@@ -140,7 +101,7 @@ const renderMarkers = () => {
     position: destLatLng,
     map: mapInstance.value,
     icon: {
-      content: renderDestinationPin(props.destination),
+      content: renderDestinationPinHTML(props.destination),
     },
   });
   markersMap.value.push(destMarker);
@@ -183,7 +144,7 @@ const renderMarkers = () => {
         position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
         map: mapInstance.value,
         icon: {
-          content: renderPropertyPin(prop, isSelected),
+          content: renderPropertyPinHTML(prop, isSelected),
         },
       });
 
@@ -419,7 +380,13 @@ const destinationName = computed(() => {
 });
 
 const checkDistanceToDestination = () => {
-  if (!mapInstance.value || !props.destination || !window.naver || !window.naver.maps) return;
+  if (
+    !mapInstance.value ||
+    !props.destination ||
+    !window.naver ||
+    !window.naver.maps
+  )
+    return;
   const targetLat =
     Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
   const targetLng =
@@ -433,19 +400,13 @@ const checkDistanceToDestination = () => {
   isFarFromDestination.value = bounds ? !bounds.hasLatLng(destLatLng) : false;
 };
 
-// 내 목적지로 카메라 빠른 이동
+// 내 목적지로 카메라 빠른 이동 (도보/대중교통 및 이동시간 범위에 맞추어 줌 레벨 자동 조율)
 const moveMapToDestination = () => {
   if (!mapInstance.value || !props.destination) return;
-  const targetLat =
-    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng =
-    Number(props.destination.lng || props.destination.destLongitude) ||
-    127.0731;
 
-  mapInstance.value.morph(
-    new window.naver.maps.LatLng(targetLat, targetLng),
-    15,
-  );
+  // 선택된 이동 수단(도보/대중교통), 걸음 속도, 이동 시간에 맞춰 최적 줌 레벨 및 위치로 이동
+  fitToIsochroneRadius();
+
   isFarFromDestination.value = false;
 };
 </script>

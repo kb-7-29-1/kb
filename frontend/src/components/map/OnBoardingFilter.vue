@@ -11,6 +11,7 @@ import {
   RENT_MIN_LABEL,
   RENT_STEP,
   formatDepositAmount,
+  LOAN_PRODUCTS,
 } from '@/utils/budget';
 
 const props = defineProps({
@@ -28,6 +29,7 @@ const minSafetyScore = ref(40);
 const depositOptions = DEPOSIT_OPTIONS;
 const depositIndex = ref(depositOptions.length - 1);
 const maxRent = ref(120);
+const selectedLoanId = ref('NONE');
 const transportMode = ref('walk');
 const travelTime = ref(15);
 const flexTime = ref(10);
@@ -153,6 +155,7 @@ const resetFilters = () => {
   minSafetyScore.value = Number(onboarding.minSafetyScore);
   transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
+  if (onboarding.selectedLoanId) selectedLoanId.value = onboarding.selectedLoanId;
 };
 
 const getFilters = () => ({
@@ -163,6 +166,7 @@ const getFilters = () => ({
   budgetDeposit: maxDeposit.value,
   budgetRent: maxRent.value,
   minSafetyScore: minSafetyScore.value,
+  selectedLoanId: selectedLoanId.value,
 });
 
 defineExpose({ getFilters, resetFilters });
@@ -223,6 +227,24 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       </ul>
     </div>
 
+    <!-- 🛡️ 최소 안전 점수 섹션 (목적지 검색 바로 아래 배치) -->
+    <div class="filter-section">
+      <div class="section-heading">
+        <p>
+          최소 안전 점수 <strong>{{ safetyLabel }}</strong> 이상
+        </p>
+      </div>
+      <input
+        v-model.number="minSafetyScore"
+        type="range"
+        min="0"
+        max="90"
+        step="10"
+        :style="rangeStyle(minSafetyScore, 0, 90)"
+      />
+      <div class="range-labels"><span>0점</span><span>90점</span></div>
+    </div>
+
     <div class="filter-section">
       <div class="section-heading">
         <p>
@@ -263,21 +285,56 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       </div>
     </div>
 
-    <div class="filter-section">
+    <!-- 🏦 맞춤 대출 상품 연동 섹션 -->
+    <div class="filter-section loan-section">
       <div class="section-heading">
-        <p>
-          최소 안전 점수 <strong>{{ safetyLabel }}</strong> 이상
+        <p class="flex items-center justify-between w-full">
+          <span>🏦 맞춤 대출 상품 (한도 우대)</span>
+          <span class="text-[11px] text-blue-600 font-bold">한도 최대 80% 자동 계산</span>
         </p>
       </div>
-      <input
-        v-model.number="minSafetyScore"
-        type="range"
-        min="0"
-        max="90"
-        step="10"
-        :style="rangeStyle(minSafetyScore, 0, 90)"
-      />
-      <div class="range-labels"><span>0점</span><span>90점</span></div>
+
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <button
+          v-for="product in LOAN_PRODUCTS"
+          :key="product.id"
+          type="button"
+          class="p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between"
+          :class="
+            selectedLoanId === product.id
+              ? 'border-blue-500 bg-blue-50/80 text-blue-700 font-extrabold ring-2 ring-blue-100 shadow-xs'
+              : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-blue-200 hover:bg-slate-100/80'
+          "
+          @click="selectedLoanId = product.id"
+        >
+          <div class="text-[12px] font-bold truncate flex items-center gap-1">
+            <span>{{ product.icon }}</span>
+            <span class="truncate">{{ product.shortName }}</span>
+          </div>
+          <div class="text-[10px] text-slate-400 mt-1 font-medium">{{ product.rateInfo }}</div>
+        </button>
+      </div>
+
+      <div
+        v-if="selectedLoanId && selectedLoanId !== 'NONE'"
+        class="mt-3 p-3 rounded-xl bg-slate-900 text-white text-xs space-y-1.5 shadow-md"
+      >
+        <div class="flex justify-between text-slate-300">
+          <span>내 보유 자금</span>
+          <span>{{ depositLabel }}</span>
+        </div>
+        <div class="flex justify-between text-emerald-400 font-bold">
+          <span>+ 예상 대출금 (한도 적용)</span>
+          <span>{{ formatDepositAmount(maxDeposit * (LOAN_PRODUCTS.find(l => l.id === selectedLoanId)?.ratio || 0)) }}</span>
+        </div>
+        <div class="h-px bg-white/20 my-1"></div>
+        <div class="flex justify-between font-extrabold text-amber-300 text-xs">
+          <span>🚀 최대 매물 탐색 가능 범위</span>
+          <span class="text-amber-300 font-black">
+            {{ formatDepositAmount(maxDeposit * (1 + (LOAN_PRODUCTS.find(l => l.id === selectedLoanId)?.ratio || 0))) }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <div class="filter-section travel-section">
