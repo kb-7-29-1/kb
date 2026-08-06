@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, ref, watch } from 'vue';
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
 
 const emit = defineEmits(['select-destination', 'update:purpose']);
@@ -18,9 +18,11 @@ const selectedPurpose = ref(props.purpose);
 const keyword = ref(props.selectedDestination?.destName ?? '');
 const destinations = ref([]);
 const selectedDestination = ref(props.selectedDestination);
+const destinationInput = ref(null);
 const isSearching = ref(false);
 const searchError = ref('');
 const isComposing = ref(false);
+const isSelectingDestination = ref(false);
 
 const purposes = [
   { id: 'school', label: '학교', icon: '🎓' },
@@ -30,6 +32,25 @@ const purposes = [
 
 let searchTimer;
 let searchRequestId = 0;
+let selectionReleaseTimer;
+
+const beginDestinationSelection = () => {
+  clearTimeout(selectionReleaseTimer);
+  isSelectingDestination.value = true;
+};
+
+const finishDestinationSelection = () => {
+  clearTimeout(selectionReleaseTimer);
+  selectionReleaseTimer = setTimeout(() => {
+    isSelectingDestination.value = false;
+  }, 100);
+};
+
+const cancelPendingSearch = () => {
+  clearTimeout(searchTimer);
+  searchRequestId += 1;
+  isSearching.value = false;
+};
 
 const handleCompositionStart = () => {
   isComposing.value = true;
@@ -37,29 +58,38 @@ const handleCompositionStart = () => {
 
 const handleCompositionEnd = (event) => {
   isComposing.value = false;
+
+  if (isSelectingDestination.value) return;
   keyword.value = event.target.value;
   scheduleSearch(keyword.value);
 };
 
 const handleSearchInput = (event) => {
+  if (isSelectingDestination.value) return;
   keyword.value = event.target.value;
   scheduleSearch(event.target.value);
 };
 
 const clearSearch = () => {
+  cancelPendingSearch();
   keyword.value = '';
   destinations.value = [];
   selectedDestination.value = null;
   searchError.value = '';
   emit('select-destination', null);
+
+  nextTick(() => destinationInput.value?.focus());
 };
 
 const selectDestination = (destination) => {
+  beginDestinationSelection();
+  cancelPendingSearch();
   selectedDestination.value = destination;
   keyword.value = destination.destName;
   destinations.value = [];
   searchError.value = '';
   emit('select-destination', destination);
+  finishDestinationSelection();
 };
 
 const scheduleSearch = (value) => {
@@ -93,11 +123,12 @@ const scheduleSearch = (value) => {
   }, 300);
 };
 
-watch(keyword, scheduleSearch);
-
 watch(selectedPurpose, (value) => emit('update:purpose', value));
 
-onBeforeUnmount(() => clearTimeout(searchTimer));
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer);
+  clearTimeout(selectionReleaseTimer);
+});
 </script>
 
 <template>
@@ -124,51 +155,56 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
         </button>
       </div>
 
-      <label class="search-label" for="destination">학교/직장 이름 또는 주소</label>
-      <div class="search-box">
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input
-          id="destination"
-          v-model="keyword"
-          @input="handleSearchInput"
-          @compositionstart="handleCompositionStart"
-          @compositionend="handleCompositionEnd"
-          type="text"
-          autocomplete="off"
-          placeholder="예: 세종대학교, KB국민은행"
-        />
-        <button
-          v-if="keyword"
-          type="button"
-          class="clear-button"
-          aria-label="검색어 지우기"
-          @click="clearSearch"
-        >
-          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-        </button>
-      </div>
-
-      <p v-if="isSearching" class="search-message">검색 중이에요.</p>
-      <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
-      <p
-        v-else-if="keyword.trim().length >= 2 && !selectedDestination && !destinations.length"
-        class="search-message"
-      >
-        검색 결과가 없어요.
-      </p>
-
-      <ul v-if="destinations.length" class="suggestion-list">
-        <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
-          <button type="button" @click="selectDestination(item)">
-            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
-            <span>
-              <strong>{{ item.destName }}</strong>
-              <small>{{ item.destAddress }}</small>
-            </span>
-            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+      <div class="search-field">
+        <label class="search-label" for="destination">학교/직장 이름 또는 주소</label>
+        <div class="search-box">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input
+            id="destination"
+            ref="destinationInput"
+            v-model="keyword"
+            @input="handleSearchInput"
+            @compositionstart="handleCompositionStart"
+            @compositionend="handleCompositionEnd"
+            type="text"
+            autocomplete="off"
+            placeholder="예: 세종대학교, KB국민은행"
+          />
+          <button
+            v-if="keyword"
+            type="button"
+            class="clear-button"
+            aria-label="검색어 지우기"
+            @click="clearSearch"
+          >
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
-        </li>
-      </ul>
+        </div>
+
+        <p v-if="isSearching" class="search-message">검색 중이에요.</p>
+        <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
+        <p
+          v-else-if="keyword.trim().length >= 2 && !selectedDestination && !destinations.length"
+          class="search-message"
+        >
+          검색 결과가 없어요.
+        </p>
+
+        <div class="search-feedback">
+          <ul v-if="destinations.length" class="suggestion-list">
+            <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
+              <button type="button" @pointerdown.prevent="selectDestination(item)">
+                <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                <span>
+                  <strong>{{ item.destName }}</strong>
+                  <small>{{ item.destAddress }}</small>
+                </span>
+                <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </div>
 
       <p v-if="selectedDestination" class="selected-message">
         <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
@@ -238,6 +274,13 @@ h2 {
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 .purpose-icon {
   font-size: 20px;
@@ -247,6 +290,53 @@ h2 {
   border-color: #2a60f7;
   background: #eff6ff;
   color: #2a60f7;
+  box-shadow: 0 6px 14px -10px rgba(42, 96, 247, 0.7);
+  animation: purpose-select 0.24s ease-out;
+}
+.purpose-button.active .purpose-icon {
+  animation: purpose-icon-pop 0.28s ease-out;
+}
+.purpose-button:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .purpose-button:hover {
+    border-color: #b9c8ff;
+    background: #f8faff;
+    color: #2a60f7;
+    box-shadow: 0 8px 16px -13px rgba(42, 96, 247, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .purpose-button.active:hover {
+    border-color: #2a60f7;
+    background: #eff6ff;
+  }
+}
+
+@keyframes purpose-select {
+  0% {
+    transform: scale(0.96);
+  }
+  70% {
+    transform: scale(1.025);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes purpose-icon-pop {
+  0% {
+    transform: translateY(2px) scale(0.9);
+  }
+  65% {
+    transform: translateY(-2px) scale(1.08);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 .search-label {
   display: block;
@@ -254,6 +344,9 @@ h2 {
   color: #334155;
   font-size: 14px;
   font-weight: 600;
+}
+.search-field {
+  position: relative;
 }
 .search-box {
   display: flex;
@@ -358,5 +451,22 @@ input::placeholder {
   margin: 12px 2px 0;
   color: #2563eb;
   font-size: 12px;
+}
+
+@media (min-width: 768px) {
+  .search-feedback {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 20;
+    padding-top: 10px;
+  }
+
+  .search-feedback .suggestion-list {
+    margin: 0;
+    background: #fff;
+    box-shadow: 0 16px 32px -18px rgba(15, 23, 42, 0.3);
+  }
 }
 </style>

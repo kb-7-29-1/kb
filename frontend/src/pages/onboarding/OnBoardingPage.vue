@@ -41,6 +41,7 @@ const route = useRoute();
 const isEditingFromMyPage = route.query.from === 'mypage';
 const currentStep = ref(isEditingFromMyPage ? 1 : getSavedStep());
 const isSaving = ref(false);
+const stepDirection = ref('forward');
 
 if (isEditingFromMyPage) {
   localStorage.setItem(`${ONBOARDING_DRAFT_KEY}-step`, '1');
@@ -103,6 +104,7 @@ const currentComponent = computed(() => {
 
 const goPrevious = () => {
   if (currentStep.value > 1) {
+    stepDirection.value = 'backward';
     currentStep.value -= 1;
     return;
   }
@@ -115,7 +117,10 @@ const goReturn = () => {
 };
 
 const goNext = () => {
-  if (currentStep.value < 5) currentStep.value += 1;
+  if (currentStep.value < 5) {
+    stepDirection.value = 'forward';
+    currentStep.value += 1;
+  }
 };
 
 const goLogin = () => {
@@ -177,21 +182,24 @@ const setDestination = (destination) => {
           @go-login="goLogin"
         />
         <section class="onboarding-content">
-          <component
-            :is="currentComponent"
-            :selected-destination="onboardingData.destination"
-            :purpose="onboardingData.purpose"
-            :transport="onboardingData.transport"
-            :deposit="onboardingData.deposit"
-            :monthly-rent="onboardingData.monthlyRent"
-            :safety="onboardingData.safety"
-            @select-destination="setDestination"
-            @update:purpose="onboardingData.purpose = $event"
-            @update:transport="onboardingData.transport = $event"
-            @update:deposit="onboardingData.deposit = $event"
-            @update:monthly-rent="onboardingData.monthlyRent = $event"
-            @update:safety="onboardingData.safety = $event"
-          />
+          <Transition :name="`step-${stepDirection}`" mode="out-in">
+            <component
+              :is="currentComponent"
+              :key="currentStep"
+              :selected-destination="onboardingData.destination"
+              :purpose="onboardingData.purpose"
+              :transport="onboardingData.transport"
+              :deposit="onboardingData.deposit"
+              :monthly-rent="onboardingData.monthlyRent"
+              :safety="onboardingData.safety"
+              @select-destination="setDestination"
+              @update:purpose="onboardingData.purpose = $event"
+              @update:transport="onboardingData.transport = $event"
+              @update:deposit="onboardingData.deposit = $event"
+              @update:monthly-rent="onboardingData.monthlyRent = $event"
+              @update:safety="onboardingData.safety = $event"
+            />
+          </Transition>
         </section>
         <OnboardingBottom
           :current-step="currentStep"
@@ -225,6 +233,28 @@ const setDestination = (destination) => {
 .onboarding-content {
   flex: 1;
   padding: 24px 20px 110px;
+  overflow-x: clip;
+}
+
+.step-forward-enter-active,
+.step-forward-leave-active,
+.step-backward-enter-active,
+.step-backward-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.step-forward-enter-from,
+.step-backward-leave-to {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.step-forward-leave-to,
+.step-backward-enter-from {
+  opacity: 0;
+  transform: translateX(-18px);
 }
 
 @media (min-width: 768px) {

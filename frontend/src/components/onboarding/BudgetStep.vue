@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import api from '@/api/api';
 import { useAuthStore } from '@/stores/useAuthStore.js';
+import { getBankLogoUrl } from '@/utils/bankLogo';
 import {
   DEPOSIT_MAX_LABEL,
   DEPOSIT_MIN_LABEL,
@@ -42,6 +43,8 @@ const monthlyRentLabel = computed(() => {
 const authStore = useAuthStore();
 const loan = ref(null);
 const loanLoading = ref(false);
+const justUpdated = ref(false);
+let highlightTimer = null;
 
 const age = computed(() => {
   const birthDate = authStore.user?.birthDate;
@@ -60,7 +63,16 @@ const fetchLoan = async () => {
         age: age.value,
       },
     });
+    const previousProductName = loan.value?.productName;
     loan.value = response.data;
+
+    if (previousProductName && loan.value && loan.value.productName !== previousProductName) {
+      justUpdated.value = true;
+      clearTimeout(highlightTimer);
+      highlightTimer = setTimeout(() => {
+        justUpdated.value = false;
+      }, 900);
+    }
   } catch (error) {
     console.log('대출상품 조회 실패', error);
     loan.value = null;
@@ -115,6 +127,18 @@ const formatAmount = (amount) => {
 
   return `${amount.toLocaleString()}만원`;
 };
+
+const bankLogoUrl = computed(() => getBankLogoUrl(loan.value?.companyName));
+
+const loanLimitParts = computed(() => {
+  const text = loan.value?.loanLimit || '';
+  const notes = text.match(/\(초과분[^)]*\)/g);
+  if (!notes) return { main: text, note: null };
+  return {
+    main: text.replace(/\(초과분[^)]*\)/g, '').replace(/\s{2,}/g, ' ').trim(),
+    note: notes.join(' '),
+  };
+});
 
 const rangeStyle = (value, min, max) => {
   const percent = ((value - min) / (max - min)) * 100;
@@ -175,13 +199,14 @@ const rangeStyle = (value, min, max) => {
         </div>
       </div>
 
-      <aside v-if="loanLoading" class="loan-panel">
-        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
-      </aside>
-
-      <aside v-else-if="loan" class="loan-panel">
+      <aside
+        v-if="loan"
+        class="loan-panel"
+        :class="{ 'is-refreshing': loanLoading, 'is-updated': justUpdated }"
+      >
         <div class="loan-icon" aria-hidden="true">
-          <i class="fa-solid fa-building-columns"></i>
+          <img v-if="bankLogoUrl" :src="bankLogoUrl" :alt="loan.companyName" class="loan-icon__logo" />
+          <i v-else class="fa-solid fa-building-columns"></i>
         </div>
         <div class="loan-copy">
           <span>맞춤 금융 상품</span>
@@ -200,10 +225,17 @@ const rangeStyle = (value, min, max) => {
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>{{ loan.loanLimit }}까지 대출 가능해요 !</strong>
+            <strong>
+              {{ loanLimitParts.main }}까지 대출 가능해요!
+              <small v-if="loanLimitParts.note">{{ loanLimitParts.note }}</small>
+            </strong>
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>
+      </aside>
+
+      <aside v-else-if="loanLoading" class="loan-panel loan-panel--skeleton">
+        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
       </aside>
     </div>
   </section>
@@ -328,6 +360,16 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid #dbeafe;
   border-radius: 14px;
   background: #eff6ff;
+  transition: background-color 0.5s ease, border-color 0.5s ease, opacity 0.2s ease;
+}
+
+.loan-panel.is-refreshing {
+  opacity: 0.55;
+}
+
+.loan-panel.is-updated {
+  background: #dbeafe;
+  border-color: #60a5fa;
 }
 
 .loan-icon {
@@ -340,6 +382,15 @@ input[type='range']::-moz-range-thumb {
   background: #fff;
   color: #2a60f7;
   font-size: 15px;
+  overflow: hidden;
+}
+
+.loan-icon__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .loan-copy {
@@ -395,6 +446,13 @@ input[type='range']::-moz-range-thumb {
   color: #1e3a8a;
   font-size: 14px;
   font-weight: 700;
+}
+
+.recommendation-result > strong small {
+  margin-left: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .recommendation-result .target-info {
