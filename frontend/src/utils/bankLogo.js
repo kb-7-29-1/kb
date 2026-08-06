@@ -16,6 +16,7 @@ function resolveLogoUrl(fileName) {
 }
 
 const BANK_LOGO_RULES = [
+  { keywords: ['주택도시기금'], file: '주택도시보증공사.png' },
   { keywords: ['국민은행', 'KB'], file: 'KB국민은행.png' },
   { keywords: ['신한은행'], file: '신한은행.png' },
   { keywords: ['우리은행'], file: '우리은행.png' },
@@ -39,6 +40,7 @@ const BANK_LOGO_RULES = [
   { keywords: ['씨티은행', '씨티뱅크'], file: '씨티뱅크.png' },
   { keywords: ['우체국'], file: '우체국.png' },
   { keywords: ['산업은행'], file: '산업은행.png' },
+  { keywords: ['국민연금공단'], file: '국민연금공단.png' },
 ];
 
 // 은행명 문자열(예: "농협은행주식회사", "주식회사 하나은행")을 넣으면
