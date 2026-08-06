@@ -102,6 +102,13 @@ const getSearchRadiusKm = () => {
   return 18.0 * (minutes / 60);
 };
 
+// 편의점 디폴트 도보 시간 (5분)
+const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
+
+// 기타 편의시설 디폴트 도보 시간 (15분)
+const DEFAULT_AMENITY_WALK_TIME = 15;
+
+
 // 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
 const propertyCache = new Map();
 
@@ -446,6 +453,10 @@ const visibleProperties = computed(() =>
     : amenityFilteredProperties.value,
 );
 
+const shouldHideAmenityPins = computed(
+    () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
+);
+
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
 const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
@@ -551,6 +562,31 @@ const handleApplyAmenities = (selectedList) => {
   emit('apply-amenity-filters', activeAmenityFilters.value);
 };
 
+// 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
+const normalizeAmenitySelection = (selectedFilters) =>
+    selectedFilters.map((filter) => {
+      const appliedFilter = activeAmenityFilters.value.find((item) => item.amenityType === filter.amenityType);
+      const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+
+      // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
+      const defaultWalkTime = Number(filter.amenityType) === 1
+          ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+          : DEFAULT_AMENITY_WALK_TIME;
+
+      const walkTimeMinutes = Number(
+          appliedFilter?.walkTimeMinutes ??
+          detailFilter?.timeLimit ??
+          filter.timeLimit ??
+          defaultWalkTime,
+      );
+
+      return {
+        ...filter,
+        timeLimit: walkTimeMinutes,
+        walkTimeMinutes,
+      };
+    });
+
 const openAmenityDetailFilter = (selectedFilters) => {
   if (isAmenityDetailFilterOpen.value) {
     isAmenityDetailFilterOpen.value = false;
@@ -558,13 +594,13 @@ const openAmenityDetailFilter = (selectedFilters) => {
   }
 
   const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
+  amenityDetailFilters.value = normalizeAmenitySelection(filters).map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
 
 const syncAmenityDetailFilter = (selectedFilters) => {
   if (!isAmenityDetailFilterOpen.value) return;
-  amenityDetailFilters.value = selectedFilters.map((filter) => {
+  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map((filter) => {
     const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
     return {
       ...filter,
@@ -576,20 +612,13 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 // PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
-
-  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
-  const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
-    (filter) => !selectedTypes.has(Number(filter.amenityType)),
+  const normalizedFilters = normalizeAmenitySelection(selectedFilters);
+  handleApplyAmenities(
+    normalizedFilters.map((filter) => ({
+      amenityType: filter.amenityType,
+      walkTimeMinutes: Number(filter.walkTimeMinutes),
+    })),
   );
-
-  if (hasRemovedAppliedFilter) {
-    handleApplyAmenities(
-      selectedFilters.map((filter) => ({
-        amenityType: filter.amenityType,
-        walkTimeMinutes: Number(filter.timeLimit),
-      })),
-    );
-  }
 };
 
 const resetAmenityDetailFilters = () => {
@@ -715,6 +744,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             @apply="handleApplyAmenities"
             @selection-change="handleAmenitySelectionChange"
           />
+
+          <p class="mt-2 text-[12px] leading-5 text-slate-500">
+            <span class="notice-icon" aria-hidden="true">⚠</span>
+            선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
+          </p>
 
           <AmenityDetailFilterPanel
             v-if="isAmenityDetailFilterOpen"
@@ -1027,6 +1061,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   .property-list-scroll::-webkit-scrollbar-thumb {
     border-radius: 999px;
     background: #d7deea;
+  }
+
+  .notice-icon {
+    flex-shrink: 0;
+    font-size: 12px;
   }
 }
 </style>
