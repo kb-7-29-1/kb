@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
 
 const props = defineProps({
   destination: {
@@ -25,7 +24,7 @@ const props = defineProps({
   },
 });
 
-const router = useRouter();
+const emit = defineEmits(['edit']);
 
 const conditions = computed(() => [
   { icon: '📍', label: '주 목적지', value: props.destination },
@@ -34,16 +33,13 @@ const conditions = computed(() => [
   { icon: '🏢', label: '월세 예산', value: props.rent },
   { icon: '🛡️', label: '안전 점수', value: props.safety },
 ]);
-
-const goOnboarding = () =>
-  router.push({ path: '/onboarding', query: { from: 'mypage' } });
 </script>
 
 <template>
   <section class="onboarding-panel" aria-labelledby="onboarding-panel-title">
     <div class="panel-heading">
       <h2 id="onboarding-panel-title">내 탐색 조건</h2>
-      <button type="button" class="edit-link" @click="goOnboarding">
+      <button type="button" class="edit-link" @click="emit('edit')">
         수정
         <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
       </button>
@@ -51,9 +47,7 @@ const goOnboarding = () =>
 
     <ul class="condition-list">
       <li v-for="condition in conditions" :key="condition.label">
-        <span class="condition-icon" aria-hidden="true">{{
-          condition.icon
-        }}</span>
+        <span class="condition-icon" aria-hidden="true">{{ condition.icon }}</span>
         <span class="condition-label">{{ condition.label }}</span>
         <strong>{{ condition.value }}</strong>
       </li>

@@ -14,6 +14,8 @@ const authStore = useAuthStore();
 // --- 온보딩 ---
 const onboarding = ref(null);
 const isOnboardingLoading = ref(true);
+const isMovingToOnboarding = ref(false);
+const isOpeningBookmark = ref(false);
 
 const formatAmount = (amount) => {
   const value = Number(amount);
@@ -53,6 +55,29 @@ const loadOnboarding = async () => {
   } finally {
     isOnboardingLoading.value = false;
   }
+};
+
+const goEditOnboarding = () => {
+  if (isMovingToOnboarding.value) return;
+
+  isMovingToOnboarding.value = true;
+  setTimeout(() => {
+    router.push({ path: '/onboarding', query: { from: 'mypage' } });
+  }, 160);
+};
+
+const openBookmarkDetail = (property) => {
+  if (isOpeningBookmark.value) return;
+
+  isOpeningBookmark.value = true;
+  sessionStorage.setItem('selectedBookmarkProperty', JSON.stringify(property));
+
+  setTimeout(() => {
+    router.push({
+      name: 'home',
+      query: { propertyId: String(property.propertyId) },
+    });
+  }, 160);
 };
 
 // --- 비밀번호 변경 ---
@@ -127,7 +152,10 @@ onMounted(loadOnboarding);
 </script>
 
 <template>
-  <div class="mypage-page">
+  <div
+    class="mypage-page"
+    :class="{ 'mypage-page--leaving': isMovingToOnboarding || isOpeningBookmark }"
+  >
     <header class="mypage-header">
       <button
         type="button"
@@ -164,9 +192,10 @@ onMounted(loadOnboarding);
         :deposit="deposit"
         :rent="rent"
         :safety="safety"
+        @edit="goEditOnboarding"
       />
 
-      <BookmarkList />
+      <BookmarkList @open-property="openBookmarkDetail" />
 
       <section class="mypage-actions" aria-labelledby="account-actions-title">
         <h2 id="account-actions-title">계정 관리</h2>
@@ -198,106 +227,112 @@ onMounted(loadOnboarding);
       </section>
     </main>
 
-    <div v-if="showPasswordModal" class="account-modal-overlay">
-      <div
-        class="account-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="password-modal-title"
-      >
-        <div class="account-modal-heading">
-          <h3 id="password-modal-title">
-            <span class="account-modal-icon" aria-hidden="true"
-              ><i class="fa-solid fa-lock"></i
-            ></span>
-            비밀번호 변경
-          </h3>
-          <button
-            type="button"
-            class="account-modal-close"
-            aria-label="닫기"
-            @click="closePasswordModal"
-          >
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-          </button>
-        </div>
-        <p class="account-modal-description">현재 비밀번호 확인 후 새 비밀번호를 설정해 주세요.</p>
+    <Transition name="account-modal">
+      <div v-if="showPasswordModal" class="account-modal-overlay">
+        <div
+          class="account-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="password-modal-title"
+        >
+          <div class="account-modal-heading">
+            <h3 id="password-modal-title">
+              <span class="account-modal-icon" aria-hidden="true"
+                ><i class="fa-solid fa-lock"></i
+              ></span>
+              비밀번호 변경
+            </h3>
+            <button
+              type="button"
+              class="account-modal-close"
+              aria-label="닫기"
+              @click="closePasswordModal"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="account-modal-description">
+            현재 비밀번호 확인 후 새 비밀번호를 설정해 주세요.
+          </p>
 
-        <label class="account-modal-label">현재 비밀번호</label>
-        <input
-          v-model="passwordForm.currentPassword"
-          type="password"
-          class="account-modal-input"
-          placeholder="현재 비밀번호를 입력해 주세요"
-        />
-        <label class="account-modal-label">새 비밀번호</label>
-        <input
-          v-model="passwordForm.newPassword"
-          type="password"
-          class="account-modal-input"
-          placeholder="새 비밀번호를 입력해 주세요"
-        />
-        <label class="account-modal-label">새 비밀번호 확인</label>
-        <input
-          v-model="passwordForm.newPasswordConfirm"
-          type="password"
-          class="account-modal-input"
-          placeholder="새 비밀번호를 다시 입력해 주세요"
-        />
-        <p v-if="passwordError" class="account-modal-error">{{ passwordError }}</p>
-        <div class="account-modal-actions">
-          <button type="button" class="account-cancel-button" @click="closePasswordModal">
-            취소
-          </button>
-          <button type="button" class="account-primary-button" @click="handleChangePassword">
-            변경하기
-          </button>
+          <label class="account-modal-label">현재 비밀번호</label>
+          <input
+            v-model="passwordForm.currentPassword"
+            type="password"
+            class="account-modal-input"
+            placeholder="현재 비밀번호를 입력해 주세요"
+          />
+          <label class="account-modal-label">새 비밀번호</label>
+          <input
+            v-model="passwordForm.newPassword"
+            type="password"
+            class="account-modal-input"
+            placeholder="새 비밀번호를 입력해 주세요"
+          />
+          <label class="account-modal-label">새 비밀번호 확인</label>
+          <input
+            v-model="passwordForm.newPasswordConfirm"
+            type="password"
+            class="account-modal-input"
+            placeholder="새 비밀번호를 다시 입력해 주세요"
+          />
+          <p v-if="passwordError" class="account-modal-error">{{ passwordError }}</p>
+          <div class="account-modal-actions">
+            <button type="button" class="account-cancel-button" @click="closePasswordModal">
+              취소
+            </button>
+            <button type="button" class="account-primary-button" @click="handleChangePassword">
+              변경하기
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
 
-    <div v-if="showWithdrawModal" class="account-modal-overlay">
-      <div
-        class="account-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="withdraw-modal-title"
-      >
-        <div class="account-modal-heading">
-          <h3 id="withdraw-modal-title">
-            <span class="account-modal-icon account-modal-icon--danger" aria-hidden="true">
-              <i class="fa-regular fa-trash-can"></i>
-            </span>
-            회원 탈퇴
-          </h3>
-          <button
-            type="button"
-            class="account-modal-close"
-            aria-label="닫기"
-            @click="closeWithdrawModal"
-          >
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-          </button>
-        </div>
-        <p class="account-modal-description">탈퇴를 진행하려면 현재 비밀번호를 입력해 주세요.</p>
-        <label class="account-modal-label">현재 비밀번호</label>
-        <input
-          v-model="withdrawPassword"
-          type="password"
-          class="account-modal-input"
-          placeholder="현재 비밀번호를 입력해 주세요"
-        />
-        <p v-if="withdrawError" class="account-modal-error">{{ withdrawError }}</p>
-        <div class="account-modal-actions">
-          <button type="button" class="account-cancel-button" @click="closeWithdrawModal">
-            취소
-          </button>
-          <button type="button" class="account-danger-button" @click="handleWithdraw">
-            탈퇴하기
-          </button>
+    <Transition name="account-modal">
+      <div v-if="showWithdrawModal" class="account-modal-overlay">
+        <div
+          class="account-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="withdraw-modal-title"
+        >
+          <div class="account-modal-heading">
+            <h3 id="withdraw-modal-title">
+              <span class="account-modal-icon account-modal-icon--danger" aria-hidden="true">
+                <i class="fa-regular fa-trash-can"></i>
+              </span>
+              회원 탈퇴
+            </h3>
+            <button
+              type="button"
+              class="account-modal-close"
+              aria-label="닫기"
+              @click="closeWithdrawModal"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="account-modal-description">탈퇴를 진행하려면 현재 비밀번호를 입력해 주세요.</p>
+          <label class="account-modal-label">현재 비밀번호</label>
+          <input
+            v-model="withdrawPassword"
+            type="password"
+            class="account-modal-input"
+            placeholder="현재 비밀번호를 입력해 주세요"
+          />
+          <p v-if="withdrawError" class="account-modal-error">{{ withdrawError }}</p>
+          <div class="account-modal-actions">
+            <button type="button" class="account-cancel-button" @click="closeWithdrawModal">
+              취소
+            </button>
+            <button type="button" class="account-danger-button" @click="handleWithdraw">
+              탈퇴하기
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -312,6 +347,18 @@ onMounted(loadOnboarding);
   background: #f6f8fc;
   display: flex;
   flex-direction: column;
+}
+
+.mypage-page--leaving {
+  pointer-events: none;
+  animation: mypage-leave 0.16s ease-in forwards;
+}
+
+@keyframes mypage-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }
 
 .mypage-header {
@@ -516,6 +563,29 @@ onMounted(loadOnboarding);
   justify-content: center;
   padding: 24px;
   background: rgb(15 23 42 / 40%);
+}
+
+.account-modal-enter-active,
+.account-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.account-modal-enter-active .account-modal,
+.account-modal-leave-active .account-modal {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.account-modal-enter-from,
+.account-modal-leave-to {
+  opacity: 0;
+}
+
+.account-modal-enter-from .account-modal,
+.account-modal-leave-to .account-modal {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
 }
 
 .account-modal {

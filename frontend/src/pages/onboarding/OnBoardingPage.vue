@@ -217,6 +217,18 @@ const setDestination = (destination) => {
 .onboarding-page {
   min-height: 100dvh;
   background: #f8fafc;
+  animation: onboarding-page-enter 0.22s ease-out;
+}
+
+@keyframes onboarding-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .onboarding-workspace,

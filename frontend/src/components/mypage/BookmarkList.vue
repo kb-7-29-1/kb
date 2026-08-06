@@ -1,11 +1,10 @@
 <script setup>
 import api from '@/api/api.js';
 import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
 
 const bookmarks = ref([]);
 const isLoading = ref(true);
-const router = useRouter();
+const emit = defineEmits(['open-property']);
 
 const fetchBookmarks = async () => {
   try {
@@ -24,12 +23,7 @@ const removeBookmark = async (propertyId) => {
 };
 
 const openPropertyDetail = (property) => {
-  sessionStorage.setItem('selectedBookmarkProperty', JSON.stringify(property));
-
-  router.push({
-    name: 'home',
-    query: { propertyId: String(property.propertyId) },
-  });
+  emit('open-property', property);
 };
 
 const safetyBadgeClass = (score) => {

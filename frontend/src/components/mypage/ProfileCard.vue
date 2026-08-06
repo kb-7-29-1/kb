@@ -80,53 +80,55 @@ const handleUpdateProfile = async () => {
     </div>
 
     <!-- 정보 수정 모달 -->
-    <div v-if="isEditing" class="profile-modal-overlay">
-      <div
-        class="profile-edit-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="profile-edit-title"
-      >
-        <div class="profile-modal-heading">
-          <h3 id="profile-edit-title">
-            <span class="profile-modal-icon" aria-hidden="true">
-              <i class="fa-regular fa-user"></i>
-            </span>
-            프로필 정보 수정
-          </h3>
-          <button type="button" class="profile-modal-close" aria-label="닫기" @click="cancelEdit">
-            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-          </button>
-        </div>
+    <Transition name="profile-modal">
+      <div v-if="isEditing" class="profile-modal-overlay">
+        <div
+          class="profile-edit-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="profile-edit-title"
+        >
+          <div class="profile-modal-heading">
+            <h3 id="profile-edit-title">
+              <span class="profile-modal-icon" aria-hidden="true">
+                <i class="fa-regular fa-user"></i>
+              </span>
+              프로필 정보 수정
+            </h3>
+            <button type="button" class="profile-modal-close" aria-label="닫기" @click="cancelEdit">
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
 
-        <p class="profile-modal-description">변경할 이름과 이메일을 입력해 주세요.</p>
+          <p class="profile-modal-description">변경할 이름과 이메일을 입력해 주세요.</p>
 
-        <label class="profile-edit-label">이름</label>
-        <input
-          v-model="editForm.name"
-          type="text"
-          class="profile-edit-input"
-          placeholder="변경할 이름을 입력해 주세요"
-        />
+          <label class="profile-edit-label">이름</label>
+          <input
+            v-model="editForm.name"
+            type="text"
+            class="profile-edit-input"
+            placeholder="변경할 이름을 입력해 주세요"
+          />
 
-        <label class="profile-edit-label">이메일</label>
-        <input
-          v-model="editForm.email"
-          type="email"
-          class="profile-edit-input"
-          placeholder="example@email.com"
-        />
+          <label class="profile-edit-label">이메일</label>
+          <input
+            v-model="editForm.email"
+            type="email"
+            class="profile-edit-input"
+            placeholder="example@email.com"
+          />
 
-        <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
+          <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
 
-        <div class="profile-modal-actions">
-          <button type="button" class="profile-cancel-button" @click="cancelEdit">취소</button>
-          <button type="button" class="profile-save-button" @click="handleUpdateProfile">
-            저장하기
-          </button>
+          <div class="profile-modal-actions">
+            <button type="button" class="profile-cancel-button" @click="cancelEdit">취소</button>
+            <button type="button" class="profile-save-button" @click="handleUpdateProfile">
+              저장하기
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -229,6 +231,29 @@ const handleUpdateProfile = async () => {
   justify-content: center;
   padding: 24px;
   background: rgb(15 23 42 / 40%);
+}
+
+.profile-modal-enter-active,
+.profile-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.profile-modal-enter-active .profile-edit-modal,
+.profile-modal-leave-active .profile-edit-modal {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.profile-modal-enter-from,
+.profile-modal-leave-to {
+  opacity: 0;
+}
+
+.profile-modal-enter-from .profile-edit-modal,
+.profile-modal-leave-to .profile-edit-modal {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
 }
 
 .profile-edit-modal {
