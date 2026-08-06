@@ -105,8 +105,8 @@ const updateIsochroneOverlays = () => {
       radius: outerBoundaryMeters,
       fillColor: 'transparent',
       fillOpacity: 0,
-      strokeColor: '#10b981', // Emerald
-      strokeWeight: 3,
+      strokeColor: '#2563eb',
+      strokeWeight: 2,
       strokeOpacity: 0.95,
     });
     circlesList.value.push(walkCircle);
@@ -127,8 +127,8 @@ const updateIsochroneOverlays = () => {
       radius: transitMaxRadius,
       fillColor: 'transparent',
       fillOpacity: 0,
-      strokeColor: '#6366f1', // Indigo
-      strokeWeight: 3,
+      strokeColor: '#4767f7', // 서비스 메인 블루
+      strokeWeight: 2,
       strokeStyle: 'dash font-bold',
       strokeOpacity: 0.9,
     });
@@ -138,10 +138,10 @@ const updateIsochroneOverlays = () => {
       map: props.mapInstance,
       center: destLatLng,
       radius: transitBaseRadius,
-      fillColor: '#0f172a', // 외접원 바깥 암영과 동일한 슬레이트 베이스 색상
-      fillOpacity: 0.25, // 반투명 음영
-      strokeColor: '#2563eb', // Blue
-      strokeWeight: 3,
+      fillColor: '#0f172a',
+      fillOpacity: 0.25,
+      strokeColor: '#f59e0b', // Amber
+      strokeWeight: 2,
       strokeOpacity: 0.95,
     });
 
