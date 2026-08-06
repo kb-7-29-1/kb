@@ -130,6 +130,16 @@ const formatAmount = (amount) => {
 
 const bankLogoUrl = computed(() => getBankLogoUrl(loan.value?.companyName));
 
+const loanLimitParts = computed(() => {
+  const text = loan.value?.loanLimit || '';
+  const notes = text.match(/\(초과분[^)]*\)/g);
+  if (!notes) return { main: text, note: null };
+  return {
+    main: text.replace(/\(초과분[^)]*\)/g, '').replace(/\s{2,}/g, ' ').trim(),
+    note: notes.join(' '),
+  };
+});
+
 const rangeStyle = (value, min, max) => {
   const percent = ((value - min) / (max - min)) * 100;
 
@@ -215,7 +225,9 @@ const rangeStyle = (value, min, max) => {
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>{{ loan.loanLimit }}까지 대출 가능해요!
+            <strong>
+              {{ loanLimitParts.main }}까지 대출 가능해요!
+              <small v-if="loanLimitParts.note">{{ loanLimitParts.note }}</small>
             </strong>
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
@@ -434,6 +446,13 @@ input[type='range']::-moz-range-thumb {
   color: #1e3a8a;
   font-size: 14px;
   font-weight: 700;
+}
+
+.recommendation-result > strong small {
+  margin-left: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .recommendation-result .target-info {
