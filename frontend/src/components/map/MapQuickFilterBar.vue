@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
 import api from '@/api/api.js';
 import {
@@ -62,6 +62,7 @@ const appliedQuickFilters = computed(() => props.modelValue);
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
 const destinationSearchKeyword = ref('');
+const destinationSearchInput = ref(null);
 const destinationSearchResults = ref([]);
 const selectedDestination = ref(null);
 const isDestinationSearching = ref(false);
@@ -210,6 +211,8 @@ const clearDestinationSearch = () => {
   destinationSearchResults.value = [];
   selectedDestination.value = null;
   destinationSearchError.value = '';
+
+  nextTick(() => destinationSearchInput.value?.focus());
 };
 
 const applyDestination = async () => {
@@ -474,6 +477,7 @@ const safetyAccentClass = computed(() => {
           >
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input
+              ref="destinationSearchInput"
               v-model="destinationSearchKeyword"
               @input="handleDestinationSearchInput"
               @compositionstart="handleDestinationCompositionStart"

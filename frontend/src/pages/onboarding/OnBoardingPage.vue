@@ -233,7 +233,7 @@ const setDestination = (destination) => {
 .onboarding-content {
   flex: 1;
   padding: 24px 20px 110px;
-  overflow: hidden;
+  overflow-x: clip;
 }
 
 .step-forward-enter-active,
