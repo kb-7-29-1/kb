@@ -42,6 +42,8 @@ const monthlyRentLabel = computed(() => {
 const authStore = useAuthStore();
 const loan = ref(null);
 const loanLoading = ref(false);
+const justUpdated = ref(false);
+let highlightTimer = null;
 
 const age = computed(() => {
   const birthDate = authStore.user?.birthDate;
@@ -60,7 +62,16 @@ const fetchLoan = async () => {
         age: age.value,
       },
     });
+    const previousProductName = loan.value?.productName;
     loan.value = response.data;
+
+    if (previousProductName && loan.value && loan.value.productName !== previousProductName) {
+      justUpdated.value = true;
+      clearTimeout(highlightTimer);
+      highlightTimer = setTimeout(() => {
+        justUpdated.value = false;
+      }, 900);
+    }
   } catch (error) {
     console.log('대출상품 조회 실패', error);
     loan.value = null;
@@ -175,11 +186,11 @@ const rangeStyle = (value, min, max) => {
         </div>
       </div>
 
-      <aside v-if="loanLoading" class="loan-panel">
-        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
-      </aside>
-
-      <aside v-else-if="loan" class="loan-panel">
+      <aside
+        v-if="loan"
+        class="loan-panel"
+        :class="{ 'is-refreshing': loanLoading, 'is-updated': justUpdated }"
+      >
         <div class="loan-icon" aria-hidden="true">
           <i class="fa-solid fa-building-columns"></i>
         </div>
@@ -204,6 +215,10 @@ const rangeStyle = (value, min, max) => {
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>
+      </aside>
+
+      <aside v-else-if="loanLoading" class="loan-panel loan-panel--skeleton">
+        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
       </aside>
     </div>
   </section>
@@ -328,6 +343,16 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid #dbeafe;
   border-radius: 14px;
   background: #eff6ff;
+  transition: background-color 0.5s ease, border-color 0.5s ease, opacity 0.2s ease;
+}
+
+.loan-panel.is-refreshing {
+  opacity: 0.55;
+}
+
+.loan-panel.is-updated {
+  background: #dbeafe;
+  border-color: #60a5fa;
 }
 
 .loan-icon {
