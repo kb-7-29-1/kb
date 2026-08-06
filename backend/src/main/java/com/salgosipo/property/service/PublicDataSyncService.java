@@ -67,7 +67,8 @@ public class PublicDataSyncService {
         log.info(
                 "Starting Full Seoul (25 Districts x Recent 3 Months) Multi-Threaded Parallel API to DB Sync...");
         List<String> recent3Months = getRecent3MonthsYmd();
-        int[] buildingTypes = { 3 }; // 3: 오피스텔
+        int[] buildingTypes = { 1, 2, 3 };
+        // 1: 연립다세대/빌라, 2: 단독/다가구, 3: 오피스텔
 
         // 25개 자치구 x 3개월 x 건물유형 조합 타겟 리스트 생성 (75개 작업 단위)
         List<String[]> taskList = new ArrayList<>();

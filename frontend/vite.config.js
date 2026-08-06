@@ -22,5 +22,6 @@ export default defineConfig({
   },
   build: {
     outDir: '../backend/src/main/webapp/resources',
+    emptyOutDir: true,
   },
 });

@@ -29,8 +29,10 @@ dependencies {
     // 스프링
     implementation ("org.springframework:spring-context:${springVersion}")
             { exclude group: 'commons-logging', module: 'commons-logging' }
+    implementation "org.springframework:spring-context-support:${springVersion}"
     implementation "org.springframework:spring-webmvc:${springVersion}"
     implementation 'javax.inject:javax.inject:1'
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
 
     // 데이터베이스
     implementation 'com.mysql:mysql-connector-j:8.1.0'

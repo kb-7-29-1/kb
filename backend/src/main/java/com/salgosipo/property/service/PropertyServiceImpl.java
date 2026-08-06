@@ -5,6 +5,7 @@ import com.salgosipo.property.dto.PropertyListDTO;
 import com.salgosipo.property.dto.PropertySearchCondDTO;
 import com.salgosipo.property.mapper.PropertyMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ public class PropertyServiceImpl implements PropertyService {
     private final PublicDataApiService publicDataApiService;
 
     @Override
+    @Cacheable(value = "propertyList", key = "(#cond != null ? #cond.toString() : '') + '_' + (#userId != null ? #userId : 0)")
     public List<PropertyListDTO> getPropertyList(PropertySearchCondDTO cond, Long userId) {
         try {
             List<PropertyListDTO> list = propertyMapper.selectPropertyList(cond, userId);
@@ -38,6 +40,7 @@ public class PropertyServiceImpl implements PropertyService {
     }
 
     @Override
+    @Cacheable(value = "propertyDetail", key = "#propertyId + '_' + (#userId != null ? #userId : 0)")
     public PropertyDetailDTO getPropertyDetail(Long propertyId, Long userId) {
         PropertyDetailDTO detail = propertyMapper.selectPropertyDetail(propertyId, userId);
         if (detail != null) {
