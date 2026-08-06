@@ -50,6 +50,18 @@ const props = defineProps({
     type: Number,
     default: 10, // 여유 시간 (분)
   },
+  isPreviewMode: {
+    type: Boolean,
+    default: false,
+  },
+  appliedFilter: {
+    type: Object,
+    default: null,
+  },
+  liveFilter: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['select-property']);
@@ -71,78 +83,156 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
   return content;
 };
 
+const activePropertyMarkersMap = new Map();
+let activeDestMarker = null;
+const destinationMarkers = new Set();
+let pendingRenderFrame = null;
+
+const clearDestinationMarkers = () => {
+  destinationMarkers.forEach((marker) => marker.setMap(null));
+  destinationMarkers.clear();
+  activeDestMarker = null;
+};
+
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
+// 🚀 [비동기 타임 슬라이싱 (Time-Slicing / Chunking) 최적화]
+// - 1단계: 필요 없는 마커 0ms 동기식 즉시 제거 (Quick Removal)
+// - 2단계: 신규 마커 생성을 requestAnimationFrame으로 25개씩 시분할 렌더링 (Lazy Async Drawing)
 const renderMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
 
-  // 1. 기존 마커 제거
-  markersMap.value.forEach((m) => m.setMap(null));
-  markersMap.value = [];
+  if (pendingRenderFrame) {
+    cancelAnimationFrame(pendingRenderFrame);
+    pendingRenderFrame = null;
+  }
 
   const bounds = mapInstance.value.getBounds();
   const currentZoom = mapInstance.value.getZoom();
 
-  const destLatLng = new window.naver.maps.LatLng(
-    props.destination.lat || 37.5502,
-    props.destination.lng || 127.0731,
-  );
+  // 1. 🚩 주 목적지 핀 관리 (기존 마커 재생성 방지)
+  const destLat = props.destination.lat || 37.5502;
+  const destLng = props.destination.lng || 127.0731;
+  const destLatLng = new window.naver.maps.LatLng(destLat, destLng);
+  const destKey = `${destLat}_${destLng}_${props.destination.name || ''}`;
 
-  // 2. 🚩 주 목적지 핀
-  const destMarker = new window.naver.maps.Marker({
-    position: destLatLng,
-    map: mapInstance.value,
-    icon: {
-      content: renderDestinationPinHTML(props.destination),
-    },
-  });
-  markersMap.value.push(destMarker);
+  if (!activeDestMarker || activeDestMarker._key !== destKey) {
+    clearDestinationMarkers();
+    activeDestMarker = new window.naver.maps.Marker({
+      position: destLatLng,
+      map: mapInstance.value,
+      icon: {
+        content: renderDestinationPinHTML(props.destination),
+      },
+    });
+    activeDestMarker._key = destKey;
+    destinationMarkers.add(activeDestMarker);
+  }
 
-  // 3. 🏢 / 🏠 매물 및 클러스터 마커 렌더링
+  // 2. 🏢 / 🏠 매물 및 클러스터 마커 렌더링 준비 (Diffing)
   const clusteredNodes = getClusteredMarkers(props.properties, currentZoom, bounds);
+  const nextMarkerKeys = new Set();
+  const nodesToCreate = [];
 
   clusteredNodes.forEach((node) => {
     if (node.isCluster) {
-      const clusterMarker = new window.naver.maps.Marker({
-        position: new window.naver.maps.LatLng(node.lat, node.lng),
-        map: mapInstance.value,
-        icon: {
-          content: renderClusterPinHTML(node.count, node.items),
-        },
-      });
-
-      // 클러스터 클릭 시 해당 그룹 영역으로 줌인
-      window.naver.maps.Event.addListener(clusterMarker, 'click', () => {
-        if (mapInstance.value) {
-          mapInstance.value.morph(
-            new window.naver.maps.LatLng(node.lat, node.lng),
-            currentZoom + 2,
-          );
-        }
-      });
-
-      markersMap.value.push(clusterMarker);
+      const clusterKey = `cluster_${node.lat.toFixed(5)}_${node.lng.toFixed(5)}_${node.count}`;
+      nextMarkerKeys.add(clusterKey);
+      if (!activePropertyMarkersMap.has(clusterKey)) {
+        nodesToCreate.push({ type: 'cluster', key: clusterKey, node });
+      }
     } else {
       const prop = node.item;
       const isSelected =
         props.selectedProperty && props.selectedProperty.propertyId === prop.propertyId;
+      const propKey = `prop_${prop.propertyId}_${isSelected ? 'selected' : 'normal'}`;
+      nextMarkerKeys.add(propKey);
 
-      const propMarker = new window.naver.maps.Marker({
-        position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
-        map: mapInstance.value,
-        icon: {
-          content: renderPropertyPinHTML(prop, isSelected),
-        },
-      });
-
-      window.naver.maps.Event.addListener(propMarker, 'click', () => {
-        emit('select-property', prop);
-      });
-
-      markersMap.value.push(propMarker);
+      if (!activePropertyMarkersMap.has(propKey)) {
+        nodesToCreate.push({ type: 'prop', key: propKey, prop, isSelected });
+      }
     }
   });
 
-  // 4. 편의시설 마커
+  // 3. 🧹 [1단계: 동기식 즉시 삭제] 필터 범위 벗어난 기존 마커 0ms 내 즉시 제거
+  activePropertyMarkersMap.forEach((marker, key) => {
+    if (!nextMarkerKeys.has(key)) {
+      marker.setMap(null);
+      activePropertyMarkersMap.delete(key);
+    }
+  });
+
+  // 4. ⚡ [2단계: 비동기 시분할 Lazy Chunking] 신규 마커 25개씩 프레임 분할 생성
+  const chunkSize = 25;
+  let currentIndex = 0;
+
+  const processNextChunk = () => {
+    const end = Math.min(currentIndex + chunkSize, nodesToCreate.length);
+
+    for (let i = currentIndex; i < end; i++) {
+      const task = nodesToCreate[i];
+      if (task.type === 'cluster') {
+        if (!activePropertyMarkersMap.has(task.key)) {
+          const clusterMarker = new window.naver.maps.Marker({
+            position: new window.naver.maps.LatLng(task.node.lat, task.node.lng),
+            map: mapInstance.value,
+            icon: {
+              content: renderClusterPinHTML(task.node.count, task.node.items),
+            },
+          });
+
+          window.naver.maps.Event.addListener(clusterMarker, 'click', () => {
+            if (mapInstance.value) {
+              mapInstance.value.morph(
+                new window.naver.maps.LatLng(task.node.lat, task.node.lng),
+                currentZoom + 2,
+              );
+            }
+          });
+
+          activePropertyMarkersMap.set(task.key, clusterMarker);
+        }
+      } else {
+        const { prop, isSelected, key } = task;
+        const oldNormalKey = `prop_${prop.propertyId}_normal`;
+        const oldSelectedKey = `prop_${prop.propertyId}_selected`;
+        if (activePropertyMarkersMap.has(oldNormalKey)) {
+          activePropertyMarkersMap.get(oldNormalKey).setMap(null);
+          activePropertyMarkersMap.delete(oldNormalKey);
+        }
+        if (activePropertyMarkersMap.has(oldSelectedKey)) {
+          activePropertyMarkersMap.get(oldSelectedKey).setMap(null);
+          activePropertyMarkersMap.delete(oldSelectedKey);
+        }
+
+        if (!activePropertyMarkersMap.has(key)) {
+          const propMarker = new window.naver.maps.Marker({
+            position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
+            map: mapInstance.value,
+            icon: {
+              content: renderPropertyPinHTML(prop, isSelected),
+            },
+          });
+
+          window.naver.maps.Event.addListener(propMarker, 'click', () => {
+            emit('select-property', prop);
+          });
+
+          activePropertyMarkersMap.set(key, propMarker);
+        }
+      }
+    }
+
+    currentIndex = end;
+    if (currentIndex < nodesToCreate.length) {
+      pendingRenderFrame = requestAnimationFrame(processNextChunk);
+    } else {
+      pendingRenderFrame = null;
+    }
+  };
+
+  if (nodesToCreate.length > 0) {
+    processNextChunk();
+  }
 };
 
 const getAmenityMarkerKey = (amenity) =>
@@ -302,22 +392,23 @@ const fitToIsochroneRadius = () => {
     !props.destination?.lng
   )
     return;
-  if (!props.showIsochrone) return;
+
+  const filter = props.liveFilter || props.appliedFilter;
+  if (!filter || filter.showIsochrone === false) return;
 
   let radiusMeters = 900;
-  if (props.transportMode === 'WALK') {
+  if (filter.transportMode === 'WALK') {
     let speedMetersPerMin = 75;
-    if (props.walkPace === 'SLOW') speedMetersPerMin = 58;
-    if (props.walkPace === 'FAST') speedMetersPerMin = 92;
-    radiusMeters = Math.max(200, props.travelTime * speedMetersPerMin);
+    if (filter.walkPace === 'SLOW') speedMetersPerMin = 58;
+    if (filter.walkPace === 'FAST') speedMetersPerMin = 92;
+    radiusMeters = Math.max(200, (filter.travelTime || 15) * speedMetersPerMin);
   } else {
-    const transitBaseRadius = Math.max(500, props.travelTime * 180);
-    radiusMeters = Math.max(transitBaseRadius + 200, (props.travelTime + props.flexTime) * 180);
+    radiusMeters = Math.max(500, (filter.travelTime || 15) * 180);
   }
 
   const earthRadius = 6378137;
-  const centerLat = props.destination.lat;
-  const centerLng = props.destination.lng;
+  const centerLat = Number(props.destination.lat || props.destination.destLatitude);
+  const centerLng = Number(props.destination.lng || props.destination.destLongitude);
   const latRad = (centerLat * Math.PI) / 180;
 
   // 15% 여유 공간 마진
@@ -329,23 +420,25 @@ const fitToIsochroneRadius = () => {
     new window.naver.maps.LatLng(centerLat + latOffset, centerLng + lngOffset),
   );
 
-  mapInstance.value.fitBounds(bounds);
+  const currentMapBounds = mapInstance.value.getBounds();
+
+  // 프리뷰 점선 원이 현재 지도 화면(currentMapBounds)을 벗어나는 경우에만 단방향 화면 축소(fitBounds)
+  if (
+    !currentMapBounds ||
+    !currentMapBounds.hasLatLng(bounds.getNE()) ||
+    !currentMapBounds.hasLatLng(bounds.getSW())
+  ) {
+    mapInstance.value.fitBounds(bounds);
+  }
 };
 
-// 목적지 및 이동시간 필터 변경 시(적용하기 클릭 시) 해당 최대 원 크기에 맞춰 줌 조율
+// 실시간 프리뷰 점선 원 및 목적지 변경 시 줌 자동 조율
 watch(
-  [
-    () => props.destination,
-    () => props.travelTime,
-    () => props.transportMode,
-    () => props.walkPace,
-    () => props.flexTime,
-    () => props.showIsochrone,
-  ],
+  [() => props.destination, () => props.liveFilter, () => props.appliedFilter],
   () => {
     fitToIsochroneRadius();
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
 
 watch(zoomLevel, (newZoom) => {
@@ -374,7 +467,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  markersMap.value.forEach((marker) => marker.setMap(null));
+  activePropertyMarkersMap.forEach((marker) => marker.setMap(null));
+  activePropertyMarkersMap.clear();
+  clearDestinationMarkers();
   clearAmenityMarkers();
   if (resizeObserver) {
     resizeObserver.disconnect();
@@ -418,11 +513,9 @@ const moveMapToDestination = () => {
     <IsochroneOverlay
       :map-instance="mapInstance"
       :destination="destination"
-      :show-isochrone="showIsochrone"
-      :transport-mode="transportMode"
-      :travel-time="travelTime"
-      :walk-pace="walkPace"
-      :flex-time="flexTime"
+      :applied-filter="appliedFilter"
+      :live-filter="liveFilter"
+      :is-preview-mode="isPreviewMode"
     />
 
     <!-- 3. 목적지에서 멀어졌을 때 상단 중앙 스르륵 등장하는 플로팅 복귀 캡슐 버튼 (z-30) -->

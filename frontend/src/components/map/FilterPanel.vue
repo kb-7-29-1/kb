@@ -24,7 +24,7 @@ const onboardingFilterRef = ref(null);
 const onboarding = ref(null);
 const applyError = ref('');
 
-const emit = defineEmits(['close', 'apply', 'reset']);
+const emit = defineEmits(['close', 'apply-onboarding', 'apply-amenities', 'reset']);
 
 const loadOnboardingSummary = async () => {
   try {
@@ -56,6 +56,13 @@ const handleApply = async () => {
   applyError.value = '';
   const selectedAmenities = amenityFilterRef.value?.getFilters?.();
   const amenities = Array.isArray(selectedAmenities) ? selectedAmenities : [];
+
+  if (activeTab.value === 'amenity') {
+    emit('apply-amenities', amenities);
+    emit('close');
+    return;
+  }
+
   const filters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
   const { selectedDestination, ...onboardingFilters } = filters;
 
@@ -64,10 +71,7 @@ const handleApply = async () => {
       await onboardingApi.saveDestination(selectedDestination);
     }
 
-    emit('apply', {
-      onboarding: onboardingFilters,
-      amenities,
-    });
+    emit('apply-onboarding', onboardingFilters);
     emit('close');
   } catch (error) {
     applyError.value = '목적지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';

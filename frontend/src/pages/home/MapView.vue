@@ -12,6 +12,7 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { useMapStore } from '@/stores/useMapStore.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
@@ -51,6 +52,7 @@ const sortOptions = [
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
 const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
 const isQuickFilterReady = ref(false);
+const mapStore = useMapStore();
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
 const amenityFilterRef = ref(null);
@@ -98,30 +100,58 @@ const getSearchRadiusKm = () => {
   return 18.0 * (minutes / 60);
 };
 
+// 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
+const propertyCache = new Map();
+
 // 백엔드 실제 DB 매물 API 조회 (/api/properties)
-const fetchPropertiesFromBackend = async () => {
+const fetchPropertiesFromBackend = async (forceRefetch = false) => {
+  const targetLat = Number(destinationConfig.value.lat || 37.5502);
+  const targetLng = Number(destinationConfig.value.lng || 127.0731);
+  const destKey = `${targetLat.toFixed(4)}_${targetLng.toFixed(4)}`;
+  const neededRadius = Math.max(10.0, getSearchRadiusKm() * 1.5);
+
+  const cached = propertyCache.get(destKey);
+  if (!forceRefetch && cached && cached.maxRadius >= getSearchRadiusKm()) {
+    properties.value = cached.properties;
+    isPropertyApiError.value = false;
+    return;
+  }
+
   try {
     const res = await api.get('/properties', {
       params: {
-        lat: destinationConfig.value.lat,
-        lng: destinationConfig.value.lng,
-        radius: getSearchRadiusKm(),
+        lat: targetLat,
+        lng: targetLng,
+        radius: neededRadius,
       },
     });
     if (res.data && Array.isArray(res.data)) {
       properties.value = res.data;
+      propertyCache.set(destKey, {
+        properties: res.data,
+        maxRadius: neededRadius,
+      });
       isPropertyApiError.value = false;
     }
   } catch (error) {
     console.error('Backend DB API connection failed:', error);
-    properties.value = [];
-    isPropertyApiError.value = true;
+    if (!cached) {
+      properties.value = [];
+      isPropertyApiError.value = true;
+    }
   }
 };
 
 onMounted(async () => {
-  await loadOnboardingDefaultFilters();
-  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  if (mapStore.hasSavedFilterState) {
+    // 마이페이지 등에서 돌아온 경우, 온보딩 값으로 리셋하지 않고
+    // 지도에서 마지막으로 조정해둔 필터 상태를 그대로 복원한다.
+    filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
+    appliedFilterState.value = JSON.parse(JSON.stringify(mapStore.appliedFilterState));
+  } else {
+    await loadOnboardingDefaultFilters();
+    appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  }
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend();
 });
@@ -129,15 +159,46 @@ onMounted(async () => {
 // 적용 버튼 클릭 시에만 갱신되는 매물 마커 전용 확정 필터 상태
 const appliedFilterState = ref({ ...filterState.value });
 
+const getDestinationKey = (filters) => {
+  const name = filters?.destination ?? '';
+  const latitude = Number(filters?.destinationLat);
+  const longitude = Number(filters?.destinationLng);
+
+  const latKey = Number.isFinite(latitude) ? latitude : '';
+  const lngKey = Number.isFinite(longitude) ? longitude : '';
+  return `${name}|${latKey}|${lngKey}`;
+};
+
+const clearAmenitiesForDestinationChange = () => {
+  amenityFilterRef.value?.resetFilters?.();
+  activeAmenityFilters.value = [];
+  amenityDetailFilters.value = [];
+  amenitiesByProperty.value = {};
+  selectedPropertyDetailAmenities.value = [];
+  filterState.value.selectedAmenities = [];
+  isAmenityDetailFilterOpen.value = false;
+  emit('apply-amenity-filters', []);
+};
+
 const handleApplyFilters = () => {
+  if (getDestinationKey(appliedFilterState.value) !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   fetchPropertiesFromBackend();
 };
 
 const handleResetFilters = async () => {
+  const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
+
+  if (previousDestinationKey !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
-  await fetchPropertiesFromBackend();
+  await fetchPropertiesFromBackend(true);
 };
 
 const applyMobileOnboardingFilters = (filters) => {
@@ -180,7 +241,7 @@ watch(() => props.filterResetVersion, handleResetFilters);
 const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = activeAmenityFilters.value;
-  const propertyIds = properties.value
+  const propertyIds = baseFilteredProperties.value
     .map((property) => property.propertyId)
     .filter((propertyId) => propertyId != null);
   const sequence = ++amenityRequestSequence;
@@ -212,9 +273,8 @@ const scheduleAmenityLoad = () => {
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
 };
 
-watch([activeAmenityFilters, properties], scheduleAmenityLoad, { deep: true });
-
 onUnmounted(() => {
+  mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   amenityRequestSequence += 1;
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
 });
@@ -265,7 +325,7 @@ const destinationConfig = computed(() => {
 });
 
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
-const sortedProperties = computed(() => {
+const baseFilteredProperties = computed(() => {
   // 실시간 주 목적지 좌표
   const destLat = destinationConfig.value.lat;
   const destLng = destinationConfig.value.lng;
@@ -293,17 +353,10 @@ const sortedProperties = computed(() => {
 
     // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMaxDeposit = currentFilters.maxDeposit;
-    if (
-      currentFilters.selectedLoanId &&
-      currentFilters.selectedLoanId !== 'NONE'
-    ) {
-      const loan = LOAN_PRODUCTS.find(
-        (l) => l.id === currentFilters.selectedLoanId,
-      );
+    if (currentFilters.selectedLoanId && currentFilters.selectedLoanId !== 'NONE') {
+      const loan = LOAN_PRODUCTS.find((l) => l.id === currentFilters.selectedLoanId);
       if (loan && loan.ratio > 0) {
-        effectiveMaxDeposit = Math.round(
-          currentFilters.maxDeposit * (1 + loan.ratio),
-        );
+        effectiveMaxDeposit = Math.round(currentFilters.maxDeposit * (1 + loan.ratio));
       }
     }
     if (p.deposit > effectiveMaxDeposit) return false;
@@ -319,36 +372,25 @@ const sortedProperties = computed(() => {
     // 4. 안전 점수 필터
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
-    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터
-    if (currentFilters.showIsochrone) {
-      const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
-      const distMeters = distKm * 1000;
+    // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터 (매물 필터링은 항시 유지)
+    const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
+    const distMeters = distKm * 1000;
 
-      if (currentFilters.transportMode === 'WALK') {
-        let speedMetersPerMin = 75;
-        if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
-        if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
-        const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
-        if (distMeters > maxReachMeters) return false;
-      } else {
-        // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 링 구역만 허용
-        const transitBaseRadius = Math.max(500, currentFilters.travelTime * 180); // 내부원 (10분 이내)
-        const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
-        const transitMaxRadius = Math.max(
-          transitBaseRadius + 200,
-          (currentFilters.travelTime + flexMins) * 180,
-        ); // 외부원 (30분 이내)
+    if (currentFilters.transportMode === 'WALK') {
+      let speedMetersPerMin = 75;
+      if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
+      if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
+      const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
+      if (distMeters > maxReachMeters) return false;
+    } else {
+      // 대중교통 모드 (TRANSIT): 외접원(transitMaxRadius) ~ 내접원(transitBaseRadius) 범위만 허용
+      const transitMaxRadius = Math.max(500, currentFilters.travelTime * 180);
+      const flexMins = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+      const minTime = Math.max(0, currentFilters.travelTime - flexMins);
+      const transitBaseRadius = Math.max(200, minTime * 180);
 
-        // 10분 이내 내부원 안쪽 및 30분 초과 외부원 바깥 매물 제외
-        if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
-      }
-    }
-
-    if (activeAmenityFilters.value.length && !amenityFilterLoading.value) {
-      const propertyAmenities = amenitiesByProperty.value[p.propertyId] ?? [];
-      const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
-      const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
-      if (![...requiredTypes].every((type) => matchedTypes.has(type))) return false;
+      // 내접원 안쪽(너무 가까움) 및 외접원 바깥(너무 돎) 매물 제외
+      if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
     }
 
     return true;
@@ -370,8 +412,26 @@ const sortedProperties = computed(() => {
   return list; // RECOMMENDED
 });
 
+// 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
+watch([activeAmenityFilters, baseFilteredProperties], scheduleAmenityLoad, { deep: true });
+
+const amenityFilteredProperties = computed(() => {
+  if (!activeAmenityFilters.value.length || amenityFilterLoading.value) {
+    return baseFilteredProperties.value;
+  }
+
+  const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
+  return baseFilteredProperties.value.filter((property) => {
+    const propertyAmenities = amenitiesByProperty.value[property.propertyId] ?? [];
+    const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
+    return [...requiredTypes].every((type) => matchedTypes.has(type));
+  });
+});
+
 const visibleProperties = computed(() =>
-  amenityFilterLoading.value ? [] : sortedProperties.value,
+  activeAmenityFilters.value.length && amenityFilterLoading.value
+    ? []
+    : amenityFilteredProperties.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
@@ -540,6 +600,22 @@ const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
   const item = amenityDetailFilters.value.find((filter) => filter.id === id);
   if (item) item.timeLimit = timeLimit;
 };
+
+const activePopoverName = ref(null);
+const handlePopoverChange = (name) => {
+  activePopoverName.value = name;
+};
+
+const isPreviewingIsochrone = computed(() => {
+  if (activePopoverName.value === 'travel') return true;
+  if (!filterState.value || !appliedFilterState.value) return false;
+  return (
+    filterState.value.travelTime !== appliedFilterState.value.travelTime ||
+    filterState.value.flexTime !== appliedFilterState.value.flexTime ||
+    filterState.value.transportMode !== appliedFilterState.value.transportMode ||
+    filterState.value.walkPace !== appliedFilterState.value.walkPace
+  );
+});
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
 const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
@@ -730,6 +806,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           :total-count="visibleProperties.length"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
+          @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
           @update-filters="handleApplyFilters"
           @reset="handleResetFilters"
@@ -741,11 +818,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
-        :show-isochrone="filterState.showIsochrone"
-        :transport-mode="filterState.transportMode || 'WALK'"
-        :travel-time="filterState.travelTime || 15"
-        :walk-pace="filterState.walkPace || 'NORMAL'"
-        :flex-time="filterState.flexTime || 10"
+        :applied-filter="appliedFilterState"
+        :live-filter="filterState"
+        :is-preview-mode="isPreviewingIsochrone"
         @select-property="handleSelectProperty"
       />
 

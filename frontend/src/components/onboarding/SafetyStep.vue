@@ -137,6 +137,11 @@ h2 {
   color: #0f172a;
   font-family: inherit;
   text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .safety-button.safe {
@@ -156,11 +161,13 @@ h2 {
 .safety-button.safe.active {
   border-color: #70bd90;
   box-shadow: 0 0 0 2px rgba(112, 189, 144, 0.16);
+  animation: safety-select 0.24s ease-out;
 }
 
 .safety-button.normal.active {
   border-color: #dfb45c;
   box-shadow: 0 0 0 2px rgba(223, 180, 92, 0.16);
+  animation: safety-select 0.24s ease-out;
 }
 
 .safety-copy {
@@ -229,6 +236,52 @@ h2 {
 
 .normal .score-badge {
   background: #d99015;
+}
+
+.safety-button.active .score-badge {
+  animation: safety-badge-pop 0.28s ease-out;
+}
+
+.safety-button:active {
+  transform: scale(0.985);
+}
+
+@media (hover: hover) {
+  .safety-button.safe:hover {
+    border-color: #9bd8b1;
+    box-shadow: 0 8px 16px -14px rgba(34, 150, 83, 0.35);
+    transform: translateY(-2px);
+  }
+
+  .safety-button.normal:hover {
+    border-color: #e8c779;
+    box-shadow: 0 8px 16px -14px rgba(201, 130, 18, 0.35);
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes safety-select {
+  0% {
+    transform: scale(0.98);
+  }
+  70% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes safety-badge-pop {
+  0% {
+    transform: scale(0.82);
+  }
+  65% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .selection-guide {

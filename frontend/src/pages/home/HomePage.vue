@@ -12,6 +12,7 @@ const isFilterOpen = ref(false);
 const appliedOnboardingFilters = ref(null);
 const appliedAmenityFilters = ref([]);
 const filterResetVersion = ref(0);
+const isMovingToMyPage = ref(false);
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -21,11 +22,10 @@ const closeFilter = () => {
   isFilterOpen.value = false;
 };
 
-const applyFilters = ({ onboarding, amenities }) => {
+const applyOnboardingFilters = (onboarding) => {
   appliedOnboardingFilters.value = onboarding;
-  // 초기화 후 적용하면 빈 배열을 유지해 편의시설 조건을 적용하지 않는다.
-  appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
-  closeFilter();
+  // 온보딩 기준이 바뀌면 편의시설 필터는 다음 단계에서 다시 적용한다.
+  appliedAmenityFilters.value = [];
 };
 
 const applyAmenityFilters = (amenities) => {
@@ -39,16 +39,21 @@ const resetFilters = () => {
 };
 
 const goMyPage = () => {
-  router.push({ name: 'mypage' });
+  if (isMovingToMyPage.value) return;
+
+  isMovingToMyPage.value = true;
+  setTimeout(() => {
+    router.push({ name: 'mypage' });
+  }, 160);
 };
 </script>
 
 <template>
-  <main class="home-page">
+  <main class="home-page" :class="{ 'home-page--leaving': isMovingToMyPage }">
     <header class="app-header">
       <span class="logo">
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-        살고싶오
+        집으로
       </span>
       <button class="profile-button" type="button" aria-label="마이페이지로 이동" @click="goMyPage">
         {{ authStore.user?.name?.charAt(0) || '나' }}
@@ -112,7 +117,8 @@ const goMyPage = () => {
         :applied-filters="appliedOnboardingFilters"
         :applied-amenity-filters="appliedAmenityFilters"
         @close="closeFilter"
-        @apply="applyFilters"
+        @apply-onboarding="applyOnboardingFilters"
+        @apply-amenities="applyAmenityFilters"
         @reset="resetFilters"
       />
     </Transition>
@@ -131,6 +137,30 @@ const goMyPage = () => {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  animation: home-page-enter 0.2s ease-out;
+}
+
+.home-page--leaving {
+  pointer-events: none;
+  animation: home-page-leave 0.16s ease-in forwards;
+}
+
+@keyframes home-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes home-page-leave {
+  to {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 
 .app-header {
