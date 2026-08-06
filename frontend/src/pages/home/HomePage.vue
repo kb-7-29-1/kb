@@ -47,7 +47,7 @@ const goMyPage = () => {
     <header class="app-header">
       <span class="logo">
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-        살고싶오
+        집으로
       </span>
       <button class="profile-button" type="button" aria-label="마이페이지로 이동" @click="goMyPage">
         {{ authStore.user?.name?.charAt(0) || '나' }}
