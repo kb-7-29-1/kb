@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue';
-import { formatPropertyPrice } from '@/utils/priceFormatter';
 
 const props = defineProps({
   property: {
@@ -13,58 +12,71 @@ const props = defineProps({
   },
 });
 
-const buildingIcon = computed(() => {
-  if (props.isSelected) return '📍';
-  const bType = props.property.buildingType;
-  if (bType === 3) return '🏢';
-  if (bType === 1) return '🏡';
-  return '🏠';
-});
-
-const roomText = computed(() => {
-  return props.property.roomType === 2 ? '투룸' : '원룸';
-});
-
 const safetyScore = computed(() => {
   return props.property.safetyScore || 85;
 });
 
+const safetyPinTheme = computed(() => {
+  if (safetyScore.value >= 80) {
+    return {
+      border: 'border-emerald-500',
+      badge: 'bg-emerald-500/10 text-emerald-600',
+      background: 'bg-emerald-500',
+      pointer: 'bg-emerald-500',
+    };
+  }
+
+  if (safetyScore.value >= 60) {
+    return {
+      border: 'border-amber-500',
+      badge: 'bg-amber-500/10 text-amber-600',
+      background: 'bg-amber-500',
+      pointer: 'bg-amber-500',
+    };
+  }
+
+  return {
+    border: 'border-rose-500',
+    badge: 'bg-rose-500/10 text-rose-600',
+    background: 'bg-rose-500',
+    pointer: 'bg-rose-500',
+  };
+});
+
 const priceText = computed(() => {
-  return formatPropertyPrice(
-    props.property.deposit,
-    props.property.monthlyRent,
-  );
+  const deposit = Number(props.property.deposit || 0);
+  const rent = Number(props.property.monthlyRent || 0);
+  const depositText =
+    deposit >= 10000
+      ? `${(Math.floor((deposit / 10000) * 10) / 10).toFixed(1).replace(/\.0$/, '')}억`
+      : `${deposit.toLocaleString()}만`;
+
+  return rent === 0 ? `전세 ${depositText}` : `${depositText}/${rent}`;
 });
 </script>
 
 <template>
   <div
-    class="px-2.5 py-1 rounded-xl text-xs font-black shadow-2xl border transition-all cursor-pointer flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-full select-none leading-tight"
-    :class="[
-      isSelected
-        ? 'bg-blue-600 text-white ring-4 ring-blue-500/30 border-blue-400 scale-110 z-30'
-        : 'bg-slate-900/95 text-white hover:bg-blue-600 border-slate-700 backdrop-blur-md z-10',
-    ]"
+    class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform"
   >
-    <!-- Row 1: 🛡️ 안전 점수 -->
-    <div class="flex items-center gap-1">
+    <div
+      class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all"
+      :class="[
+        safetyPinTheme.border,
+        isSelected
+          ? `${safetyPinTheme.background} text-white z-30`
+          : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10',
+      ]"
+    >
+      <span class="shrink-0">{{ priceText }}</span>
       <span
-        class="text-emerald-400 font-extrabold flex items-center gap-0.5 text-[12px]"
+        class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+        :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
       >
-        <i class="fa-solid fa-shield-halved text-[9px]"></i>
         {{ safetyScore }}점
       </span>
     </div>
-    <!-- Row 2: 건물 이모지 + 전월세 가격 -->
-    <div class="text-[11px] font-black text-white whitespace-nowrap mt-0.5">
-      {{ buildingIcon }} {{ priceText }}
-    </div>
-    <!-- Row 3: 맨 아래 🏢 동일 건물 실거래 건수 배지 (dealCount > 1 일 때만 표출) -->
-    <div
-      v-if="property.dealCount && property.dealCount > 1"
-      class="mt-0.5 text-[9px] px-1.5 py-0.2 rounded-full bg-blue-500/30 text-blue-300 border border-blue-400/40 font-black tracking-tight"
-    >
-      + 최근 3개월 {{ property.dealCount }}건 더 거래됐어요
-    </div>
+    <div class="-mt-1.5 h-2.5 w-2.5 rotate-45" :class="safetyPinTheme.pointer"></div>
+    <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-sm"></div>
   </div>
 </template>
