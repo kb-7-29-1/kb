@@ -209,7 +209,7 @@ const rangeStyle = (value, min, max) => {
           <i v-else class="fa-solid fa-building-columns"></i>
         </div>
         <div class="loan-copy">
-          <span>맞춤 금융 상품</span>
+          <span>추천 금융 상품</span>
           <strong>{{ loan.productName }}</strong>
           <small>{{ loan.companyName }} · {{ loan.rateInfo }}</small>
         </div>
