@@ -150,13 +150,44 @@ onMounted(async () => {
 // 적용 버튼 클릭 시에만 갱신되는 매물 마커 전용 확정 필터 상태
 const appliedFilterState = ref({ ...filterState.value });
 
+const getDestinationKey = (filters) => {
+  const name = filters?.destination ?? '';
+  const latitude = Number(filters?.destinationLat);
+  const longitude = Number(filters?.destinationLng);
+
+  const latKey = Number.isFinite(latitude) ? latitude : '';
+  const lngKey = Number.isFinite(longitude) ? longitude : '';
+  return `${name}|${latKey}|${lngKey}`;
+};
+
+const clearAmenitiesForDestinationChange = () => {
+  amenityFilterRef.value?.resetFilters?.();
+  activeAmenityFilters.value = [];
+  amenityDetailFilters.value = [];
+  amenitiesByProperty.value = {};
+  selectedPropertyDetailAmenities.value = [];
+  filterState.value.selectedAmenities = [];
+  isAmenityDetailFilterOpen.value = false;
+  emit('apply-amenity-filters', []);
+};
+
 const handleApplyFilters = () => {
+  if (getDestinationKey(appliedFilterState.value) !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   fetchPropertiesFromBackend();
 };
 
 const handleResetFilters = async () => {
+  const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
+
+  if (previousDestinationKey !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   await fetchPropertiesFromBackend(true);
 };
@@ -312,17 +343,10 @@ const baseFilteredProperties = computed(() => {
 
     // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMaxDeposit = currentFilters.maxDeposit;
-    if (
-      currentFilters.selectedLoanId &&
-      currentFilters.selectedLoanId !== 'NONE'
-    ) {
-      const loan = LOAN_PRODUCTS.find(
-        (l) => l.id === currentFilters.selectedLoanId,
-      );
+    if (currentFilters.selectedLoanId && currentFilters.selectedLoanId !== 'NONE') {
+      const loan = LOAN_PRODUCTS.find((l) => l.id === currentFilters.selectedLoanId);
       if (loan && loan.ratio > 0) {
-        effectiveMaxDeposit = Math.round(
-          currentFilters.maxDeposit * (1 + loan.ratio),
-        );
+        effectiveMaxDeposit = Math.round(currentFilters.maxDeposit * (1 + loan.ratio));
       }
     }
     if (p.deposit > effectiveMaxDeposit) return false;
@@ -395,7 +419,9 @@ const amenityFilteredProperties = computed(() => {
 });
 
 const visibleProperties = computed(() =>
-  activeAmenityFilters.value.length && amenityFilterLoading.value ? [] : amenityFilteredProperties.value,
+  activeAmenityFilters.value.length && amenityFilterLoading.value
+    ? []
+    : amenityFilteredProperties.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
