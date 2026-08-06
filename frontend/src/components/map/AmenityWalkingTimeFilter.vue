@@ -12,7 +12,7 @@
             :value="item.timeLimit"
             type="range"
             min="0"
-            max="30"
+            max="20"
             step="1"
             class="styled-slider"
             :style="sliderStyle(item.timeLimit)"
@@ -38,7 +38,7 @@ defineProps({
 defineEmits(['update-time-limit']);
 
 const sliderStyle = (timeLimit) => {
-  const percent = (Number(timeLimit) / 30) * 100;
+  const percent = (Number(timeLimit) / 20) * 100;
   return {
     background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${percent}%, #e2e8f0 ${percent}%, #e2e8f0 100%)`,
   };
