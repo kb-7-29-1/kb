@@ -35,7 +35,8 @@ const conditions = computed(() => [
   { icon: '🛡️', label: '안전 점수', value: props.safety },
 ]);
 
-const goOnboarding = () => router.push({ path: '/onboarding', query: { from: 'mypage' } });
+const goOnboarding = () =>
+  router.push({ path: '/onboarding', query: { from: 'mypage' } });
 </script>
 
 <template>
@@ -50,7 +51,9 @@ const goOnboarding = () => router.push({ path: '/onboarding', query: { from: 'my
 
     <ul class="condition-list">
       <li v-for="condition in conditions" :key="condition.label">
-        <span class="condition-icon" aria-hidden="true">{{ condition.icon }}</span>
+        <span class="condition-icon" aria-hidden="true">{{
+          condition.icon
+        }}</span>
         <span class="condition-label">{{ condition.label }}</span>
         <strong>{{ condition.value }}</strong>
       </li>
