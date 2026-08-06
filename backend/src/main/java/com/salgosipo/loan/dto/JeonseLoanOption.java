@@ -22,6 +22,6 @@ public class JeonseLoanOption {
     @JsonProperty("lend_rate_max")
     private Double rateMax;
 
-    @JsonProperty("lend_ate_avg")
+    @JsonProperty("lend_rate_avg")
     private Double rateAvg;
 }
