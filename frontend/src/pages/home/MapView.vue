@@ -103,7 +103,7 @@ const getSearchRadiusKm = () => {
 // 편의점 디폴트 도보 시간 (5분)
 const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
 
-// 기타 편의시설 디폴트 도보 시간 (10분)
+// 기타 편의시설 디폴트 도보 시간 (15분)
 const DEFAULT_AMENITY_WALK_TIME = 15;
 
 
@@ -556,7 +556,7 @@ const normalizeAmenitySelection = (selectedFilters) =>
       const appliedFilter = activeAmenityFilters.value.find((item) => item.amenityType === filter.amenityType);
       const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
 
-      // 편의점은 5분, 그 외 기타 편의시설은 10분을 디폴트 기본값으로 설정
+      // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
       const defaultWalkTime = Number(filter.amenityType) === 1
           ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
           : DEFAULT_AMENITY_WALK_TIME;
@@ -582,13 +582,13 @@ const openAmenityDetailFilter = (selectedFilters) => {
   }
 
   const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
+  amenityDetailFilters.value = normalizeAmenitySelection(filters).map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
 
 const syncAmenityDetailFilter = (selectedFilters) => {
   if (!isAmenityDetailFilterOpen.value) return;
-  amenityDetailFilters.value = selectedFilters.map((filter) => {
+  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map((filter) => {
     const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
     return {
       ...filter,
@@ -600,20 +600,13 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 // PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
-
-  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
-  const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
-    (filter) => !selectedTypes.has(Number(filter.amenityType)),
+  const normalizedFilters = normalizeAmenitySelection(selectedFilters);
+  handleApplyAmenities(
+    normalizedFilters.map((filter) => ({
+      amenityType: filter.amenityType,
+      walkTimeMinutes: Number(filter.walkTimeMinutes),
+    })),
   );
-
-  if (hasRemovedAppliedFilter) {
-    handleApplyAmenities(
-      selectedFilters.map((filter) => ({
-        amenityType: filter.amenityType,
-        walkTimeMinutes: Number(filter.timeLimit),
-      })),
-    );
-  }
 };
 
 const resetAmenityDetailFilters = () => {
