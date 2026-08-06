@@ -86,17 +86,31 @@ public class LoanService {
         return baseList.stream()
                 .filter(base -> isYouth || !base.getProductName().contains("청년"))
                 .map(base -> {
-                    Double minRate = optionList == null ? null : optionList.stream()
+                    List<JeonseLoanOption> matchedOptions = optionList == null ? List.of() : optionList.stream()
                             .filter(opt -> opt.getFinCoNo().equals(base.getFinCoNo())
                                            && opt.getFinPrdtCd().equals(base.getFinPrdtCd()))
+                            .collect(Collectors.toList());
+
+                    Double minRate = matchedOptions.stream()
                             .map(JeonseLoanOption::getRateMin)
                             .filter(Objects::nonNull)
                             .min(Double::compareTo)
                             .orElse(null);
 
-                    String rateInfo = minRate != null
-                            ? minRate + "%"
-                            : "정보 없음";
+                    Double avgRate = matchedOptions.stream()
+                            .map(JeonseLoanOption::getRateAvg)
+                            .filter(Objects::nonNull)
+                            .min(Double::compareTo)
+                            .orElse(null);
+
+                    String rateInfo;
+                    if (minRate != null && avgRate != null) {
+                        rateInfo = "최저 " + minRate + "% · 평균 " + avgRate + "%";
+                    } else if (minRate != null) {
+                        rateInfo = minRate + "%";
+                    } else {
+                        rateInfo = "정보 없음";
+                    }
 
                     LoanProductDto dto = new LoanProductDto(
                             base.getCompanyName(),
@@ -106,7 +120,7 @@ public class LoanService {
                             "자세한 자격요건은 해당 은행에서 확인해주세요",
                             base.getJoinWay()
                     );
-                    return new LoanProductDtoWithRate(dto,minRate != null ? minRate : 999.0);
+                    return new LoanProductDtoWithRate(dto, avgRate != null ? avgRate : 999.0);
                 })
                 .sorted(Comparator.comparing(LoanProductDtoWithRate::getRate)
                         .thenComparing((LoanProductDtoWithRate p) ->!p.getDto().getCompanyName().contains("국민은행")))
@@ -187,6 +201,14 @@ public class LoanService {
     // "400백만원" 같은 표기를 "4억원"으로 통일 (100백만원 = 1억원)
     private String normalizeLoanLimitText(String loanLimit){
         if(loanLimit == null) return null;
+
+        // "4억 44백만원" 같은 합산 표기 먼저 처리
+        Matcher combined = Pattern.compile("(\\d+)\\s*억\\s*(\\d+)\\s*백만원").matcher(loanLimit);
+        if(combined.find()){
+            double eok = Integer.parseInt(combined.group(1)) + Integer.parseInt(combined.group(2)) / 100.0;
+            String eokText = (eok == Math.floor(eok)) ? String.valueOf((int) eok) : String.valueOf(eok);
+            return combined.replaceFirst(eokText + "억원");
+        }
 
         Matcher matcher = Pattern.compile("([\\d.]+)\\s*백만원").matcher(loanLimit);
         if(!matcher.find()) return loanLimit;
