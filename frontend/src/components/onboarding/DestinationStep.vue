@@ -33,6 +33,7 @@ const purposes = [
 let searchTimer;
 let searchRequestId = 0;
 let selectionReleaseTimer;
+let compositionEndTimer;
 
 const beginDestinationSelection = () => {
   clearTimeout(selectionReleaseTimer);
@@ -43,7 +44,7 @@ const finishDestinationSelection = () => {
   clearTimeout(selectionReleaseTimer);
   selectionReleaseTimer = setTimeout(() => {
     isSelectingDestination.value = false;
-  }, 100);
+  }, 180);
 };
 
 const cancelPendingSearch = () => {
@@ -58,10 +59,16 @@ const handleCompositionStart = () => {
 
 const handleCompositionEnd = (event) => {
   isComposing.value = false;
+  const completedKeyword = event.target.value;
 
-  if (isSelectingDestination.value) return;
-  keyword.value = event.target.value;
-  scheduleSearch(keyword.value);
+  // 검색 결과를 누르는 순간에도 조합 완료 이벤트가 발생할 수 있음
+  // 선택이 시작된 경우에는 불필요한 재검색을 막음
+  clearTimeout(compositionEndTimer);
+  compositionEndTimer = setTimeout(() => {
+    if (isSelectingDestination.value) return;
+    keyword.value = completedKeyword;
+    scheduleSearch(completedKeyword);
+  }, 40);
 };
 
 const handleSearchInput = (event) => {
@@ -105,7 +112,6 @@ const scheduleSearch = (value) => {
   }
 
   selectedDestination.value = null;
-  destinations.value = [];
   isSearching.value = true;
   searchTimer = setTimeout(async () => {
     try {
@@ -128,6 +134,7 @@ watch(selectedPurpose, (value) => emit('update:purpose', value));
 onBeforeUnmount(() => {
   clearTimeout(searchTimer);
   clearTimeout(selectionReleaseTimer);
+  clearTimeout(compositionEndTimer);
 });
 </script>
 
@@ -193,7 +200,7 @@ onBeforeUnmount(() => {
         <div class="search-feedback">
           <ul v-if="destinations.length" class="suggestion-list">
             <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
-              <button type="button" @pointerdown.prevent="selectDestination(item)">
+              <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
                 <span>
                   <strong>{{ item.destName }}</strong>

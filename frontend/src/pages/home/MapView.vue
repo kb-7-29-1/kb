@@ -12,6 +12,7 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { useMapStore } from '@/stores/useMapStore.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
@@ -51,6 +52,7 @@ const sortOptions = [
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
 const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
 const isQuickFilterReady = ref(false);
+const mapStore = useMapStore();
 
 // 좌측 아코디언/패널 편의시설 필터 열림 상태
 const amenityFilterRef = ref(null);
@@ -141,8 +143,15 @@ const fetchPropertiesFromBackend = async (forceRefetch = false) => {
 };
 
 onMounted(async () => {
-  await loadOnboardingDefaultFilters();
-  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  if (mapStore.hasSavedFilterState) {
+    // 마이페이지 등에서 돌아온 경우, 온보딩 값으로 리셋하지 않고
+    // 지도에서 마지막으로 조정해둔 필터 상태를 그대로 복원한다.
+    filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
+    appliedFilterState.value = JSON.parse(JSON.stringify(mapStore.appliedFilterState));
+  } else {
+    await loadOnboardingDefaultFilters();
+    appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  }
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend();
 });
@@ -150,13 +159,44 @@ onMounted(async () => {
 // 적용 버튼 클릭 시에만 갱신되는 매물 마커 전용 확정 필터 상태
 const appliedFilterState = ref({ ...filterState.value });
 
+const getDestinationKey = (filters) => {
+  const name = filters?.destination ?? '';
+  const latitude = Number(filters?.destinationLat);
+  const longitude = Number(filters?.destinationLng);
+
+  const latKey = Number.isFinite(latitude) ? latitude : '';
+  const lngKey = Number.isFinite(longitude) ? longitude : '';
+  return `${name}|${latKey}|${lngKey}`;
+};
+
+const clearAmenitiesForDestinationChange = () => {
+  amenityFilterRef.value?.resetFilters?.();
+  activeAmenityFilters.value = [];
+  amenityDetailFilters.value = [];
+  amenitiesByProperty.value = {};
+  selectedPropertyDetailAmenities.value = [];
+  filterState.value.selectedAmenities = [];
+  isAmenityDetailFilterOpen.value = false;
+  emit('apply-amenity-filters', []);
+};
+
 const handleApplyFilters = () => {
+  if (getDestinationKey(appliedFilterState.value) !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   fetchPropertiesFromBackend();
 };
 
 const handleResetFilters = async () => {
+  const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
+
+  if (previousDestinationKey !== getDestinationKey(filterState.value)) {
+    clearAmenitiesForDestinationChange();
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   await fetchPropertiesFromBackend(true);
 };
@@ -234,6 +274,7 @@ const scheduleAmenityLoad = () => {
 };
 
 onUnmounted(() => {
+  mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   amenityRequestSequence += 1;
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
 });
@@ -312,17 +353,10 @@ const baseFilteredProperties = computed(() => {
 
     // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMaxDeposit = currentFilters.maxDeposit;
-    if (
-      currentFilters.selectedLoanId &&
-      currentFilters.selectedLoanId !== 'NONE'
-    ) {
-      const loan = LOAN_PRODUCTS.find(
-        (l) => l.id === currentFilters.selectedLoanId,
-      );
+    if (currentFilters.selectedLoanId && currentFilters.selectedLoanId !== 'NONE') {
+      const loan = LOAN_PRODUCTS.find((l) => l.id === currentFilters.selectedLoanId);
       if (loan && loan.ratio > 0) {
-        effectiveMaxDeposit = Math.round(
-          currentFilters.maxDeposit * (1 + loan.ratio),
-        );
+        effectiveMaxDeposit = Math.round(currentFilters.maxDeposit * (1 + loan.ratio));
       }
     }
     if (p.deposit > effectiveMaxDeposit) return false;
@@ -395,7 +429,9 @@ const amenityFilteredProperties = computed(() => {
 });
 
 const visibleProperties = computed(() =>
-  activeAmenityFilters.value.length && amenityFilterLoading.value ? [] : amenityFilteredProperties.value,
+  activeAmenityFilters.value.length && amenityFilterLoading.value
+    ? []
+    : amenityFilteredProperties.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
