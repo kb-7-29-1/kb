@@ -85,7 +85,14 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
 
 const activePropertyMarkersMap = new Map();
 let activeDestMarker = null;
+const destinationMarkers = new Set();
 let pendingRenderFrame = null;
+
+const clearDestinationMarkers = () => {
+  destinationMarkers.forEach((marker) => marker.setMap(null));
+  destinationMarkers.clear();
+  activeDestMarker = null;
+};
 
 // 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
 // 🚀 [비동기 타임 슬라이싱 (Time-Slicing / Chunking) 최적화]
@@ -109,7 +116,7 @@ const renderMarkers = () => {
   const destKey = `${destLat}_${destLng}_${props.destination.name || ''}`;
 
   if (!activeDestMarker || activeDestMarker._key !== destKey) {
-    if (activeDestMarker) activeDestMarker.setMap(null);
+    clearDestinationMarkers();
     activeDestMarker = new window.naver.maps.Marker({
       position: destLatLng,
       map: mapInstance.value,
@@ -118,6 +125,7 @@ const renderMarkers = () => {
       },
     });
     activeDestMarker._key = destKey;
+    destinationMarkers.add(activeDestMarker);
   }
 
   // 2. 🏢 / 🏠 매물 및 클러스터 마커 렌더링 준비 (Diffing)
@@ -426,11 +434,7 @@ const fitToIsochroneRadius = () => {
 
 // 실시간 프리뷰 점선 원 및 목적지 변경 시 줌 자동 조율
 watch(
-  [
-    () => props.destination,
-    () => props.liveFilter,
-    () => props.appliedFilter,
-  ],
+  [() => props.destination, () => props.liveFilter, () => props.appliedFilter],
   () => {
     fitToIsochroneRadius();
   },
@@ -465,10 +469,7 @@ onMounted(() => {
 onUnmounted(() => {
   activePropertyMarkersMap.forEach((marker) => marker.setMap(null));
   activePropertyMarkersMap.clear();
-  if (activeDestMarker) {
-    activeDestMarker.setMap(null);
-    activeDestMarker = null;
-  }
+  clearDestinationMarkers();
   clearAmenityMarkers();
   if (resizeObserver) {
     resizeObserver.disconnect();
