@@ -357,6 +357,7 @@ const baseFilteredProperties = computed(() => {
   return list; // RECOMMENDED
 });
 
+// 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
 watch([activeAmenityFilters, baseFilteredProperties], scheduleAmenityLoad, { deep: true });
 
 const amenityFilteredProperties = computed(() => {
