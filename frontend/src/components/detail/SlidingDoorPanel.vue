@@ -17,6 +17,7 @@ const age = computed(() => {
 
 const loanList = ref([]);
 const loanListLoading = ref(false);
+const isLoanListOpen = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -335,29 +336,54 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
             :amenities="amenities"
           />
           <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
-              <span aria-hidden="true">🏦</span>
-              맞춤 금융 상품
-            </h3>
-            <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
-              상품을 찾고 있어요...
-            </div>
-            <div v-else-if="loanList.length === 0" class="text-gray-400 text-sm text-center py-8">
-              추천 가능한 대출 상품이 없습니다.
-            </div>
-            <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
-              <div v-for="item in loanList" :key="item.productName" class="loan-item">
-                <span class="loan-bank-tag">
-                  <img
-                    v-if="getBankLogoUrl(item.companyName)"
-                    :src="getBankLogoUrl(item.companyName)"
-                    :alt="item.companyName"
-                    class="loan-bank-tag__logo"
-                  />
-                  {{ item.companyName }}
-                </span>
-                <p class="loan-item__name">{{ item.productName }}</p>
-                <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+            <button
+              type="button"
+              class="mb-3 flex w-full items-center justify-between gap-1.5"
+              :aria-expanded="isLoanListOpen"
+              @click="isLoanListOpen = !isLoanListOpen"
+            >
+              <h3 class="flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+                <span aria-hidden="true">🏦</span>
+                추천 금융 상품
+              </h3>
+              <svg
+                class="h-4 w-4 shrink-0 text-slate-400 transition-transform"
+                :class="{ 'rotate-180': isLoanListOpen }"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            <div v-if="isLoanListOpen">
+              <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
+                상품을 찾고 있어요...
+              </div>
+              <div
+                v-else-if="loanList.length === 0"
+                class="text-gray-400 text-sm text-center py-8"
+              >
+                추천 가능한 대출 상품이 없습니다.
+              </div>
+              <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
+                <div v-for="item in loanList" :key="item.productName" class="loan-item">
+                  <span class="loan-bank-tag">
+                    <img
+                      v-if="getBankLogoUrl(item.companyName)"
+                      :src="getBankLogoUrl(item.companyName)"
+                      :alt="item.companyName"
+                      class="loan-bank-tag__logo"
+                    />
+                    {{ item.companyName }}
+                  </span>
+                  <p class="loan-item__name">{{ item.productName }}</p>
+                  <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+                </div>
               </div>
             </div>
           </section>
