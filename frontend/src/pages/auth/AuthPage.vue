@@ -19,7 +19,7 @@ const showFindModal = ref(false);
         <span>대학생·사회초년생을 위한 안전한 주거 탐색</span>
       </div>
     </aside>
-    <main class="auth-card" :class="{ 'auth-card--login': mode === 'login' }">
+    <main :key="mode" class="auth-card" :class="{ 'auth-card--login': mode === 'login' }">
       <div class="auth-heading">
         <button
           v-if="mode === 'signup'"
@@ -68,7 +68,9 @@ const showFindModal = ref(false);
         </template>
       </div>
     </main>
-    <FindAccountModal v-if="showFindModal" @close="showFindModal = false" />
+    <Transition name="find-modal">
+      <FindAccountModal v-if="showFindModal" @close="showFindModal = false" />
+    </Transition>
   </div>
 </template>
 
@@ -94,6 +96,41 @@ const showFindModal = ref(false);
   border-radius: 24px;
   background: #fff;
   box-shadow: 0 16px 38px rgb(45 62 100 / 8%);
+  animation: auth-screen-enter 0.3s ease-out;
+}
+
+.find-modal-enter-active,
+.find-modal-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.find-modal-enter-active :deep(> div),
+.find-modal-leave-active :deep(> div) {
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.find-modal-enter-from,
+.find-modal-leave-to {
+  opacity: 0;
+}
+
+.find-modal-enter-from :deep(> div),
+.find-modal-leave-to :deep(> div) {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
+@keyframes auth-screen-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .auth-heading {
@@ -264,7 +301,12 @@ const showFindModal = ref(false);
   .auth-page {
     align-items: stretch;
     justify-content: flex-start;
+    box-sizing: border-box;
+    height: 100dvh;
+    min-height: 0;
     padding: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
     background: #f7f9fc;
   }
 

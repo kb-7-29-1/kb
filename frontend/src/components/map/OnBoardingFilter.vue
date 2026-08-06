@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
 import {
   DEPOSIT_MAX_LABEL,
@@ -35,6 +35,7 @@ const travelTime = ref(15);
 const flexTime = ref(10);
 const selectedDestination = ref(null);
 const searchKeyword = ref('');
+const destinationSearchInput = ref(null);
 const searchResults = ref([]);
 const isSearching = ref(false);
 const searchError = ref('');
@@ -85,6 +86,8 @@ const clearSearch = () => {
   searchKeyword.value = '';
   searchResults.value = [];
   searchError.value = '';
+
+  nextTick(() => destinationSearchInput.value?.focus());
 };
 
 const scheduleSearch = (value) => {
@@ -183,6 +186,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       <label class="search-field">
         <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
         <input
+          ref="destinationSearchInput"
           v-model="searchKeyword"
           @input="handleSearchInput"
           @compositionstart="handleCompositionStart"
@@ -325,13 +329,21 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
         </div>
         <div class="flex justify-between text-emerald-400 font-bold">
           <span>+ 예상 대출금 (한도 적용)</span>
-          <span>{{ formatDepositAmount(maxDeposit * (LOAN_PRODUCTS.find(l => l.id === selectedLoanId)?.ratio || 0)) }}</span>
+          <span>{{
+            formatDepositAmount(
+              maxDeposit * (LOAN_PRODUCTS.find((l) => l.id === selectedLoanId)?.ratio || 0),
+            )
+          }}</span>
         </div>
         <div class="h-px bg-white/20 my-1"></div>
         <div class="flex justify-between font-extrabold text-amber-300 text-xs">
           <span>🚀 최대 매물 탐색 가능 범위</span>
           <span class="text-amber-300 font-black">
-            {{ formatDepositAmount(maxDeposit * (1 + (LOAN_PRODUCTS.find(l => l.id === selectedLoanId)?.ratio || 0))) }}
+            {{
+              formatDepositAmount(
+                maxDeposit * (1 + (LOAN_PRODUCTS.find((l) => l.id === selectedLoanId)?.ratio || 0)),
+              )
+            }}
           </span>
         </div>
       </div>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue';
+import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
 import api from '@/api/api.js';
 import {
@@ -72,6 +72,7 @@ watch(activePopover, (newVal) => {
   emit('popover-change', newVal);
 });
 const destinationSearchKeyword = ref('');
+const destinationSearchInput = ref(null);
 const destinationSearchResults = ref([]);
 const selectedDestination = ref(null);
 const isDestinationSearching = ref(false);
@@ -220,6 +221,8 @@ const clearDestinationSearch = () => {
   destinationSearchResults.value = [];
   selectedDestination.value = null;
   destinationSearchError.value = '';
+
+  nextTick(() => destinationSearchInput.value?.focus());
 };
 
 const applyDestination = async () => {
@@ -497,6 +500,7 @@ const safetyAccentClass = computed(() => {
           >
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input
+              ref="destinationSearchInput"
               v-model="destinationSearchKeyword"
               @input="handleDestinationSearchInput"
               @compositionstart="handleDestinationCompositionStart"
