@@ -40,8 +40,29 @@ const searchResults = ref([]);
 const isSearching = ref(false);
 const searchError = ref('');
 const isComposing = ref(false);
+const isSelectingDestination = ref(false);
 let searchTimer;
 let searchRequestId = 0;
+let selectionReleaseTimer;
+let compositionEndTimer;
+
+const beginDestinationSelection = () => {
+  clearTimeout(selectionReleaseTimer);
+  isSelectingDestination.value = true;
+};
+
+const finishDestinationSelection = () => {
+  clearTimeout(selectionReleaseTimer);
+  selectionReleaseTimer = setTimeout(() => {
+    isSelectingDestination.value = false;
+  }, 180);
+};
+
+const cancelPendingSearch = () => {
+  clearTimeout(searchTimer);
+  searchRequestId += 1;
+  isSearching.value = false;
+};
 
 const handleCompositionStart = () => {
   isComposing.value = true;
@@ -49,11 +70,18 @@ const handleCompositionStart = () => {
 
 const handleCompositionEnd = (event) => {
   isComposing.value = false;
-  searchKeyword.value = event.target.value;
-  scheduleSearch(searchKeyword.value);
+  const completedKeyword = event.target.value;
+
+  clearTimeout(compositionEndTimer);
+  compositionEndTimer = setTimeout(() => {
+    if (isSelectingDestination.value) return;
+    searchKeyword.value = completedKeyword;
+    scheduleSearch(completedKeyword);
+  }, 40);
 };
 
 const handleSearchInput = (event) => {
+  if (isSelectingDestination.value) return;
   searchKeyword.value = event.target.value;
   scheduleSearch(event.target.value);
 };
@@ -76,13 +104,17 @@ const destinationName = computed(
 );
 
 const selectDestination = (destination) => {
+  beginDestinationSelection();
+  cancelPendingSearch();
   selectedDestination.value = destination;
   searchKeyword.value = destination.destName;
   searchResults.value = [];
   searchError.value = '';
+  finishDestinationSelection();
 };
 
 const clearSearch = () => {
+  cancelPendingSearch();
   searchKeyword.value = '';
   searchResults.value = [];
   searchError.value = '';
@@ -102,7 +134,6 @@ const scheduleSearch = (value) => {
     return;
   }
 
-  searchResults.value = [];
   isSearching.value = true;
   searchTimer = setTimeout(async () => {
     try {
@@ -119,8 +150,6 @@ const scheduleSearch = (value) => {
     }
   }, 300);
 };
-
-watch(searchKeyword, scheduleSearch);
 
 watch(
   [() => props.onboarding, () => props.appliedFilters],
@@ -174,7 +203,11 @@ const getFilters = () => ({
 
 defineExpose({ getFilters, resetFilters });
 
-onBeforeUnmount(() => clearTimeout(searchTimer));
+onBeforeUnmount(() => {
+  clearTimeout(searchTimer);
+  clearTimeout(selectionReleaseTimer);
+  clearTimeout(compositionEndTimer);
+});
 </script>
 
 <template>
@@ -219,7 +252,7 @@ onBeforeUnmount(() => clearTimeout(searchTimer));
       </p>
       <ul v-if="searchResults.length" class="search-result-list">
         <li v-for="item in searchResults" :key="`${item.destName}-${item.destAddress}`">
-          <button type="button" @click="selectDestination(item)">
+          <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
             <span>
               <strong>{{ item.destName }}</strong>
