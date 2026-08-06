@@ -27,22 +27,10 @@ export const renderDestinationPinHTML = (destination) => {
 };
 
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
-export const renderClusterPinHTML = (count, items = []) => {
-  let icon = '🏘️'; // 2종류 이상 혼합 묶음
-  if (items && items.length > 0) {
-    const buildingTypes = new Set(items.map((item) => item.buildingType));
-    if (buildingTypes.size === 1) {
-      const singleType = Array.from(buildingTypes)[0];
-      if (singleType === 3) icon = '🏢'; // 오피스텔 단일 묶음
-      else if (singleType === 1) icon = '🏡'; // 빌라 단일 묶음
-      else if (singleType === 2) icon = '🏠'; // 다가구 단일 묶음
-    }
-  }
-
+export const renderClusterPinHTML = (count) => {
   return `
-    <div class="px-3 py-2 rounded-2xl text-xs font-black shadow-2xl border border-blue-400/50 bg-blue-600/90 text-white backdrop-blur-md transition-all transform -translate-x-1/2 -translate-y-full hover:scale-110 flex items-center gap-1.5 cursor-pointer z-20 select-none">
-      <span class="text-sm">${icon}</span>
-      <span class="text-sm tracking-tight font-extrabold">${count.toLocaleString()}개 매물</span>
+    <div class="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] cursor-pointer z-20 select-none">
+      <span class="text-[16px] font-extrabold leading-none">${count.toLocaleString()}<span class="ml-px text-[10px] font-semibold">개</span></span>
     </div>
   `;
 };
@@ -51,9 +39,9 @@ export const renderClusterPinHTML = (count, items = []) => {
  * 사용자 세세 조절 커스텀 옵션 세팅
  */
 export const DEFAULT_CLUSTER_OPTIONS = {
-  minClusterZoom: 18,    // 🔍 18 레벨 이상 극도로 확대했을 때만 클러스터 해제
+  minClusterZoom: 18, // 🔍 18 레벨 이상 극도로 확대했을 때만 클러스터 해제
   gridSizeFactor: 0.012, // 📐 클러스터 반경 범위 크기
-  minClusterCount: 2,    // 🔢 최소 묶음 개수 (2개부터 무조건 클러스터 핀으로 묶음)
+  minClusterCount: 2, // 🔢 최소 묶음 개수 (2개부터 무조건 클러스터 핀으로 묶음)
 };
 
 /**

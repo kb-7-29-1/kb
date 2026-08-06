@@ -3,6 +3,19 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
+import {useAuthStore} from "@/stores/useAuthStore.js";
+import api from "@/api/api.js";
+
+const authStore = useAuthStore();
+
+const age = computed(() =>{
+  const birthDate = authStore.user?.birthDate;
+  if(!birthDate) return null;
+  return new Date().getFullYear() - new Date(birthDate).getFullYear() + 1;
+})
+
+const loanList = ref([]);
+const loanListLoading = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -61,6 +74,27 @@ const buildingAge = computed(() => {
   if (!Number.isInteger(builtYear) || builtYear <= 0) return null;
   return Math.max(new Date().getFullYear() - builtYear, 0);
 });
+
+const fetchLoanList = async () =>{
+  if(!props.property) return;
+  loanListLoading.value = true;
+  try {
+    const response = await api.get('/loan/property-recommend',{
+      params : {
+        deposit : props.property.deposit,
+        monthlyRent : props.property.monthlyRent,
+        age : age.value,
+      },
+    });
+    loanList.value = response.data;
+  } catch (error) {
+    loanList.value = [];
+  } finally {
+    loanListLoading.value = false;
+  }
+};
+
+watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
 </script>
 
 <template>
@@ -332,6 +366,30 @@ const buildingAge = computed(() => {
             class="detail-section-flush detail-section-divider"
             :amenities="amenities"
           />
+          <section class="border-t border-slate-200 pt-5">
+            <h3
+              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
+            >
+              <span aria-hidden="true">🏦</span>
+              맞춤 금융 상품
+            </h3>
+            <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
+              상품을 찾고 있어요...
+            </div>
+            <div
+              v-else-if="loanList.length === 0"
+              class="text-gray-400 text-sm text-center py-8"
+            >
+              추천 가능한 대출 상품이 없습니다.
+            </div>
+            <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
+              <div v-for="item in loanList" :key="item.productName" class="loan-item">
+                <span class="loan-bank-tag">{{ item.companyName }}</span>
+                <p class="loan-item__name">{{ item.productName }}</p>
+                <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+              </div>
+            </div>
+          </section>
           <section class="detail-community-section">
             <CommentSection
               class="detail-section-flush"
@@ -397,5 +455,53 @@ const buildingAge = computed(() => {
 
 :deep(.comment-section.detail-section-flush) {
   border-top: 0 !important;
+}
+
+.loan-scroll-list {
+  max-height: 210px;
+  padding: 2px;
+}
+
+.loan-item {
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #e3e9f5;
+  border-radius: 14px;
+  background: #f7f9fe;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.loan-item:hover {
+  transform: translateY(-1px);
+  border-color: #c7d2f5;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+.loan-bank-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 19px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: #eef1ff;
+  color: #4767f7;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.loan-item__name {
+  margin: 5px 0 0;
+  color: #1f2b3a;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.loan-item__details {
+  margin: 4px 0 0;
+  color: #8b95a7;
+  font-size: 11px;
 }
 </style>
