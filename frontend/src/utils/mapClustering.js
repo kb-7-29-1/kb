@@ -29,8 +29,8 @@ export const renderDestinationPinHTML = (destination) => {
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
 export const renderClusterPinHTML = (count) => {
   return `
-    <div class="flex h-[50px] w-[50px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] cursor-pointer z-20 select-none">
-      <span class="text-[16px] font-extrabold leading-none">${count.toLocaleString()}<span class="ml-px text-[10px] font-semibold">개</span></span>
+    <div class="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] cursor-pointer z-20 select-none">
+      <span class="text-[18px] font-extrabold leading-none">${count.toLocaleString()}<span class="ml-px text-[11px] font-semibold">개</span></span>
     </div>
   `;
 };
