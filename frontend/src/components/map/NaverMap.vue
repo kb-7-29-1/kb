@@ -58,12 +58,13 @@ const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
 const markersMap = ref([]);
 const amenityMarkers = new Map();
+const expandedAmenityMarkerKeys = ref(new Set());
 let resizeObserver = null;
 
 // 편의시설 마커 핀
-const renderAmenityPin = (amenity) => {
+const renderAmenityPin = (amenity, isExpanded = false) => {
   const container = document.createElement('div');
-  const pinApp = createApp(AmenityPin, { amenity });
+  const pinApp = createApp(AmenityPin, { amenity, isExpanded });
   pinApp.mount(container);
   const content = container.innerHTML;
   pinApp.unmount();
@@ -150,6 +151,20 @@ const getAmenityMarkerKey = (amenity) =>
 const clearAmenityMarkers = () => {
   amenityMarkers.forEach(({ marker }) => marker.setMap(null));
   amenityMarkers.clear();
+  expandedAmenityMarkerKeys.value = new Set();
+};
+
+const refreshAmenityMarkerContents = () => {
+  if (!window.naver || !window.naver.maps) return;
+
+  amenityMarkers.forEach(({ marker, amenity }, key) => {
+    const isExpanded = expandedAmenityMarkerKeys.value.has(key);
+    marker.setIcon({
+      content: renderAmenityPin(amenity, isExpanded),
+      anchor: new window.naver.maps.Point(0, 0),
+    });
+    marker.setZIndex(isExpanded ? 35 : 30);
+  });
 };
 
 const renderAmenityMarkers = () => {
@@ -168,18 +183,34 @@ const renderAmenityMarkers = () => {
       map: mapInstance.value,
       zIndex: 30,
       icon: {
-        content: renderAmenityPin(amenity),
+        content: renderAmenityPin(amenity, expandedAmenityMarkerKeys.value.has(key)),
         anchor: new window.naver.maps.Point(0, 0),
       },
     });
 
-    amenityMarkers.set(key, { marker: amenityMarker });
+    window.naver.maps.Event.addListener(amenityMarker, 'click', () => {
+      const nextExpandedKeys = new Set(expandedAmenityMarkerKeys.value);
+      if (nextExpandedKeys.has(key)) {
+        nextExpandedKeys.delete(key);
+      } else {
+        nextExpandedKeys.add(key);
+      }
+      expandedAmenityMarkerKeys.value = nextExpandedKeys;
+      refreshAmenityMarkerContents();
+    });
+
+    amenityMarkers.set(key, { marker: amenityMarker, amenity });
   });
 
   amenityMarkers.forEach(({ marker }, key) => {
     if (!nextKeys.has(key)) {
       marker.setMap(null);
       amenityMarkers.delete(key);
+      if (expandedAmenityMarkerKeys.value.has(key)) {
+        const nextExpandedKeys = new Set(expandedAmenityMarkerKeys.value);
+        nextExpandedKeys.delete(key);
+        expandedAmenityMarkerKeys.value = nextExpandedKeys;
+      }
     }
   });
 };
@@ -242,6 +273,17 @@ watch(
     checkDistanceToDestination();
   },
   { deep: true },
+);
+
+watch(
+  () => props.selectedProperty?.propertyId,
+  (currentPropertyId, previousPropertyId) => {
+    if (currentPropertyId === previousPropertyId || expandedAmenityMarkerKeys.value.size === 0)
+      return;
+
+    expandedAmenityMarkerKeys.value = new Set();
+    refreshAmenityMarkerContents();
+  },
 );
 
 watch(
