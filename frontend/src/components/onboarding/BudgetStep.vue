@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import api from '@/api/api';
 import { useAuthStore } from '@/stores/useAuthStore.js';
+import { getBankLogoUrl } from '@/utils/bankLogo';
 import {
   DEPOSIT_MAX_LABEL,
   DEPOSIT_MIN_LABEL,
@@ -127,6 +128,8 @@ const formatAmount = (amount) => {
   return `${amount.toLocaleString()}만원`;
 };
 
+const bankLogoUrl = computed(() => getBankLogoUrl(loan.value?.companyName));
+
 const rangeStyle = (value, min, max) => {
   const percent = ((value - min) / (max - min)) * 100;
 
@@ -192,7 +195,8 @@ const rangeStyle = (value, min, max) => {
         :class="{ 'is-refreshing': loanLoading, 'is-updated': justUpdated }"
       >
         <div class="loan-icon" aria-hidden="true">
-          <i class="fa-solid fa-building-columns"></i>
+          <img v-if="bankLogoUrl" :src="bankLogoUrl" :alt="loan.companyName" class="loan-icon__logo" />
+          <i v-else class="fa-solid fa-building-columns"></i>
         </div>
         <div class="loan-copy">
           <span>맞춤 금융 상품</span>
@@ -211,7 +215,8 @@ const rangeStyle = (value, min, max) => {
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>{{ loan.loanLimit }}까지 대출 가능해요 !</strong>
+            <strong>{{ loan.loanLimit }}까지 대출 가능해요!
+            </strong>
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>
@@ -365,6 +370,15 @@ input[type='range']::-moz-range-thumb {
   background: #fff;
   color: #2a60f7;
   font-size: 15px;
+  overflow: hidden;
+}
+
+.loan-icon__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 4px;
+  box-sizing: border-box;
 }
 
 .loan-copy {

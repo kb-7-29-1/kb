@@ -5,6 +5,7 @@ import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
 import {useAuthStore} from "@/stores/useAuthStore.js";
 import api from "@/api/api.js";
+import { getBankLogoUrl } from '@/utils/bankLogo';
 
 const authStore = useAuthStore();
 
@@ -384,7 +385,15 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
             </div>
             <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
               <div v-for="item in loanList" :key="item.productName" class="loan-item">
-                <span class="loan-bank-tag">{{ item.companyName }}</span>
+                <span class="loan-bank-tag">
+                  <img
+                    v-if="getBankLogoUrl(item.companyName)"
+                    :src="getBankLogoUrl(item.companyName)"
+                    :alt="item.companyName"
+                    class="loan-bank-tag__logo"
+                  />
+                  {{ item.companyName }}
+                </span>
                 <p class="loan-item__name">{{ item.productName }}</p>
                 <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
               </div>
@@ -480,6 +489,7 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
 .loan-bank-tag {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   min-height: 19px;
   padding: 0 6px;
   border-radius: 5px;
@@ -487,6 +497,14 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
   color: #4767f7;
   font-size: 10px;
   font-weight: 700;
+}
+
+.loan-bank-tag__logo {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  object-fit: contain;
+  background: #fff;
 }
 
 .loan-item__name {
