@@ -82,6 +82,8 @@ let amenityFilterDebounceTimer = null;
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
 const isPropertyApiError = ref(false);
+const isPropertyLoading = ref(true);
+let propertyRequestSequence = 0;
 
 // 데이터 출처 계산 (DB vs PUBLIC_API)
 const currentDataSource = computed(() => {
@@ -100,11 +102,19 @@ const getSearchRadiusKm = () => {
   return 18.0 * (minutes / 60);
 };
 
+// 편의점 디폴트 도보 시간 (5분)
+const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
+
+// 기타 편의시설 디폴트 도보 시간 (15분)
+const DEFAULT_AMENITY_WALK_TIME = 15;
+
+
 // 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
 const propertyCache = new Map();
 
 // 백엔드 실제 DB 매물 API 조회 (/api/properties)
 const fetchPropertiesFromBackend = async (forceRefetch = false) => {
+  const requestId = ++propertyRequestSequence;
   const targetLat = Number(destinationConfig.value.lat || 37.5502);
   const targetLng = Number(destinationConfig.value.lng || 127.0731);
   const destKey = `${targetLat.toFixed(4)}_${targetLng.toFixed(4)}`;
@@ -114,9 +124,11 @@ const fetchPropertiesFromBackend = async (forceRefetch = false) => {
   if (!forceRefetch && cached && cached.maxRadius >= getSearchRadiusKm()) {
     properties.value = cached.properties;
     isPropertyApiError.value = false;
+    isPropertyLoading.value = false;
     return;
   }
 
+  isPropertyLoading.value = true;
   try {
     const res = await api.get('/properties', {
       params: {
@@ -125,6 +137,8 @@ const fetchPropertiesFromBackend = async (forceRefetch = false) => {
         radius: neededRadius,
       },
     });
+    if (requestId !== propertyRequestSequence) return;
+
     if (res.data && Array.isArray(res.data)) {
       properties.value = res.data;
       propertyCache.set(destKey, {
@@ -134,10 +148,15 @@ const fetchPropertiesFromBackend = async (forceRefetch = false) => {
       isPropertyApiError.value = false;
     }
   } catch (error) {
+    if (requestId !== propertyRequestSequence) return;
     console.error('Backend DB API connection failed:', error);
     if (!cached) {
       properties.value = [];
       isPropertyApiError.value = true;
+    }
+  } finally {
+    if (requestId === propertyRequestSequence) {
+      isPropertyLoading.value = false;
     }
   }
 };
@@ -434,6 +453,10 @@ const visibleProperties = computed(() =>
     : amenityFilteredProperties.value,
 );
 
+const shouldHideAmenityPins = computed(
+    () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
+);
+
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
 const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
@@ -539,6 +562,31 @@ const handleApplyAmenities = (selectedList) => {
   emit('apply-amenity-filters', activeAmenityFilters.value);
 };
 
+// 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
+const normalizeAmenitySelection = (selectedFilters) =>
+    selectedFilters.map((filter) => {
+      const appliedFilter = activeAmenityFilters.value.find((item) => item.amenityType === filter.amenityType);
+      const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+
+      // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
+      const defaultWalkTime = Number(filter.amenityType) === 1
+          ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+          : DEFAULT_AMENITY_WALK_TIME;
+
+      const walkTimeMinutes = Number(
+          appliedFilter?.walkTimeMinutes ??
+          detailFilter?.timeLimit ??
+          filter.timeLimit ??
+          defaultWalkTime,
+      );
+
+      return {
+        ...filter,
+        timeLimit: walkTimeMinutes,
+        walkTimeMinutes,
+      };
+    });
+
 const openAmenityDetailFilter = (selectedFilters) => {
   if (isAmenityDetailFilterOpen.value) {
     isAmenityDetailFilterOpen.value = false;
@@ -546,13 +594,13 @@ const openAmenityDetailFilter = (selectedFilters) => {
   }
 
   const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
+  amenityDetailFilters.value = normalizeAmenitySelection(filters).map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
 
 const syncAmenityDetailFilter = (selectedFilters) => {
   if (!isAmenityDetailFilterOpen.value) return;
-  amenityDetailFilters.value = selectedFilters.map((filter) => {
+  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map((filter) => {
     const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
     return {
       ...filter,
@@ -564,20 +612,13 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 // PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
-
-  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
-  const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
-    (filter) => !selectedTypes.has(Number(filter.amenityType)),
+  const normalizedFilters = normalizeAmenitySelection(selectedFilters);
+  handleApplyAmenities(
+    normalizedFilters.map((filter) => ({
+      amenityType: filter.amenityType,
+      walkTimeMinutes: Number(filter.walkTimeMinutes),
+    })),
   );
-
-  if (hasRemovedAppliedFilter) {
-    handleApplyAmenities(
-      selectedFilters.map((filter) => ({
-        amenityType: filter.amenityType,
-        walkTimeMinutes: Number(filter.timeLimit),
-      })),
-    );
-  }
 };
 
 const resetAmenityDetailFilters = () => {
@@ -652,7 +693,17 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
       <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3">
         <div class="flex items-center justify-between xl:hidden">
-          <span class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500">
+          <span
+            v-if="isPropertyLoading"
+            class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+          >
+            <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
+            안전 분석 중
+          </span>
+          <span
+            v-else
+            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
+          >
             총 {{ visibleProperties.length }}개 매물
           </span>
         </div>
@@ -694,6 +745,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             @selection-change="handleAmenitySelectionChange"
           />
 
+          <p class="mt-2 text-[12px] leading-5 text-slate-500">
+            <span class="notice-icon" aria-hidden="true">⚠</span>
+            선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
+          </p>
+
           <AmenityDetailFilterPanel
             v-if="isAmenityDetailFilterOpen"
             :amenities="amenityDetailFilters"
@@ -726,7 +782,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
         <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
         <section class="hidden space-y-2 pt-3 xl:block">
-          <p class="m-0 text-[13px] font-bold text-slate-500">
+          <p
+            v-if="isPropertyLoading"
+            class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+          >
+            <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
+            안전 분석 중
+          </p>
+          <p v-else class="m-0 text-[13px] font-bold text-slate-500">
             총 {{ visibleProperties.length }}개 매물
           </p>
           <div class="flex flex-wrap items-center gap-1.5 pb-1">
@@ -767,7 +830,17 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
-        <template v-if="visibleProperties.length > 0">
+        <template v-if="isPropertyLoading">
+          <div v-for="index in 3" :key="index" class="property-card-skeleton animate-pulse">
+            <div class="property-card-skeleton__image"></div>
+            <div class="property-card-skeleton__content">
+              <span class="property-card-skeleton__tag"></span>
+              <span class="property-card-skeleton__title"></span>
+              <span class="property-card-skeleton__text"></span>
+            </div>
+          </div>
+        </template>
+        <template v-else-if="visibleProperties.length > 0">
           <PropertyCard
             v-for="prop in visibleProperties"
             :key="prop.propertyId"
@@ -824,6 +897,32 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         @select-property="handleSelectProperty"
       />
 
+      <Transition name="analysis-loader">
+        <div
+          v-if="isPropertyLoading"
+          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+        >
+          <div
+            class="flex max-w-[320px] flex-col items-center rounded-[22px] border border-white/70 bg-white/90 px-7 py-6 text-center shadow-xl backdrop-blur-md"
+          >
+            <span
+              class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1ff] text-xl text-[#4058f5]"
+            >
+              <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+            </span>
+            <strong class="text-[15px] font-extrabold text-slate-800"
+              >안전 귀갓길과 생활 조건을 분석 중이에요</strong
+            >
+            <span class="mt-1.5 text-[13px] leading-5 text-slate-500"
+              >잠시만 기다리만 맞춤 매물을 보여드릴게요</span
+            >
+            <span class="mt-4 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
+              <span class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"></span>
+            </span>
+          </div>
+        </div>
+      </Transition>
+
       <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
       <div
         v-if="isPropertyApiError"
@@ -862,6 +961,84 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   display: none;
 }
 
+.property-card-skeleton {
+  display: flex;
+  min-height: 104px;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #e0e7ff;
+  border-radius: 16px;
+  background: #f8faff;
+}
+
+.property-card-skeleton__image {
+  width: 88px;
+  flex: 0 0 88px;
+  border-radius: 12px;
+  background: #e8edf8;
+}
+
+.property-card-skeleton__content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 9px;
+}
+
+.property-card-skeleton__content span {
+  display: block;
+  border-radius: 999px;
+  background: #e8edf8;
+}
+
+.property-card-skeleton__tag {
+  width: 52px;
+  height: 16px;
+}
+
+.property-card-skeleton__title {
+  width: 82%;
+  height: 18px;
+}
+
+.property-card-skeleton__text {
+  width: 62%;
+  height: 13px;
+}
+
+.analysis-loader-bar {
+  animation: analysis-loading 1.1s ease-in-out infinite;
+}
+
+.analysis-loader-enter-active,
+.analysis-loader-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.analysis-loader-enter-from,
+.analysis-loader-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+@keyframes analysis-loading {
+  0% {
+    width: 24%;
+    margin-left: 0;
+  }
+  50% {
+    width: 58%;
+    margin-left: 30%;
+  }
+  100% {
+    width: 24%;
+    margin-left: 76%;
+  }
+}
+
 @media (min-width: 1280px) {
   .desktop-amenity-filter :deep(.filter-content) {
     padding: 4px 0 8px;
@@ -884,6 +1061,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   .property-list-scroll::-webkit-scrollbar-thumb {
     border-radius: 999px;
     background: #d7deea;
+  }
+
+  .notice-icon {
+    flex-shrink: 0;
+    font-size: 12px;
   }
 }
 </style>

@@ -22,10 +22,27 @@ const closeFilter = () => {
   isFilterOpen.value = false;
 };
 
+const getDestinationKey = (destination) => {
+  if (!destination) return '';
+  if (typeof destination === 'string') return destination.trim();
+
+  return JSON.stringify({
+    name: destination.destName ?? destination.destinationName ?? destination.name ?? '',
+    address: destination.destAddress ?? destination.address ?? '',
+    lat: destination.destLatitude ?? destination.latitude ?? destination.lat ?? '',
+    lng: destination.destLongitude ?? destination.longitude ?? destination.lng ?? '',
+  });
+};
+
 const applyOnboardingFilters = (onboarding) => {
+  const prevDestinationKey = getDestinationKey(appliedOnboardingFilters.value?.destination);
+  const nextDestinationKey = getDestinationKey(onboarding?.destination);
+
   appliedOnboardingFilters.value = onboarding;
-  // 온보딩 기준이 바뀌면 편의시설 필터는 다음 단계에서 다시 적용한다.
-  appliedAmenityFilters.value = [];
+
+  if (prevDestinationKey !== nextDestinationKey) {
+    appliedAmenityFilters.value = [];
+  }
 };
 
 const applyAmenityFilters = (amenities) => {
