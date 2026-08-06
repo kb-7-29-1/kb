@@ -274,6 +274,13 @@ h2 {
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 .purpose-icon {
   font-size: 20px;
@@ -283,6 +290,53 @@ h2 {
   border-color: #2a60f7;
   background: #eff6ff;
   color: #2a60f7;
+  box-shadow: 0 6px 14px -10px rgba(42, 96, 247, 0.7);
+  animation: purpose-select 0.24s ease-out;
+}
+.purpose-button.active .purpose-icon {
+  animation: purpose-icon-pop 0.28s ease-out;
+}
+.purpose-button:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) {
+  .purpose-button:hover {
+    border-color: #b9c8ff;
+    background: #f8faff;
+    color: #2a60f7;
+    box-shadow: 0 8px 16px -13px rgba(42, 96, 247, 0.5);
+    transform: translateY(-2px);
+  }
+
+  .purpose-button.active:hover {
+    border-color: #2a60f7;
+    background: #eff6ff;
+  }
+}
+
+@keyframes purpose-select {
+  0% {
+    transform: scale(0.96);
+  }
+  70% {
+    transform: scale(1.025);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes purpose-icon-pop {
+  0% {
+    transform: translateY(2px) scale(0.9);
+  }
+  65% {
+    transform: translateY(-2px) scale(1.08);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
 }
 .search-label {
   display: block;

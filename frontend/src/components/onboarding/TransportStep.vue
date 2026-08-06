@@ -142,11 +142,19 @@ h2 {
   color: #0f172a;
   font-family: inherit;
   text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .transport-button.active {
   border-color: #2a60f7;
   background: #eff6ff;
+  box-shadow: 0 8px 18px -14px rgba(42, 96, 247, 0.7);
+  animation: transport-select 0.24s ease-out;
 }
 
 .transport-icon {
@@ -173,5 +181,51 @@ h2 {
 .transport-copy small {
   color: #64748b;
   font-size: 13px;
+}
+
+.transport-button.active .transport-icon {
+  animation: transport-icon-pop 0.28s ease-out;
+}
+
+.transport-button:active {
+  transform: scale(0.985);
+}
+
+@media (hover: hover) {
+  .transport-button:hover {
+    border-color: #b9c8ff;
+    background: #f8faff;
+    box-shadow: 0 8px 18px -14px rgba(42, 96, 247, 0.55);
+    transform: translateY(-2px);
+  }
+
+  .transport-button.active:hover {
+    border-color: #2a60f7;
+    background: #eff6ff;
+  }
+}
+
+@keyframes transport-select {
+  0% {
+    transform: scale(0.98);
+  }
+  70% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes transport-icon-pop {
+  0% {
+    transform: translateX(-3px) scale(0.9);
+  }
+  65% {
+    transform: translateX(2px) scale(1.08);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
 }
 </style>
