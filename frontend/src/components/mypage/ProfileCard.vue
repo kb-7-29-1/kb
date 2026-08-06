@@ -76,12 +76,19 @@ const handleUpdateProfile = async () => {
             </span>
             프로필 정보 수정
           </h3>
-          <button type="button" class="profile-modal-close" aria-label="닫기" @click="cancelEdit">
+          <button
+            type="button"
+            class="profile-modal-close"
+            aria-label="닫기"
+            @click="cancelEdit"
+          >
             <i class="fa-solid fa-xmark" aria-hidden="true"></i>
           </button>
         </div>
 
-        <p class="profile-modal-description">변경할 이름과 이메일을 입력해 주세요.</p>
+        <p class="profile-modal-description">
+          변경할 이름과 이메일을 입력해 주세요.
+        </p>
 
         <label class="profile-edit-label">이름</label>
         <input
@@ -102,8 +109,18 @@ const handleUpdateProfile = async () => {
         <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
 
         <div class="profile-modal-actions">
-          <button type="button" class="profile-cancel-button" @click="cancelEdit">취소</button>
-          <button type="button" class="profile-save-button" @click="handleUpdateProfile">
+          <button
+            type="button"
+            class="profile-cancel-button"
+            @click="cancelEdit"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            class="profile-save-button"
+            @click="handleUpdateProfile"
+          >
             저장하기
           </button>
         </div>

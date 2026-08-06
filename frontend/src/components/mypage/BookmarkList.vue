@@ -1,7 +1,7 @@
 <script setup>
-import api from "@/api/api.js";
-import {onMounted, ref} from "vue";
-import {useRouter} from "vue-router";
+import api from '@/api/api.js';
+import { onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
 const bookmarks = ref([]);
 const router = useRouter();
@@ -40,7 +40,10 @@ onMounted(fetchBookmarks);
       관심 매물 <span>{{ bookmarks.length }}</span>
     </h2>
 
-    <div v-if="bookmarks.length === 0" class="text-gray-400 text-sm text-center py-8">
+    <div
+      v-if="bookmarks.length === 0"
+      class="text-gray-400 text-sm text-center py-8"
+    >
       찜한 매물이 없습니다.
     </div>
     <div v-else class="bookmark-scroll-list overflow-y-auto space-y-3 pr-1">
@@ -56,14 +59,21 @@ onMounted(fetchBookmarks);
         <div class="bookmark-item__content">
           <div class="bookmark-item__tags">
             <span class="property-type-tag">{{ item.buildingTypeTag }}</span>
-            <span v-if="item.isIllegalBuilding" class="warning-tag">⚠️ 위반 건축물</span>
+            <span v-if="item.isIllegalBuilding" class="warning-tag"
+              >⚠️ 위반 건축물</span
+            >
           </div>
           <p class="bookmark-item__address">{{ item.address }}</p>
-          <p class="bookmark-item__details">보증금 {{ item.deposit }}만 · {{ item.area }}㎡</p>
+          <p class="bookmark-item__details">
+            보증금 {{ item.deposit }}만 · {{ item.area }}㎡
+          </p>
         </div>
 
         <div class="bookmark-item__actions">
-          <span class="safety-badge" :class="safetyBadgeClass(item.safetyScore)">
+          <span
+            class="safety-badge"
+            :class="safetyBadgeClass(item.safetyScore)"
+          >
             {{ item.safetyScore }}점
           </span>
           <button
