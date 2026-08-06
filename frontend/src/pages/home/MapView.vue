@@ -59,11 +59,11 @@ const amenityDetailFilters = ref([]);
 const activeAmenityFilters = ref([]);
 
 watch(
-  () => props.appliedAmenityFilters,
-  (filters = []) => {
-    activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
-  },
-  { immediate: true, deep: true },
+    () => props.appliedAmenityFilters,
+    (filters = []) => {
+      activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+    },
+    { immediate: true, deep: true },
 );
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
@@ -96,6 +96,28 @@ const getSearchRadiusKm = () => {
   }
 
   return 18.0 * (minutes / 60);
+};
+
+// 편의점 디폴트 도보 시간 (5분)
+const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
+
+// 기타 편의시설 디폴트 도보 시간 (10분)
+const DEFAULT_AMENITY_WALK_TIME = 15;
+
+const getDestinationKey = (filters) => {
+  const destination = filters?.destination;
+  return JSON.stringify({
+    name:
+        destination?.destName ??
+        destination?.destinationName ??
+        destination?.name ??
+        filters?.destination ??
+        '',
+    address: destination?.destAddress ?? destination?.address ?? filters?.destinationAddress ?? '',
+    lat: destination?.destLatitude ?? destination?.latitude ?? destination?.lat ?? filters?.destinationLat ?? '',
+    lng:
+        destination?.destLongitude ?? destination?.longitude ?? destination?.lng ?? filters?.destinationLng ?? '',
+  });
 };
 
 // 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
@@ -151,7 +173,16 @@ onMounted(async () => {
 const appliedFilterState = ref({ ...filterState.value });
 
 const handleApplyFilters = () => {
+  const destinationChanged = getDestinationKey(filterState.value) !== getDestinationKey(appliedFilterState.value);
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  if (destinationChanged) {
+    activeAmenityFilters.value = [];
+    amenityDetailFilters.value = [];
+    isAmenityDetailFilterOpen.value = false;
+    filterState.value.selectedAmenities = [];
+    emit('apply-amenity-filters', []);
+  }
   fetchPropertiesFromBackend();
 };
 
@@ -167,10 +198,10 @@ const applyMobileOnboardingFilters = (filters) => {
   const destination = filters.destination;
   if (destination && typeof destination === 'object') {
     filterState.value.destination =
-      destination.destName ||
-      destination.destinationName ||
-      destination.name ||
-      filterState.value.destination;
+        destination.destName ||
+        destination.destinationName ||
+        destination.name ||
+        filterState.value.destination;
     filterState.value.destinationAddress = destination.destAddress || destination.address || '';
 
     const latitude = destination.destLatitude ?? destination.latitude ?? destination.lat;
@@ -202,8 +233,8 @@ const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = activeAmenityFilters.value;
   const propertyIds = baseFilteredProperties.value
-    .map((property) => property.propertyId)
-    .filter((propertyId) => propertyId != null);
+      .map((property) => property.propertyId)
+      .filter((propertyId) => propertyId != null);
   const sequence = ++amenityRequestSequence;
 
   if (!filters.length || !propertyIds.length) {
@@ -240,34 +271,34 @@ onUnmounted(() => {
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
 watch(
-  () => [filterState.value.destination, filterState.value.destinationAddress],
-  ([newDest, newAddr]) => {
-    if (!newDest && !newAddr) return;
+    () => [filterState.value.destination, filterState.value.destinationAddress],
+    ([newDest, newAddr]) => {
+      if (!newDest && !newAddr) return;
 
-    // 1. 이미 정확한 위경도 좌표가 온보딩이나 필터에서 직접 전달된 경우 (조회 생략)
-    if (filterState.value.destinationLat && filterState.value.destinationLng) {
-      return;
-    }
+      // 1. 이미 정확한 위경도 좌표가 온보딩이나 필터에서 직접 전달된 경우 (조회 생략)
+      if (filterState.value.destinationLat && filterState.value.destinationLng) {
+        return;
+      }
 
-    // 2. 좌표가 없는 경우 동명이인/유사 장소명 오류 방지를 위해 '풀 도로명/지번 주소' 우선 조회
-    const searchQuery = newAddr || newDest;
+      // 2. 좌표가 없는 경우 동명이인/유사 장소명 오류 방지를 위해 '풀 도로명/지번 주소' 우선 조회
+      const searchQuery = newAddr || newDest;
 
-    if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
-        if (
-          status === window.naver.maps.Service.Status.OK &&
-          response.v2 &&
-          response.v2.addresses &&
-          response.v2.addresses.length > 0
-        ) {
-          const item = response.v2.addresses[0];
-          filterState.value.destinationLat = Number(item.y);
-          filterState.value.destinationLng = Number(item.x);
-        }
-      });
-    }
-  },
-  { immediate: true },
+      if (window.naver && window.naver.maps && window.naver.maps.Service) {
+        window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
+          if (
+              status === window.naver.maps.Service.Status.OK &&
+              response.v2 &&
+              response.v2.addresses &&
+              response.v2.addresses.length > 0
+          ) {
+            const item = response.v2.addresses[0];
+            filterState.value.destinationLat = Number(item.y);
+            filterState.value.destinationLng = Number(item.x);
+          }
+        });
+      }
+    },
+    { immediate: true },
 );
 
 // 동적 목적지 명칭 및 실시간 실제 좌표 (lat, lng) 매핑
@@ -313,15 +344,15 @@ const baseFilteredProperties = computed(() => {
     // 2. 보증금 / 전세금 필터 (maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMaxDeposit = currentFilters.maxDeposit;
     if (
-      currentFilters.selectedLoanId &&
-      currentFilters.selectedLoanId !== 'NONE'
+        currentFilters.selectedLoanId &&
+        currentFilters.selectedLoanId !== 'NONE'
     ) {
       const loan = LOAN_PRODUCTS.find(
-        (l) => l.id === currentFilters.selectedLoanId,
+          (l) => l.id === currentFilters.selectedLoanId,
       );
       if (loan && loan.ratio > 0) {
         effectiveMaxDeposit = Math.round(
-          currentFilters.maxDeposit * (1 + loan.ratio),
+            currentFilters.maxDeposit * (1 + loan.ratio),
         );
       }
     }
@@ -329,9 +360,9 @@ const baseFilteredProperties = computed(() => {
 
     // 3. 월세 필터 (maxRent 단위: 만원)
     if (
-      currentFilters.tradeType === 'MONTHLY' &&
-      currentFilters.maxRent < DEFAULT_RENT &&
-      p.monthlyRent > currentFilters.maxRent
+        currentFilters.tradeType === 'MONTHLY' &&
+        currentFilters.maxRent < DEFAULT_RENT &&
+        p.monthlyRent > currentFilters.maxRent
     )
       return false;
 
@@ -395,7 +426,11 @@ const amenityFilteredProperties = computed(() => {
 });
 
 const visibleProperties = computed(() =>
-  activeAmenityFilters.value.length && amenityFilterLoading.value ? [] : amenityFilteredProperties.value,
+    activeAmenityFilters.value.length && amenityFilterLoading.value ? [] : amenityFilteredProperties.value,
+);
+
+const shouldHideAmenityPins = computed(
+    () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
@@ -410,8 +445,8 @@ const handleSelectProperty = async (property) => {
 
   try {
     const amenities = await amenityService.filterAmenities(
-      property.propertyId,
-      activeAmenityFilters.value,
+        property.propertyId,
+        activeAmenityFilters.value,
     );
 
     if (selectedProperty.value?.propertyId === property.propertyId) {
@@ -441,7 +476,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   const listedProperty = properties.value.find(
-    (property) => Number(property.propertyId) === numericPropertyId,
+      (property) => Number(property.propertyId) === numericPropertyId,
   );
 
   if (listedProperty) {
@@ -458,9 +493,9 @@ const openPropertyDetailFromQuery = async (propertyId) => {
 };
 
 watch(
-  () => route.query.propertyId,
-  (propertyId) => openPropertyDetailFromQuery(propertyId),
-  { immediate: true },
+    () => route.query.propertyId,
+    (propertyId) => openPropertyDetailFromQuery(propertyId),
+    { immediate: true },
 );
 
 const selectedPropertyAmenities = computed(() => {
@@ -473,10 +508,10 @@ const selectedPropertyAmenities = computed(() => {
 });
 
 watch(
-  () => activeAmenityFilters.value.length,
-  (length) => {
-    if (!length) selectedPropertyDetailAmenities.value = [];
-  },
+    () => activeAmenityFilters.value.length,
+    (length) => {
+      if (!length) selectedPropertyDetailAmenities.value = [];
+    },
 );
 
 // 찜 토글
@@ -503,6 +538,31 @@ const handleApplyAmenities = (selectedList) => {
   emit('apply-amenity-filters', activeAmenityFilters.value);
 };
 
+// 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
+const normalizeAmenitySelection = (selectedFilters) =>
+    selectedFilters.map((filter) => {
+      const appliedFilter = activeAmenityFilters.value.find((item) => item.amenityType === filter.amenityType);
+      const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+
+      // 편의점은 5분, 그 외 기타 편의시설은 10분을 디폴트 기본값으로 설정
+      const defaultWalkTime = Number(filter.amenityType) === 1
+          ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+          : DEFAULT_AMENITY_WALK_TIME;
+
+      const walkTimeMinutes = Number(
+          appliedFilter?.walkTimeMinutes ??
+          detailFilter?.timeLimit ??
+          filter.timeLimit ??
+          defaultWalkTime,
+      );
+
+      return {
+        ...filter,
+        timeLimit: walkTimeMinutes,
+        walkTimeMinutes,
+      };
+    });
+
 const openAmenityDetailFilter = (selectedFilters) => {
   if (isAmenityDetailFilterOpen.value) {
     isAmenityDetailFilterOpen.value = false;
@@ -510,13 +570,13 @@ const openAmenityDetailFilter = (selectedFilters) => {
   }
 
   const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  amenityDetailFilters.value = filters.map((filter) => ({ ...filter }));
+  amenityDetailFilters.value = normalizeAmenitySelection(filters).map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
 
 const syncAmenityDetailFilter = (selectedFilters) => {
   if (!isAmenityDetailFilterOpen.value) return;
-  amenityDetailFilters.value = selectedFilters.map((filter) => {
+  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map((filter) => {
     const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
     return {
       ...filter,
@@ -528,20 +588,13 @@ const syncAmenityDetailFilter = (selectedFilters) => {
 // PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
 const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
-
-  const selectedTypes = new Set(selectedFilters.map((filter) => Number(filter.amenityType)));
-  const hasRemovedAppliedFilter = activeAmenityFilters.value.some(
-    (filter) => !selectedTypes.has(Number(filter.amenityType)),
-  );
-
-  if (hasRemovedAppliedFilter) {
-    handleApplyAmenities(
-      selectedFilters.map((filter) => ({
+  const normalizedFilters = normalizeAmenitySelection(selectedFilters);
+  handleApplyAmenities(
+      normalizedFilters.map((filter) => ({
         amenityType: filter.amenityType,
-        walkTimeMinutes: Number(filter.timeLimit),
+        walkTimeMinutes: Number(filter.walkTimeMinutes),
       })),
-    );
-  }
+  );
 };
 
 const resetAmenityDetailFilters = () => {
@@ -552,10 +605,10 @@ const resetAmenityDetailFilters = () => {
 
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
-    amenityDetailFilters.value.map((item) => ({
-      amenityType: item.amenityType,
-      walkTimeMinutes: Number(item.timeLimit),
-    })),
+      amenityDetailFilters.value.map((item) => ({
+        amenityType: item.amenityType,
+        walkTimeMinutes: Number(item.timeLimit),
+      })),
   );
   isAmenityDetailFilterOpen.value = false;
 };
@@ -574,26 +627,26 @@ const isPreviewingIsochrone = computed(() => {
   if (activePopoverName.value === 'travel') return true;
   if (!filterState.value || !appliedFilterState.value) return false;
   return (
-    filterState.value.travelTime !== appliedFilterState.value.travelTime ||
-    filterState.value.flexTime !== appliedFilterState.value.flexTime ||
-    filterState.value.transportMode !== appliedFilterState.value.transportMode ||
-    filterState.value.walkPace !== appliedFilterState.value.walkPace
+      filterState.value.travelTime !== appliedFilterState.value.travelTime ||
+      filterState.value.flexTime !== appliedFilterState.value.flexTime ||
+      filterState.value.transportMode !== appliedFilterState.value.transportMode ||
+      filterState.value.walkPace !== appliedFilterState.value.walkPace
   );
 });
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
 const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
-  useMobilePanelDrag();
+    useMobilePanelDrag();
 </script>
 
 <template>
   <div
-    class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
+      class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
-      :class="[
+        class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
+        :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
           ? 'h-full xl:h-full'
@@ -601,14 +654,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             ? 'h-[120px] xl:h-full'
             : 'h-1/3 xl:h-full',
       ]"
-      :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
+        :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
-        @click="toggleMobilePanel"
-        @mousedown="startDrag"
-        @touchstart.prevent="startDrag"
+          class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+          @click="toggleMobilePanel"
+          @mousedown="startDrag"
+          @touchstart.prevent="startDrag"
       >
         <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
@@ -623,14 +676,14 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
         <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
         <OnboardingSummary
-          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
-          :destination="filterState.destination"
-          :transport-mode="filterState.transportMode"
-          :travel-time="filterState.travelTime"
-          :max-deposit="filterState.maxDeposit"
-          :max-rent="filterState.maxRent"
-          :min-safety-score="filterState.minSafetyScore"
-          :show-close="false"
+            class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
+            :destination="filterState.destination"
+            :transport-mode="filterState.transportMode"
+            :travel-time="filterState.travelTime"
+            :max-deposit="filterState.maxDeposit"
+            :max-rent="filterState.maxRent"
+            :min-safety-score="filterState.minSafetyScore"
+            :show-close="false"
         />
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
@@ -639,9 +692,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
             <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
             <button
-              type="button"
-              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
-              @click="openAmenityDetailFilter()"
+                type="button"
+                class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
+                @click="openAmenityDetailFilter()"
             >
               <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
               <span>상세 필터</span>
@@ -650,21 +703,26 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           </div>
 
           <AmenityFilter
-            ref="amenityFilterRef"
-            class="desktop-amenity-filter"
-            :applied-filters="activeAmenityFilters"
-            :show-walking-time="false"
-            @apply="handleApplyAmenities"
-            @selection-change="handleAmenitySelectionChange"
+              ref="amenityFilterRef"
+              class="desktop-amenity-filter"
+              :applied-filters="activeAmenityFilters"
+              :show-walking-time="false"
+              @apply="handleApplyAmenities"
+              @selection-change="handleAmenitySelectionChange"
           />
 
+          <p class="mt-2 text-[12px] leading-5 text-slate-500">
+            <span class="notice-icon" aria-hidden="true">⚠</span>
+            선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
+          </p>
+
           <AmenityDetailFilterPanel
-            v-if="isAmenityDetailFilterOpen"
-            :amenities="amenityDetailFilters"
-            @apply="applyAmenityDetailFilters"
-            @close="isAmenityDetailFilterOpen = false"
-            @reset="resetAmenityDetailFilters"
-            @update-time-limit="updateAmenityDetailTimeLimit"
+              v-if="isAmenityDetailFilterOpen"
+              :amenities="amenityDetailFilters"
+              @apply="applyAmenityDetailFilters"
+              @close="isAmenityDetailFilterOpen = false"
+              @reset="resetAmenityDetailFilters"
+              @update-time-limit="updateAmenityDetailTimeLimit"
           />
         </section>
 
@@ -672,16 +730,16 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         <!-- 모바일: 가로 스크롤 정렬 버튼 -->
         <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden">
           <button
-            v-for="opt in sortOptions"
-            :key="opt.key"
-            type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-            :class="[
+              v-for="opt in sortOptions"
+              :key="opt.key"
+              type="button"
+              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+              :class="[
               currentSort === opt.key
                 ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                 : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
             ]"
-            @click="currentSort = opt.key"
+              @click="currentSort = opt.key"
           >
             <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
@@ -695,34 +753,34 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           </p>
           <div class="flex flex-wrap items-center gap-1.5 pb-1">
             <button
-              v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
-              :key="opt.key"
-              type="button"
-              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-              :class="
+                v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
+                :key="opt.key"
+                type="button"
+                class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+                :class="
                 currentSort === opt.key
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                   : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
               "
-              @click="currentSort = opt.key"
+                @click="currentSort = opt.key"
             >
               <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
               {{ opt.label }}
             </button>
             <button
-              type="button"
-              class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
-              :class="
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
+                :class="
                 isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                   : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
               "
-              :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
-              @click="isDesktopSortExpanded = !isDesktopSortExpanded"
+                :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
+                @click="isDesktopSortExpanded = !isDesktopSortExpanded"
             >
               <i
-                :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
-                aria-hidden="true"
+                  :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
+                  aria-hidden="true"
               ></i>
             </button>
           </div>
@@ -733,17 +791,17 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
         <template v-if="visibleProperties.length > 0">
           <PropertyCard
-            v-for="prop in visibleProperties"
-            :key="prop.propertyId"
-            :property="prop"
-            :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
-            @select="handleSelectProperty"
-            @toggle-bookmark="handleToggleBookmark"
+              v-for="prop in visibleProperties"
+              :key="prop.propertyId"
+              :property="prop"
+              :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
+              @select="handleSelectProperty"
+              @toggle-bookmark="handleToggleBookmark"
           />
         </template>
         <div
-          v-else-if="!amenityFilterLoading"
-          class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
+            v-else-if="!amenityFilterLoading"
+            class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
           <p class="text-sm font-bold text-slate-600">조건에 맞는 매물이 없습니다.</p>
@@ -752,8 +810,8 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           </p>
         </div>
         <div
-          v-else
-          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+            v-else
+            class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
         >
           매물을 조회하고 있어요.
         </div>
@@ -765,40 +823,40 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
       <div class="absolute top-4 left-4 z-30 pointer-events-none">
         <MapQuickFilterBar
-          v-if="isQuickFilterReady"
-          v-model="filterState"
-          :total-count="visibleProperties.length"
-          class="pointer-events-auto"
-          @open-filter="emit('open-filter')"
-          @popover-change="handlePopoverChange"
-          @apply="handleApplyFilters"
-          @update-filters="handleApplyFilters"
-          @reset="handleResetFilters"
+            v-if="isQuickFilterReady"
+            v-model="filterState"
+            :total-count="visibleProperties.length"
+            class="pointer-events-auto"
+            @open-filter="emit('open-filter')"
+            @popover-change="handlePopoverChange"
+            @apply="handleApplyFilters"
+            @update-filters="handleApplyFilters"
+            @reset="handleResetFilters"
         />
       </div>
 
       <NaverMap
-        :properties="visibleProperties"
-        :selected-property="selectedProperty"
-        :amenities="selectedPropertyAmenities"
-        :destination="destinationConfig"
-        :applied-filter="appliedFilterState"
-        :live-filter="filterState"
-        :is-preview-mode="isPreviewingIsochrone"
-        @select-property="handleSelectProperty"
+          :properties="visibleProperties"
+          :selected-property="selectedProperty"
+          :amenities="shouldHideAmenityPins ? [] : selectedPropertyAmenities"
+          :destination="destinationConfig"
+          :applied-filter="appliedFilterState"
+          :live-filter="filterState"
+          :is-preview-mode="isPreviewingIsochrone"
+          @select-property="handleSelectProperty"
       />
 
       <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
       <div
-        v-if="isPropertyApiError"
-        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
+          v-if="isPropertyApiError"
+          class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
       >
         <span>⚠️</span>
         <span>백엔드 매물 데이터를 불러오는 데 실패했습니다.</span>
         <button
-          type="button"
-          class="underline ml-2 hover:text-red-200"
-          @click="fetchPropertiesFromBackend"
+            type="button"
+            class="underline ml-2 hover:text-red-200"
+            @click="fetchPropertiesFromBackend"
         >
           재시도
         </button>
@@ -807,11 +865,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
     <!-- 3. 우측 560px Slide-Over 매물 상세 패널 -->
     <SlidingDoorPanel
-      :is-open="isPanelOpen"
-      :property="selectedProperty"
-      :amenities="selectedPropertyAmenities"
-      @close="isPanelOpen = false"
-      @toggle-bookmark="handleToggleBookmark"
+        :is-open="isPanelOpen"
+        :property="selectedProperty"
+        :amenities="selectedPropertyAmenities"
+        @close="isPanelOpen = false"
+        @toggle-bookmark="handleToggleBookmark"
     />
   </div>
 </template>
@@ -848,6 +906,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
   .property-list-scroll::-webkit-scrollbar-thumb {
     border-radius: 999px;
     background: #d7deea;
+  }
+
+  .notice-icon {
+    flex-shrink: 0;
+    font-size: 12px;
   }
 }
 </style>
