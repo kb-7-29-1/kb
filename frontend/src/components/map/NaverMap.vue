@@ -50,6 +50,18 @@ const props = defineProps({
     type: Number,
     default: 10, // 여유 시간 (분)
   },
+  isPreviewMode: {
+    type: Boolean,
+    default: false,
+  },
+  appliedFilter: {
+    type: Object,
+    default: null,
+  },
+  liveFilter: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['select-property']);
@@ -302,22 +314,23 @@ const fitToIsochroneRadius = () => {
     !props.destination?.lng
   )
     return;
-  if (!props.showIsochrone) return;
+
+  const filter = props.liveFilter || props.appliedFilter;
+  if (!filter || filter.showIsochrone === false) return;
 
   let radiusMeters = 900;
-  if (props.transportMode === 'WALK') {
+  if (filter.transportMode === 'WALK') {
     let speedMetersPerMin = 75;
-    if (props.walkPace === 'SLOW') speedMetersPerMin = 58;
-    if (props.walkPace === 'FAST') speedMetersPerMin = 92;
-    radiusMeters = Math.max(200, props.travelTime * speedMetersPerMin);
+    if (filter.walkPace === 'SLOW') speedMetersPerMin = 58;
+    if (filter.walkPace === 'FAST') speedMetersPerMin = 92;
+    radiusMeters = Math.max(200, (filter.travelTime || 15) * speedMetersPerMin);
   } else {
-    const transitBaseRadius = Math.max(500, props.travelTime * 180);
-    radiusMeters = Math.max(transitBaseRadius + 200, (props.travelTime + props.flexTime) * 180);
+    radiusMeters = Math.max(500, (filter.travelTime || 15) * 180);
   }
 
   const earthRadius = 6378137;
-  const centerLat = props.destination.lat;
-  const centerLng = props.destination.lng;
+  const centerLat = Number(props.destination.lat || props.destination.destLatitude);
+  const centerLng = Number(props.destination.lng || props.destination.destLongitude);
   const latRad = (centerLat * Math.PI) / 180;
 
   // 15% 여유 공간 마진
@@ -329,23 +342,29 @@ const fitToIsochroneRadius = () => {
     new window.naver.maps.LatLng(centerLat + latOffset, centerLng + lngOffset),
   );
 
-  mapInstance.value.fitBounds(bounds);
+  const currentMapBounds = mapInstance.value.getBounds();
+
+  // 프리뷰 점선 원이 현재 지도 화면(currentMapBounds)을 벗어나는 경우에만 단방향 화면 축소(fitBounds)
+  if (
+    !currentMapBounds ||
+    !currentMapBounds.hasLatLng(bounds.getNE()) ||
+    !currentMapBounds.hasLatLng(bounds.getSW())
+  ) {
+    mapInstance.value.fitBounds(bounds);
+  }
 };
 
-// 목적지 및 이동시간 필터 변경 시(적용하기 클릭 시) 해당 최대 원 크기에 맞춰 줌 조율
+// 실시간 프리뷰 점선 원 및 목적지 변경 시 줌 자동 조율
 watch(
   [
     () => props.destination,
-    () => props.travelTime,
-    () => props.transportMode,
-    () => props.walkPace,
-    () => props.flexTime,
-    () => props.showIsochrone,
+    () => props.liveFilter,
+    () => props.appliedFilter,
   ],
   () => {
     fitToIsochroneRadius();
   },
-  { deep: true },
+  { deep: true, immediate: true },
 );
 
 watch(zoomLevel, (newZoom) => {
@@ -418,11 +437,9 @@ const moveMapToDestination = () => {
     <IsochroneOverlay
       :map-instance="mapInstance"
       :destination="destination"
-      :show-isochrone="showIsochrone"
-      :transport-mode="transportMode"
-      :travel-time="travelTime"
-      :walk-pace="walkPace"
-      :flex-time="flexTime"
+      :applied-filter="appliedFilter"
+      :live-filter="liveFilter"
+      :is-preview-mode="isPreviewMode"
     />
 
     <!-- 3. 목적지에서 멀어졌을 때 상단 중앙 스르륵 등장하는 플로팅 복귀 캡슐 버튼 (z-30) -->
