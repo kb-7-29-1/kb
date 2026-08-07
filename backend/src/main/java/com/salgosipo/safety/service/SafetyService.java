@@ -13,6 +13,8 @@ public interface SafetyService {
      */
     SafetyRouteResponseDTO getOrCalculateSafety(SafetyRouteRequestDTO request);
 
+    SafetyRouteResponseDTO calculateSafetyDetails(SafetyRouteRequestDTO request);
+
     /**
      * 메인 화면에 표시할 여러 매물의 캐시를 한 번에 조회하고,
      * 캐시가 없는 조합만 TMAP 대로 우선 경로로 계산해 저장합니다.

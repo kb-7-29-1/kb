@@ -36,6 +36,13 @@ public class SafetyController {
         return ResponseEntity.ok(safetyService.getOrCalculateSafety(request));
     }
 
+    @PostMapping("/score/details")
+    public ResponseEntity<SafetyRouteResponseDTO> calculateSafetyDetails(
+            @RequestBody SafetyRouteRequestDTO request
+    ) {
+        return ResponseEntity.ok(safetyService.calculateSafetyDetails(request));
+    }
+
     /**
      * 메인 화면용 배치 API입니다.
      * 요청한 모든 매물-목적지 조합을 DB에서 먼저 조회하고,

@@ -117,6 +117,54 @@ public class SafetyServiceImpl implements SafetyService {
      * insertPropertySafetyIfAbsent를 통해 개별 캐시로 확정합니다.
      */
     @Override
+    public SafetyRouteResponseDTO calculateSafetyDetails(SafetyRouteRequestDTO request) {
+        validateRequest(request);
+
+        SafetyPropertyCoordinateVO property = resolveProperty(request.getPropertyId());
+        SafetyDestinationVO destination = new SafetyDestinationVO();
+        destination.setDestinationId(request.getDestinationId());
+        destination.setLatitude(BigDecimal.valueOf(request.getDestinationLatitude()));
+        destination.setLongitude(BigDecimal.valueOf(request.getDestinationLongitude()));
+        destination.setName(request.getDestinationName());
+        destination.setAddress(request.getDestinationAddress());
+
+        PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                property.getLatitude(),
+                property.getLongitude(),
+                defaultName(request.getPropertyName(), property.getAddress()),
+                destination.getLatitude().doubleValue(),
+                destination.getLongitude().doubleValue(),
+                defaultName(destination.getName(), "Selected destination")
+        );
+        BoundingBox boundingBox = calculateBoundingBox(route);
+        SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(
+                route,
+                safetyFacilityRepository.findInBounds(
+                        boundingBox.minLatitude(),
+                        boundingBox.maxLatitude(),
+                        boundingBox.minLongitude(),
+                        boundingBox.maxLongitude()
+                )
+        );
+        selectedRoute.setSelected(true);
+
+        SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
+        response.setPropertyId(property.getPropertyId());
+        response.setDestinationId(destination.getDestinationId());
+        response.setCacheHit(false);
+        response.setPersisted(false);
+        response.setMessage("Safety details calculated without persistence.");
+        response.setSafetyScore(selectedRoute.getSafetyScore());
+        response.setSafetyGrade(selectedRoute.getSafetyGrade());
+        response.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
+        response.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
+        response.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
+        response.setSelectedRoute(selectedRoute);
+        response.setCandidateRoutes(List.of(selectedRoute));
+        return response;
+    }
+
+    @Override
     public SafetyBatchResponseDTO getOrCalculateSafetyBatch(
             SafetyBatchRequestDTO request
     ) {

@@ -9,7 +9,9 @@ public class SafetyScoreBreakdownDTO {
     private Integer cctvCount;
     private Integer streetLightCount;
     private Boolean hasPoliceStation;
+    private Double nearestPoliceDistanceMeters;
     private Double cctvAverageGapMeters;
+    private Double streetLightAverageGapMeters;
     private Double cctvCoveragePercent;
     private Double streetLightCoveragePercent;
 
@@ -80,12 +82,28 @@ public class SafetyScoreBreakdownDTO {
         this.hasPoliceStation = hasPoliceStation;
     }
 
+    public Double getNearestPoliceDistanceMeters() {
+        return nearestPoliceDistanceMeters;
+    }
+
+    public void setNearestPoliceDistanceMeters(Double nearestPoliceDistanceMeters) {
+        this.nearestPoliceDistanceMeters = nearestPoliceDistanceMeters;
+    }
+
     public Double getCctvAverageGapMeters() {
         return cctvAverageGapMeters;
     }
 
     public void setCctvAverageGapMeters(Double cctvAverageGapMeters) {
         this.cctvAverageGapMeters = cctvAverageGapMeters;
+    }
+
+    public Double getStreetLightAverageGapMeters() {
+        return streetLightAverageGapMeters;
+    }
+
+    public void setStreetLightAverageGapMeters(Double streetLightAverageGapMeters) {
+        this.streetLightAverageGapMeters = streetLightAverageGapMeters;
     }
 
     public Double getCctvCoveragePercent() {

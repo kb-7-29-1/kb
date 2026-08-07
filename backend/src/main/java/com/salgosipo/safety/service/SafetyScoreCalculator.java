@@ -53,6 +53,10 @@ public class SafetyScoreCalculator {
                 policeStations,
                 POLICE_ROUTE_RADIUS_METERS
         );
+        double nearestPoliceDistanceMeters = nearestFacilityDistanceToRoute(
+                projectedRoute,
+                policeStations
+        );
 
         double routeDistanceMeters = route.getDistanceMeters() != null && route.getDistanceMeters() > 0
                 ? route.getDistanceMeters()
@@ -60,6 +64,9 @@ public class SafetyScoreCalculator {
         double averageGapMeters = cctvCount == 0
                 ? Double.POSITIVE_INFINITY
                 : routeDistanceMeters / cctvCount;
+        double streetLightAverageGapMeters = streetLightCount == 0
+                ? Double.POSITIVE_INFINITY
+                : routeDistanceMeters / streetLightCount;
 
         int cctvDensityPenalty = calculateCctvDensityPenalty(averageGapMeters);
         int cctvCoveragePenalty = calculateCctvCoveragePenalty(cctvCoverage);
@@ -83,8 +90,14 @@ public class SafetyScoreCalculator {
         breakdown.setCctvCount(cctvCount);
         breakdown.setStreetLightCount(streetLightCount);
         breakdown.setHasPoliceStation(hasPoliceStation);
+        breakdown.setNearestPoliceDistanceMeters(
+                Double.isFinite(nearestPoliceDistanceMeters) ? round1(nearestPoliceDistanceMeters) : null
+        );
         breakdown.setCctvAverageGapMeters(
                 Double.isFinite(averageGapMeters) ? round1(averageGapMeters) : null
+        );
+        breakdown.setStreetLightAverageGapMeters(
+                Double.isFinite(streetLightAverageGapMeters) ? round1(streetLightAverageGapMeters) : null
         );
         breakdown.setCctvCoveragePercent(round1(cctvCoverage));
         breakdown.setStreetLightCoveragePercent(round1(streetLightCoverage));
@@ -197,6 +210,16 @@ public class SafetyScoreCalculator {
             }
         }
         return false;
+    }
+
+    private double nearestFacilityDistanceToRoute(
+            List<ProjectedPoint> route,
+            List<ProjectedFacility> facilities
+    ) {
+        return facilities.stream()
+                .mapToDouble(facility -> distancePointToPolyline(facility.point(), route))
+                .min()
+                .orElse(Double.NaN);
     }
 
     private List<SafetyFacilityVO> filterByType(List<SafetyFacilityVO> facilities, String type) {
