@@ -26,6 +26,7 @@ const props = defineProps({
 });
 
 const minSafetyScore = ref(40);
+const leaseType = ref('monthly');
 const depositOptions = DEPOSIT_OPTIONS;
 const depositMinIndex = ref(0);
 const depositMaxIndex = ref(depositOptions.length - 1);
@@ -109,7 +110,9 @@ const maxDeposit = computed(() => depositOptions[depositMaxIndex.value]);
 const depositRangeLabel = computed(
   () => `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
 );
-const rentRangeLabel = computed(() => `${minRentStart.value}만원 ~ ${maxRent.value}만원`);
+const rentRangeLabel = computed(() =>
+  leaseType.value === 'jeonse' ? '해당 없음' : `${minRentStart.value}만원 ~ ${maxRent.value}만원`,
+);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
   () =>
@@ -164,6 +167,14 @@ const scheduleSearch = (value) => {
   }, 300);
 };
 
+const selectLeaseType = (type) => {
+  leaseType.value = type;
+  if (type === 'jeonse') {
+    minRentStart.value = 0;
+    maxRent.value = 0;
+  }
+};
+
 const onDepositMinInput = () => {
   if (depositMinIndex.value > depositMaxIndex.value) {
     depositMinIndex.value = depositMaxIndex.value;
@@ -201,6 +212,7 @@ watch(
 
     minRentStart.value = Number(filters.budgetRentMin ?? RENT_MIN);
     maxRent.value = Number(filters.budgetRent);
+    leaseType.value = Number(filters.budgetRent) === 0 ? 'jeonse' : 'monthly';
     minSafetyScore.value = Number(filters.minSafetyScore);
     transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
     travelTime.value = Number(filters.maxTravelTime);
@@ -227,6 +239,7 @@ const resetFilters = () => {
 
   minRentStart.value = Number(onboarding.budgetRentMin ?? RENT_MIN);
   maxRent.value = Number(onboarding.budgetRent);
+  leaseType.value = Number(onboarding.budgetRent) === 0 ? 'jeonse' : 'monthly';
   minSafetyScore.value = Number(onboarding.minSafetyScore);
   transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
@@ -238,10 +251,11 @@ const getFilters = () => ({
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
+  leaseType: leaseType.value,
   budgetDepositMin: minDeposit.value,
   budgetDeposit: maxDeposit.value,
-  budgetRentMin: minRentStart.value,
-  budgetRent: maxRent.value,
+  budgetRentMin: leaseType.value === 'jeonse' ? 0 : minRentStart.value,
+  budgetRent: leaseType.value === 'jeonse' ? 0 : maxRent.value,
   minSafetyScore: minSafetyScore.value,
   selectedLoanId: selectedLoanId.value,
 });
@@ -327,8 +341,30 @@ onBeforeUnmount(() => {
       <div class="range-labels"><span>0점</span><span>90점</span></div>
     </div>
 
-    <div class="filter-section">
+    <div class="filter-section budget-section">
+      <!-- 🏠 거래유형(월세/전세) 토글 -->
       <div class="section-heading">
+        <p>거래유형</p>
+      </div>
+      <div class="transport-options">
+        <button
+          type="button"
+          :class="{ active: leaseType === 'monthly' }"
+          @click="selectLeaseType('monthly')"
+        >
+          <span>🏠</span> 월세
+        </button>
+        <button
+          type="button"
+          :class="{ active: leaseType === 'jeonse' }"
+          @click="selectLeaseType('jeonse')"
+        >
+          <span>🏢</span> 전세
+        </button>
+      </div>
+
+      <!-- 보증금 -->
+      <div class="section-heading sub-heading">
         <p>
           보증금 <strong>{{ depositRangeLabel }}</strong>
         </p>
@@ -361,41 +397,42 @@ onBeforeUnmount(() => {
         <span>{{ DEPOSIT_MIN_LABEL }}</span
         ><span>{{ DEPOSIT_MAX_LABEL }}</span>
       </div>
-    </div>
 
-    <div class="filter-section">
-      <div class="section-heading">
-        <p>
-          월세 <strong>{{ rentRangeLabel }}</strong>
-        </p>
-      </div>
-      <div class="dual-range-track">
-        <div
-          class="dual-range-track__fill"
-          :style="dualRangeStyle(minRentStart, maxRent, RENT_MIN, RENT_MAX)"
-        ></div>
-        <input
-          v-model.number="minRentStart"
-          type="range"
-          :min="RENT_MIN"
-          :max="RENT_MAX"
-          :step="RENT_STEP"
-          class="range-min"
-          @input="onRentMinInput"
-        />
-        <input
-          v-model.number="maxRent"
-          type="range"
-          :min="RENT_MIN"
-          :max="RENT_MAX"
-          :step="RENT_STEP"
-          class="range-max"
-          @input="onRentMaxInput"
-        />
-      </div>
-      <div class="range-labels">
-        <span>{{ RENT_MIN_LABEL }}</span
-        ><span>{{ RENT_MAX_LABEL }}</span>
+      <!-- 월세 (월세 선택 시에만 노출) -->
+      <div v-if="leaseType === 'monthly'" class="sub-block">
+        <div class="section-heading sub-heading">
+          <p>
+            월세 <strong>{{ rentRangeLabel }}</strong>
+          </p>
+        </div>
+        <div class="dual-range-track">
+          <div
+            class="dual-range-track__fill"
+            :style="dualRangeStyle(minRentStart, maxRent, RENT_MIN, RENT_MAX)"
+          ></div>
+          <input
+            v-model.number="minRentStart"
+            type="range"
+            :min="RENT_MIN"
+            :max="RENT_MAX"
+            :step="RENT_STEP"
+            class="range-min"
+            @input="onRentMinInput"
+          />
+          <input
+            v-model.number="maxRent"
+            type="range"
+            :min="RENT_MIN"
+            :max="RENT_MAX"
+            :step="RENT_STEP"
+            class="range-max"
+            @input="onRentMaxInput"
+          />
+        </div>
+        <div class="range-labels">
+          <span>{{ RENT_MIN_LABEL }}</span
+          ><span>{{ RENT_MAX_LABEL }}</span>
+        </div>
       </div>
     </div>
 
@@ -664,7 +701,7 @@ input[type='range']::-moz-range-thumb {
 
 .dual-range-track {
   position: relative;
-  height: 17px; /* 썸 클릭 영역 확보용, 시각적 두께 아님 */
+  height: 17px;
 }
 
 .dual-range-track__fill {
@@ -672,7 +709,7 @@ input[type='range']::-moz-range-thumb {
   top: 50%;
   left: 0;
   right: 0;
-  height: 6px; /* 기존 단일 슬라이더와 동일한 두께 */
+  height: 6px;
   border-radius: 999px;
   transform: translateY(-50%);
   pointer-events: none;
@@ -685,7 +722,7 @@ input[type='range']::-moz-range-thumb {
   width: 100%;
   height: 17px;
   margin: 0;
-  background: transparent; /* 트랙 배경은 __fill이 담당하므로 투명 처리 */
+  background: transparent;
   pointer-events: none;
 }
 
@@ -703,6 +740,18 @@ input[type='range']::-moz-range-thumb {
 
 .dual-range-track .range-min {
   z-index: 1;
+}
+
+.budget-section .sub-heading {
+  margin-top: 20px;
+}
+
+.budget-section .sub-heading:first-of-type {
+  margin-top: 20px; /* 거래유형 버튼과 보증금 사이 간격 */
+}
+
+.sub-block {
+  margin-top: 4px;
 }
 
 .transport-options {
