@@ -185,7 +185,7 @@ const detailImageUrl = computed(() => {
 
     <!-- 420px Slide-Over Panel (슬림형 가로폭 조정) -->
     <aside
-      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] overflow-x-hidden bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+        class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] overflow-x-hidden bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
