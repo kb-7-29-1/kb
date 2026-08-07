@@ -211,7 +211,8 @@ const rangeStyle = (value, min, max) => {
         <div class="loan-copy">
           <span>추천 금융 상품</span>
           <strong>{{ loan.productName }}</strong>
-          <small>{{ loan.companyName }} · {{ loan.rateInfo }}</small>
+          <small>{{ loan.companyName }}</small>
+          <small>{{ loan.rateInfo }}</small>
         </div>
         <div class="recommendation-result">
           <template v-if="loan.expectedLoanAmount > 0">
@@ -225,10 +226,8 @@ const rangeStyle = (value, min, max) => {
           <template v-else>
             <p v-if="monthlyRent === 0">전세 기준 대출 한도</p>
             <p v-else>월세 {{ monthlyRent }}만원 이하 기준 대출 한도</p>
-            <strong>
-              {{ loanLimitParts.main }}까지 대출 가능해요!
-              <small v-if="loanLimitParts.note">{{ loanLimitParts.note }}</small>
-            </strong>
+            <strong>{{ loanLimitParts.main }} 대출 가능해요!</strong>
+            <small v-if="loanLimitParts.note" class="excess-note">{{ loanLimitParts.note }}</small>
           </template>
           <p v-if="loan.target" class="target-info">대상 : {{ loan.target }}</p>
         </div>
@@ -450,6 +449,14 @@ input[type='range']::-moz-range-thumb {
 
 .recommendation-result > strong small {
   margin-left: 4px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.recommendation-result > .excess-note {
+  display: block;
+  margin-top: 4px;
   color: #64748b;
   font-size: 11px;
   font-weight: 500;
