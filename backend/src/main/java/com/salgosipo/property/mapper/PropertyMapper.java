@@ -44,4 +44,14 @@ public interface PropertyMapper {
     int updateBatchPropertyCoordinates(
             @Param("list") List<PropertyListDTO> list
     );
+
+    int updateBuildingRegisterInfo(
+            @Param("propertyId") Long propertyId,
+            @Param("useAprDay") String useAprDay,
+            @Param("structureName") String structureName,
+            @Param("mainPurposeName") String mainPurposeName,
+            @Param("earthquakeProofYn") String earthquakeProofYn,
+            @Param("illegalReason") String illegalReason,
+            @Param("isIllegalBuilding") Boolean isIllegalBuilding
+    );
 }

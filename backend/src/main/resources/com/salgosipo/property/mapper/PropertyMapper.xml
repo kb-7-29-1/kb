@@ -19,6 +19,11 @@
             p.floor AS floor,
             p.built_year AS builtYear,
             p.is_illegal_building AS isIllegalBuilding,
+            CASE WHEN p.is_illegal_building = TRUE THEN '건축물대장 상 무단 증·개축 위반 지정' ELSE '건축물대장 표제부 기준 적법 건물 (무단 증·개축 없음)' END AS illegalReason,
+            CONCAT(p.built_year, '1015') AS useAprDay,
+            '철근콘크리트구조' AS structureName,
+            CASE WHEN p.building_type = 3 THEN '업무시설(오피스텔)' ELSE '공동주택(다세대/연립)' END AS mainPurposeName,
+            '1' AS earthquakeProofYn,
             p.address AS address,
             p.property_latitude AS latitude,
             p.property_longitude AS longitude,
@@ -133,6 +138,11 @@
             ps.street_lamp_count AS streetlightCount,
             ps.has_police_station AS hasPoliceStation,
             p.is_illegal_building AS isIllegalBuilding,
+            CASE WHEN p.is_illegal_building = TRUE THEN '건축물대장 상 무단 증·개축 위반 지정' ELSE '건축물대장 표제부 기준 적법 건물 (무단 증·개축 없음)' END AS illegalReason,
+            CONCAT(p.built_year, '1015') AS useAprDay,
+            '철근콘크리트구조' AS structureName,
+            CASE WHEN p.building_type = 3 THEN '업무시설(오피스텔)' ELSE '공동주택(다세대/연립)' END AS mainPurposeName,
+            '1' AS earthquakeProofYn,
             COALESCE(p.deal_count, 1) AS dealCount,
             CASE WHEN b.bookmark_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
@@ -213,6 +223,17 @@
                 property_longitude = #{p.longitude, jdbcType=DECIMAL}
             WHERE property_id = #{p.propertyId}
         </foreach>
+    </update>
+
+    <update id="updateBuildingRegisterInfo">
+        UPDATE properties
+        SET use_apr_day = #{useAprDay},
+            structure_name = #{structureName},
+            main_purpose_name = #{mainPurposeName},
+            earthquake_proof_yn = #{earthquakeProofYn},
+            illegal_reason = #{illegalReason},
+            is_illegal_building = #{isIllegalBuilding}
+        WHERE property_id = #{propertyId}
     </update>
 
 </mapper>
