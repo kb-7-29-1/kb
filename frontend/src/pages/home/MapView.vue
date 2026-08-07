@@ -83,7 +83,21 @@ let amenityFilterDebounceTimer = null;
 const properties = ref([]);
 const isPropertyApiError = ref(false);
 const isPropertyLoading = ref(true);
+const isFilterAnalysisLoading = ref(false);
 let propertyRequestSequence = 0;
+let filterAnalysisTimer = null;
+
+const showFilterAnalysisLoading = () => {
+  isFilterAnalysisLoading.value = true;
+  clearTimeout(filterAnalysisTimer);
+  filterAnalysisTimer = setTimeout(() => {
+    isFilterAnalysisLoading.value = false;
+  }, 450);
+};
+
+const isMapAnalysisLoading = computed(
+  () => isPropertyLoading.value || amenityFilterLoading.value || isFilterAnalysisLoading.value,
+);
 
 // 데이터 출처 계산 (DB vs PUBLIC_API)
 const currentDataSource = computed(() => {
@@ -107,7 +121,6 @@ const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
 
 // 기타 편의시설 디폴트 도보 시간 (15분)
 const DEFAULT_AMENITY_WALK_TIME = 15;
-
 
 // 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
 const propertyCache = new Map();
@@ -200,6 +213,8 @@ const clearAmenitiesForDestinationChange = () => {
 };
 
 const handleApplyFilters = () => {
+  showFilterAnalysisLoading();
+
   if (getDestinationKey(appliedFilterState.value) !== getDestinationKey(filterState.value)) {
     clearAmenitiesForDestinationChange();
   }
@@ -209,6 +224,7 @@ const handleApplyFilters = () => {
 };
 
 const handleResetFilters = async () => {
+  showFilterAnalysisLoading();
   const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
 
@@ -288,6 +304,7 @@ const loadAmenitiesForProperties = async () => {
 };
 
 const scheduleAmenityLoad = () => {
+  showFilterAnalysisLoading();
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
 };
@@ -296,6 +313,7 @@ onUnmounted(() => {
   mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   amenityRequestSequence += 1;
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
+  clearTimeout(filterAnalysisTimer);
 });
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
@@ -454,7 +472,7 @@ const visibleProperties = computed(() =>
 );
 
 const shouldHideAmenityPins = computed(
-    () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
+  () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
 );
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
@@ -557,6 +575,7 @@ const handleToggleBookmark = async (id) => {
 
 // 편의시설 적용 핸들러
 const handleApplyAmenities = (selectedList) => {
+  showFilterAnalysisLoading();
   activeAmenityFilters.value = selectedList.map((filter) => ({ ...filter }));
   filterState.value.selectedAmenities = selectedList.map((filter) => filter.amenityType);
   emit('apply-amenity-filters', activeAmenityFilters.value);
@@ -564,28 +583,31 @@ const handleApplyAmenities = (selectedList) => {
 
 // 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
 const normalizeAmenitySelection = (selectedFilters) =>
-    selectedFilters.map((filter) => {
-      const appliedFilter = activeAmenityFilters.value.find((item) => item.amenityType === filter.amenityType);
-      const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+  selectedFilters.map((filter) => {
+    const appliedFilter = activeAmenityFilters.value.find(
+      (item) => item.amenityType === filter.amenityType,
+    );
+    const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
 
-      // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
-      const defaultWalkTime = Number(filter.amenityType) === 1
-          ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
-          : DEFAULT_AMENITY_WALK_TIME;
+    // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
+    const defaultWalkTime =
+      Number(filter.amenityType) === 1
+        ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+        : DEFAULT_AMENITY_WALK_TIME;
 
-      const walkTimeMinutes = Number(
-          appliedFilter?.walkTimeMinutes ??
-          detailFilter?.timeLimit ??
-          filter.timeLimit ??
-          defaultWalkTime,
-      );
+    const walkTimeMinutes = Number(
+      appliedFilter?.walkTimeMinutes ??
+        detailFilter?.timeLimit ??
+        filter.timeLimit ??
+        defaultWalkTime,
+    );
 
-      return {
-        ...filter,
-        timeLimit: walkTimeMinutes,
-        walkTimeMinutes,
-      };
-    });
+    return {
+      ...filter,
+      timeLimit: walkTimeMinutes,
+      walkTimeMinutes,
+    };
+  });
 
 const openAmenityDetailFilter = (selectedFilters) => {
   if (isAmenityDetailFilterOpen.value) {
@@ -694,7 +716,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3">
         <div class="flex items-center justify-between xl:hidden">
           <span
-            v-if="isPropertyLoading"
+            v-if="isMapAnalysisLoading"
             class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
@@ -783,7 +805,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
         <section class="hidden space-y-2 pt-3 xl:block">
           <p
-            v-if="isPropertyLoading"
+            v-if="isMapAnalysisLoading"
             class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
@@ -830,7 +852,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
-        <template v-if="isPropertyLoading">
+        <template v-if="isMapAnalysisLoading">
           <div v-for="index in 3" :key="index" class="property-card-skeleton animate-pulse">
             <div class="property-card-skeleton__image"></div>
             <div class="property-card-skeleton__content">
@@ -899,7 +921,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
 
       <Transition name="analysis-loader">
         <div
-          v-if="isPropertyLoading"
+          v-if="isMapAnalysisLoading"
           class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
         >
           <div
