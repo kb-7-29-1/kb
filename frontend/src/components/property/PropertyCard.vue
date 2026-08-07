@@ -49,8 +49,7 @@ const isJeonse = computed(() => Number(props.property.monthlyRent || 0) === 0);
 
 const hasSafetyScore = computed(() => {
   const value = props.property.safetyScore;
-  return value !== null && value !== undefined && value !== ''
-    && Number.isFinite(Number(value));
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 });
 
 // 안전점수 색상 클래스
@@ -116,12 +115,6 @@ const cardThumbnailUrl = computed(() => {
           >
             <i class="fa-solid fa-shield-halved text-[9px]" aria-hidden="true"></i>
             {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
-          </span>
-          <span
-            v-if="property.dealCount && property.dealCount > 1"
-            class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-600 border border-blue-200"
-          >
-            🏢 거래 {{ property.dealCount }}건
           </span>
         </div>
 

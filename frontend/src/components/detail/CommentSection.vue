@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue';
 import CommentList from '@/components/property/CommentList.vue';
 import { usePropertyComments } from '@/composables/usePropertyComments.js';
 import { useAuthStore } from '@/stores/useAuthStore';
-import TagBadge from "@/components/property/TagBadge.vue";
+import TagBadge from '@/components/property/TagBadge.vue';
 
 const props = defineProps({
   propertyId: {
@@ -54,12 +54,12 @@ const deleteComment = async (commentId) => {
 };
 
 watch(
-    () => props.propertyId,
-    async (propertyId) => {
-      showCommentList.value = false;
-      if (propertyId) await load(propertyId);
-    },
-    { immediate: true },
+  () => props.propertyId,
+  async (propertyId) => {
+    showCommentList.value = false;
+    if (propertyId) await load(propertyId);
+  },
+  { immediate: true },
 );
 </script>
 
@@ -77,10 +77,7 @@ watch(
       </button>
     </div>
 
-    <TagBadge
-        :tags="tags"
-        @show-more="openCommentList"
-    />
+    <TagBadge :tags="tags" @show-more="openCommentList" />
 
     <div class="notice">
       <span class="notice-icon" aria-hidden="true">⚠</span>
@@ -95,16 +92,16 @@ watch(
     <p v-if="isLoading" class="comment-status">댓글을 불러오는 중입니다.</p>
     <p v-else-if="loadError" class="comment-status error">{{ loadError }}</p>
     <CommentList
-        v-else
-        :property="property"
-        :comments="comments"
-        :tags="tags"
-        :is-logged-in="isLoggedIn"
-        :is-submitting="isSubmitting"
-        @close="showCommentList = false"
-        @submit-comment="createComment"
-        @update-comment="updateComment"
-        @delete-comment="deleteComment"
+      v-else
+      :property="property"
+      :comments="comments"
+      :tags="tags"
+      :is-logged-in="isLoggedIn"
+      :is-submitting="isSubmitting"
+      @close="showCommentList = false"
+      @submit-comment="createComment"
+      @update-comment="updateComment"
+      @delete-comment="deleteComment"
     />
     <p v-if="submitError" class="comment-submit-error">{{ submitError }}</p>
   </aside>
