@@ -7,6 +7,7 @@ USE salgosipo_db;
 
 -- 외래키 참조하는 자식 테이블부터 삭제
 DROP TABLE IF EXISTS route_vote;
+DROP TABLE IF EXISTS property_safety_route;
 DROP TABLE IF EXISTS property_safety;
 DROP TABLE IF EXISTS property_amenities;
 DROP TABLE IF EXISTS property_tag;
@@ -141,6 +142,27 @@ CREATE TABLE property_safety (
         FOREIGN KEY (destination_id) REFERENCES destinations(destination_id),
     CONSTRAINT chk_property_safety_score CHECK (safety_score BETWEEN 0 AND 100),
     INDEX idx_safety_destination (destination_id)
+);
+
+CREATE TABLE property_safety_route (
+    property_id        INT              NOT NULL,
+    destination_id     INT              NOT NULL,
+    route_id           VARCHAR(50)      NOT NULL,
+    search_option      VARCHAR(20)      NULL,
+    route_type         VARCHAR(50)      NULL,
+    distance_meters    INT UNSIGNED     NOT NULL,
+    total_time_seconds INT UNSIGNED     NOT NULL,
+    route_points       JSON             NOT NULL,
+    created_at         DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at         DATETIME         NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (property_id, destination_id),
+    CONSTRAINT fk_safety_route_property_safety
+        FOREIGN KEY (property_id, destination_id)
+        REFERENCES property_safety(property_id, destination_id)
+        ON DELETE CASCADE,
+    CONSTRAINT chk_safety_route_distance CHECK (distance_meters >= 0),
+    CONSTRAINT chk_safety_route_time CHECK (total_time_seconds >= 0),
+    INDEX idx_safety_route_destination (destination_id)
 );
 
 CREATE TABLE route_vote (
