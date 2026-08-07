@@ -70,9 +70,10 @@ const emit = defineEmits([
 // 로컬 반응형 상태
 const filters = ref({
   tradeType: 'MONTHLY',
+  minTravelTime: 5,
   travelTime: 15,
   walkPace: 'NORMAL',
-  flexTime: 10,
+  flexTime: 5,
   selectedLoanId: 'NONE',
   ...props.modelValue,
 });
@@ -548,6 +549,50 @@ const rentAmountLabel = computed(() => {
   return `${minVal}만 ~ ${maxVal}만원`;
 });
 
+// 슬라이더 바 트랙 직접 클릭 시 가까운 핸들 자동 이동 클릭 핸들러
+const handleDepositTrackClick = (e) => {
+  if (e.target !== e.currentTarget && e.target.classList.contains('dual-range-input')) return;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+  const maxIdx = depositOptions.value.length - 1;
+  const clickedIdx = Math.round(ratio * maxIdx);
+
+  const distA = Math.abs(depositValA.value - clickedIdx);
+  const distB = Math.abs(depositValB.value - clickedIdx);
+
+  if (distA <= distB) {
+    depositValA.value = clickedIdx;
+    activeSliderThumb.value = 'depA';
+  } else {
+    depositValB.value = clickedIdx;
+    activeSliderThumb.value = 'depB';
+  }
+};
+
+const handleRentTrackClick = (e) => {
+  if (e.target !== e.currentTarget && e.target.classList.contains('dual-range-input')) return;
+
+  const rect = e.currentTarget.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const ratio = Math.max(0, Math.min(1, clickX / rect.width));
+  const clickedVal = Math.round(RENT_MIN + ratio * (RENT_MAX - RENT_MIN));
+  const steppedVal = Math.round(clickedVal / RENT_STEP) * RENT_STEP;
+  const finalVal = Math.max(RENT_MIN, Math.min(RENT_MAX, steppedVal));
+
+  const distA = Math.abs(rentValA.value - finalVal);
+  const distB = Math.abs(rentValB.value - finalVal);
+
+  if (distA <= distB) {
+    rentValA.value = finalVal;
+    activeSliderThumb.value = 'rentA';
+  } else {
+    rentValB.value = finalVal;
+    activeSliderThumb.value = 'rentB';
+  }
+};
+
 // 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분)
 const priceSummaryText = computed(() => {
   const {
@@ -995,7 +1040,10 @@ const safetyAccentClass = computed(() => {
                 depositAmountLabel
               }}</span>
             </div>
-            <div class="relative w-full h-7 flex items-center">
+            <div
+              class="relative w-full h-7 flex items-center cursor-pointer"
+              @click="handleDepositTrackClick"
+            >
               <div
                 class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"
               ></div>
@@ -1049,7 +1097,10 @@ const safetyAccentClass = computed(() => {
                 rentAmountLabel
               }}</span>
             </div>
-            <div class="relative w-full h-7 flex items-center">
+            <div
+              class="relative w-full h-7 flex items-center cursor-pointer"
+              @click="handleRentTrackClick"
+            >
               <div
                 class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"
               ></div>
@@ -1312,6 +1363,7 @@ const safetyAccentClass = computed(() => {
           </div>
 
           <!-- 🚌 [대중교통 모드]: 최소 이동시간 -->
+          <!-- 🚌 [대중교통 모드]: 최소 이동시간 슬라이더 -->
           <div
             v-if="filters.transportMode === 'TRANSIT'"
             class="space-y-1.5 pt-1"
@@ -1321,49 +1373,45 @@ const safetyAccentClass = computed(() => {
             >
               <span>⏳ 최소 이동시간</span>
               <span class="text-amber-500 font-extrabold text-sm"
-                >{{
-                  Math.max(0, filters.travelTime - filters.flexTime)
-                }}분</span
+                >{{ filters.minTravelTime || filters.flexTime || 5 }}분 이상</span
               >
             </div>
             <input
               type="range"
-              v-model.number="filters.flexTime"
+              :value="filters.minTravelTime || filters.flexTime || 5"
               min="5"
-              :max="Math.min(30, filters.travelTime)"
+              :max="Math.min(30, filters.travelTime || 40)"
               step="5"
               class="w-full appearance-none cursor-pointer quick-range-input"
               :style="
                 rangeStyle(
-                  filters.flexTime,
+                  filters.minTravelTime || filters.flexTime || 5,
                   5,
-                  Math.min(30, filters.travelTime),
+                  Math.min(30, filters.travelTime || 40),
                   '#f59e0b',
                 )
               "
+              @input="(e) => {
+                const val = Number(e.target.value);
+                filters.minTravelTime = val;
+                filters.flexTime = val;
+                updateFilters();
+              }"
               @pointerdown="handleSliderStart('flex')"
               @touchstart="handleSliderStart('flex')"
               @pointerup="handleSliderEnd"
               @touchend="handleSliderEnd"
-              @input="updateFilters"
             />
             <div
               class="flex justify-between text-[11px] font-bold text-slate-400"
             >
-              <span
-                >{{
-                  Math.max(
-                    0,
-                    filters.travelTime - Math.min(30, filters.travelTime),
-                  )
-                }}분</span
-              >
-              <span>{{ Math.max(0, filters.travelTime - 5) }}분</span>
+              <span>5분</span>
+              <span>{{ Math.min(30, filters.travelTime || 40) }}분</span>
             </div>
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              {{ Math.max(0, filters.travelTime - filters.flexTime) }}분
+              {{ filters.minTravelTime || filters.flexTime || 5 }}분
               미만(너무 가까운 지역) 매물은 제외하고 표시해요.
             </p>
           </div>
