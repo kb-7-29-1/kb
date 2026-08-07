@@ -122,15 +122,19 @@ const currentDataSource = computed(() => {
 });
 
 const getSearchRadiusKm = () => {
-  const filters = appliedFilterState.value || filterState.value;
+  const filters = appliedFilterState.value;
   const minutes = Number(filters.travelTime) || 15;
 
   if (filters.transportMode === 'WALK') {
-    const speedKmH = filters.walkPace === 'SLOW' ? 3.6 : filters.walkPace === 'FAST' ? 6.0 : 4.8;
-    return speedKmH * (minutes / 60);
+    let speedMetersPerMin = 75;
+    if (filters.walkPace === 'SLOW') speedMetersPerMin = 58;
+    if (filters.walkPace === 'FAST') speedMetersPerMin = 92;
+    const maxMeters = Math.max(200, minutes * speedMetersPerMin);
+    return (maxMeters / 1000) * 1.25;
   }
 
-  return 18.0 * (minutes / 60);
+  const transitMaxRadius = Math.max(500, minutes * 180);
+  return (transitMaxRadius / 1000) * 1.25;
 };
 
 // 편의점 디폴트 도보 시간 (5분)
@@ -157,7 +161,7 @@ const getEffectiveMaxDeposit = (filters) => {
 };
 
 const buildPropertySearchParams = () => {
-  const filters = appliedFilterState.value || filterState.value;
+  const filters = appliedFilterState.value;
   const params = {
     destinationId: filters.destinationId || undefined,
     lat: destinationConfig.value.lat,
@@ -183,7 +187,7 @@ const fetchPropertiesFromBackend = async () => {
   properties.value = [];
 
   try {
-    const filters = appliedFilterState.value || filterState.value;
+    const filters = appliedFilterState.value;
 
     const propertyResponse = await api.get('/properties', {
       params: buildPropertySearchParams(),
@@ -289,10 +293,44 @@ const parseUrlQueryToFilters = () => {
   return true;
 };
 
+// 유저 ID 기반 퀵필터 로컬 캐시 유틸
+const getQuickFilterCacheKey = () => {
+  const userId = authStore.user?.userId || authStore.user?.id || 'guest';
+  return `kb_quick_filter_state_${userId}`;
+};
+
+const saveQuickFilterToCache = (filters) => {
+  if (!filters) return;
+  try {
+    const key = getQuickFilterCacheKey();
+    localStorage.setItem(key, JSON.stringify(filters));
+  } catch (e) {
+    console.error('Failed to save quick filter cache:', e);
+  }
+};
+
+const loadQuickFilterFromCache = () => {
+  try {
+    const key = getQuickFilterCacheKey();
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.error('Failed to load quick filter cache:', e);
+  }
+  return null;
+};
+
 onMounted(async () => {
   const hasUrlQuery = parseUrlQueryToFilters();
+  const cachedFilter = loadQuickFilterFromCache();
+
   if (hasUrlQuery) {
     appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  } else if (cachedFilter) {
+    filterState.value = JSON.parse(JSON.stringify(cachedFilter));
+    appliedFilterState.value = JSON.parse(JSON.stringify(cachedFilter));
   } else if (mapStore.hasSavedFilterState) {
     filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
     appliedFilterState.value = JSON.parse(JSON.stringify(mapStore.appliedFilterState));
@@ -358,11 +396,26 @@ const handleApplyFilters = async (showOverlay = false) => {
   }
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  saveQuickFilterToCache(appliedFilterState.value);
   syncFiltersToUrlQuery(appliedFilterState.value);
   await fetchPropertiesFromBackend();
 };
 
+// ⭕ 이소크론 영역 보이기/가리기 버튼 토글 시 백엔드 재조회 없이 0ms 즉시 화면 반작용 동기화
+watch(
+  () => filterState.value?.showIsochrone,
+  (val) => {
+    if (appliedFilterState.value && val !== undefined) {
+      appliedFilterState.value.showIsochrone = val;
+      saveQuickFilterToCache(appliedFilterState.value);
+    }
+  },
+);
+
 const handleResetFilters = async () => {
+  const confirmReset = window.confirm('처음 설정한 온보딩 조건으로 필터를 되돌릴까요?');
+  if (!confirmReset) return;
+
   showFilterAnalysisLoading();
   const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
@@ -457,6 +510,11 @@ const loadAmenitiesForProperties = async () => {
 };
 
 const scheduleAmenityLoad = () => {
+  if (!activeAmenityFilters.value.length) {
+    amenityFilterLoading.value = false;
+    amenitiesByProperty.value = {};
+    return;
+  }
   showFilterAnalysisLoading();
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
@@ -524,11 +582,10 @@ const destinationConfig = computed(() => {
 
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
 const baseFilteredProperties = computed(() => {
-  // 실시간 주 목적지 좌표
-  const destLat = destinationConfig.value.lat;
-  const destLng = destinationConfig.value.lng;
-
-  const currentFilters = appliedFilterState.value || filterState.value;
+  const currentFilters = appliedFilterState.value;
+  // 적용된 목적지 위경도 좌표
+  const destLat = Number(currentFilters.destinationLat) || destinationConfig.value.lat;
+  const destLng = Number(currentFilters.destinationLng) || destinationConfig.value.lng;
 
   // 이동 수단별 최대 도달 가능 거리 (km) 계산
   let maxReachKm = 1.2; // 기본 15분 도보 약 1.2km
@@ -583,15 +640,14 @@ const baseFilteredProperties = computed(() => {
       const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
       if (distMeters < minReachMeters || distMeters > maxReachMeters) return false;
     } else {
-      // 대중교통 모드 (TRANSIT): 최소시간(transitBaseRadius) ~ 최대시간(transitMaxRadius) 범위 허용
-      const transitMaxRadius = Math.max(500, currentFilters.travelTime * 180);
-      const minTime =
-        minTravelTime > 0
-          ? minTravelTime
-          : Math.max(0, currentFilters.travelTime - (currentFilters.flexTime || 10));
+      // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 영역 매물만 허용
+      const travelTime = currentFilters.travelTime || 15;
+      const flexTime = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+      const transitMaxRadius = Math.max(500, travelTime * 180);
+      const minTime = minTravelTime > 0 ? minTravelTime : Math.max(0, travelTime - flexTime);
       const transitBaseRadius = Math.max(0, minTime * 180);
 
-      // 내접원 안쪽 및 외접원 바깥 매물 제외
+      // 내접원 안쪽 및 외접원 바깥 매물 제외 (도넛 도달 영역 내부 매물만 선택)
       if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
     }
 
@@ -857,17 +913,18 @@ const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
 const activePopoverName = ref(null);
 const handlePopoverChange = (name) => {
   activePopoverName.value = name;
+  if (!name && appliedFilterState.value && filterState.value) {
+    // 팝오버 모달이 닫힐 때, 미적용 드래프트 변경사항이 있는 경우에만 원래 적용값으로 복구 (불필요한 재탐색/로딩 100% 방지)
+    const draftJson = JSON.stringify(filterState.value);
+    const appliedJson = JSON.stringify(appliedFilterState.value);
+    if (draftJson !== appliedJson) {
+      Object.assign(filterState.value, JSON.parse(appliedJson));
+    }
+  }
 };
 
 const isPreviewingIsochrone = computed(() => {
-  if (activePopoverName.value === 'travel') return true;
-  if (!filterState.value || !appliedFilterState.value) return false;
-  return (
-    filterState.value.travelTime !== appliedFilterState.value.travelTime ||
-    filterState.value.flexTime !== appliedFilterState.value.flexTime ||
-    filterState.value.transportMode !== appliedFilterState.value.transportMode ||
-    filterState.value.walkPace !== appliedFilterState.value.walkPace
-  );
+  return activePopoverName.value === 'travel';
 });
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
@@ -1092,7 +1149,6 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           @open-filter="emit('open-filter')"
           @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
-          @update-filters="handleApplyFilters"
           @reset="handleResetFilters"
         />
       </div>
