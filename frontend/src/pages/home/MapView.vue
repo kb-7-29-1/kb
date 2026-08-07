@@ -914,7 +914,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
               >안전 귀갓길과 생활 조건을 분석 중이에요</strong
             >
             <span class="mt-1.5 text-[13px] leading-5 text-slate-500"
-              >잠시만 기다리만 맞춤 매물을 보여드릴게요</span
+              >잠시만 기다리시면 맞춤 매물을 보여드릴게요</span
             >
             <span class="mt-4 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
               <span class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"></span>
