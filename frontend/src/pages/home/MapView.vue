@@ -147,26 +147,6 @@ const DEFAULT_AMENITY_WALK_TIME = 15;
 // 프론트엔드 인메모리 목적지별 매물 캐시 (네트워크 재요청 0ms 지연 완전 제거)
 const propertyCache = new Map();
 
-// 백엔드 실제 DB 매물 API 조회 (/api/properties)
-const fetchPropertiesFromBackend = async (forceRefetch = false, showOverlay = false) => {
-  const requestId = ++propertyRequestSequence;
-  const targetLat = Number(destinationConfig.value.lat || 37.5502);
-  const targetLng = Number(destinationConfig.value.lng || 127.0731);
-  const destKey = `${targetLat.toFixed(4)}_${targetLng.toFixed(4)}`;
-  const neededRadius = Math.max(3.0, getSearchRadiusKm() * 1.2);
-
-  const cached = propertyCache.get(destKey);
-  if (!forceRefetch && cached && cached.maxRadius >= getSearchRadiusKm()) {
-    properties.value = cached.properties;
-    isPropertyApiError.value = false;
-    isPropertyLoading.value = false;
-    return;
-  }
-
-  if (showOverlay) {
-    isPropertyLoading.value = true;
-  }
-
 // 대출 상품을 반영한 실제 보증금 상한을 서버 검색 조건에도 전달합니다.
 const getEffectiveMaxDeposit = (filters) => {
   let maxDeposit = Number(filters.maxDeposit) || DEFAULT_DEPOSIT;
@@ -383,7 +363,7 @@ const handleChangeDestination = ({ name, lat, lng, address }) => {
   handleApplyFilters(true);
 };
 
-const handleApplyFilters = (showOverlay = false) => {
+const handleApplyFilters = async (showOverlay = false) => {
   if (
     getDestinationKey(appliedFilterState.value) !==
     getDestinationKey(filterState.value)
@@ -393,7 +373,6 @@ const handleApplyFilters = (showOverlay = false) => {
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
-  fetchPropertiesFromBackend(false, showOverlay);
   await fetchPropertiesFromBackend();
 };
 
@@ -1244,12 +1223,13 @@ const {
             >
               <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
             </span>
-            <strong class="text-[15px] font-extrabold text-slate-800"
-            >안전 귀갓길과 생활 조건을 분석 중이에요</strong
-            >
-            <span class="mt-1.5 text-[13px] leading-5 text-slate-500"
-            >잠시만 기다리시면 맞춤 매물을 보여드릴게요</span
-            >
+            <strong class="text-[15px] font-extrabold text-slate-800">
+              안전 귀갓길과 생활 조건을 분석 중이에요
+            </strong>
+            <span class="mt-1.5 text-[13px] leading-5 text-slate-500">
+              잠시만 기다리시면 맞춤 매물을 보여드릴게요
+            </span>
+            <span class="mt-4 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
               <span
                 class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"
               ></span>
