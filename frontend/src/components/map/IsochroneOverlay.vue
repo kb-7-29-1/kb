@@ -308,7 +308,7 @@ const updateIsochroneOverlays = () => {
           content: `
             <div style="transform: translate(-50%, -100%); margin-top: -6px; pointer-events: none;">
               <div style="background: rgba(3, 105, 161, 0.95); backdrop-filter: blur(4px); color: #f0f9ff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 9999px; border: 2px dashed #38bdf8; box-shadow: 0 4px 14px rgba(0,0,0,0.35); white-space: nowrap; display: flex; align-items: center; gap: 4px;">
-                <span>⚡ 도보 ${lf.travelTime}분 (미리보기 점선)</span>
+                <span>⚡ 도보 ${lf.travelTime}분 · ${lf.walkPace === 'SLOW' ? '천천히' : lf.walkPace === 'FAST' ? '빠르게' : '보통'} (미리보기 점선)</span>
               </div>
             </div>
           `,

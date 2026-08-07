@@ -1,5 +1,12 @@
 <script setup>
-import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue';
+import {
+  ref,
+  computed,
+  nextTick,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+} from 'vue';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import {
   getRecentDestinations,
@@ -338,16 +345,39 @@ watch(
   { deep: true },
 );
 
+const isSliderDragging = ref(false);
+let sliderDragTimer = null;
+
+const handleSliderStart = (thumbName) => {
+  if (thumbName) activeSliderThumb.value = thumbName;
+  clearTimeout(sliderDragTimer);
+  // 300ms 이상 손으로 잡고 꾸욱 누르거나 쥐고 있을 때만 반투명 전환 (단순 클릭 시 0% 깜빡임 완전 방지)
+  sliderDragTimer = setTimeout(() => {
+    isSliderDragging.value = true;
+  }, 300);
+};
+
+const handleSliderEnd = () => {
+  clearTimeout(sliderDragTimer);
+  isSliderDragging.value = false;
+};
+
+onMounted(() => {
+  window.addEventListener('pointerup', handleSliderEnd);
+  window.addEventListener('touchend', handleSliderEnd);
+});
+
 onBeforeUnmount(() => {
+  window.removeEventListener('pointerup', handleSliderEnd);
+  window.removeEventListener('touchend', handleSliderEnd);
   clearTimeout(destinationSearchTimer);
-  clearTimeout(destinationSelectionReleaseTimer);
-  clearTimeout(destinationCompositionEndTimer);
+  clearTimeout(sliderDragTimer);
   if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
 });
 
 let updateFiltersDebounceTimer = null;
 
-// 필터 상태 변경 시 부모로 전달 (슬라이더 연속 조절 시 300ms 디바운스 적용)
+// 필터 상태 변경 시 부모로 전달 (단순 클릭 시 모달창 깜빡임 방지 및 300ms 디바운스 적용)
 const updateFilters = () => {
   emit('update:modelValue', { ...filters.value });
   if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
@@ -363,15 +393,24 @@ const updateFiltersImmediate = () => {
   emit('update-filters', { ...filters.value });
 };
 
-// 드롭다운 토글
+const activePopoverName = ref(null);
 const togglePopover = (name) => {
   activePopover.value = activePopover.value === name ? null : name;
 };
 
-// 이소크론 영역 토글 (ON <-> OFF)
+const selectTradeType = (tradeType) => {
+  filters.value.tradeType = tradeType;
+
+  // 전세 탭 선택 시 월세 값 0으로 초기화
+  if (tradeType === 'JEONSE') {
+    filters.value.maxRent = 0;
+  }
+};
+
+// 이소크론 영역 토글 (ON <-> OFF - 순수 지도 오버레이 보이기/가리기)
 const toggleIsochrone = () => {
   filters.value.showIsochrone = !filters.value.showIsochrone;
-  updateFilters();
+  emit('update:modelValue', { ...filters.value });
 };
 
 // 필터 초기화
@@ -403,8 +442,14 @@ const activeFilterCount = computed(() => {
 const getDualRangeTrackStyle = (valA, valB, minLimit, maxLimit) => {
   const minVal = Math.min(Number(valA), Number(valB));
   const maxVal = Math.max(Number(valA), Number(valB));
-  const minPercent = Math.max(0, Math.min(100, ((minVal - minLimit) / (maxLimit - minLimit)) * 100));
-  const maxPercent = Math.max(0, Math.min(100, ((maxVal - minLimit) / (maxLimit - minLimit)) * 100));
+  const minPercent = Math.max(
+    0,
+    Math.min(100, ((minVal - minLimit) / (maxLimit - minLimit)) * 100),
+  );
+  const maxPercent = Math.max(
+    0,
+    Math.min(100, ((maxVal - minLimit) / (maxLimit - minLimit)) * 100),
+  );
   return {
     left: `${minPercent}%`,
     width: `${Math.max(0, maxPercent - minPercent)}%`,
@@ -415,50 +460,73 @@ const getDualRangeTrackStyle = (valA, valB, minLimit, maxLimit) => {
 const depositValA = ref(0);
 const depositValB = ref(9);
 
-watch([depositValA, depositValB], ([a, b]) => {
-  const minIdx = Math.min(Number(a), Number(b));
-  const maxIdx = Math.max(Number(a), Number(b));
-  filters.value.minDeposit = DEPOSIT_OPTIONS[minIdx];
-  filters.value.maxDeposit = DEPOSIT_OPTIONS[maxIdx];
-}, { immediate: true });
+watch(
+  [depositValA, depositValB],
+  ([a, b]) => {
+    const minIdx = Math.min(Number(a), Number(b));
+    const maxIdx = Math.max(Number(a), Number(b));
+    filters.value.minDeposit = DEPOSIT_OPTIONS[minIdx];
+    filters.value.maxDeposit = DEPOSIT_OPTIONS[maxIdx];
+  },
+  { immediate: true },
+);
 
 // 월세 핸들 A, B (독립 2개 핸들)
 const rentValA = ref(0);
 const rentValB = ref(100);
 
-watch([rentValA, rentValB], ([a, b]) => {
-  filters.value.minRent = Math.min(Number(a), Number(b));
-  filters.value.maxRent = Math.max(Number(a), Number(b));
-}, { immediate: true });
+watch(
+  [rentValA, rentValB],
+  ([a, b]) => {
+    filters.value.minRent = Math.min(Number(a), Number(b));
+    filters.value.maxRent = Math.max(Number(a), Number(b));
+  },
+  { immediate: true },
+);
 
 // 대중교통 이동시간 핸들 A, B (독립 2개 핸들)
 const travelValA = ref(10);
 const travelValB = ref(15);
 
-watch([travelValA, travelValB], ([a, b]) => {
-  filters.value.minTravelTime = Math.min(Number(a), Number(b));
-  filters.value.travelTime = Math.max(Number(a), Number(b));
-}, { immediate: true });
+watch(
+  [travelValA, travelValB],
+  ([a, b]) => {
+    filters.value.minTravelTime = Math.min(Number(a), Number(b));
+    filters.value.travelTime = Math.max(Number(a), Number(b));
+  },
+  { immediate: true },
+);
 
-const minTravelTimeVal = computed(() => Math.min(travelValA.value, travelValB.value));
-const maxTravelTimeVal = computed(() => Math.max(travelValA.value, travelValB.value));
+const minTravelTimeVal = computed(() =>
+  Math.min(travelValA.value, travelValB.value),
+);
+const maxTravelTimeVal = computed(() =>
+  Math.max(travelValA.value, travelValB.value),
+);
 
 // external modelValue 또는 reset 시 핸들 위치 맞춤 동기화
-watch(() => props.modelValue, (newVal) => {
-  if (!newVal) return;
-  const minDep = newVal.minDeposit ?? 0;
-  const maxDep = newVal.maxDeposit ?? DEPOSIT_MAX;
-  const minDepIdx = Math.max(0, DEPOSIT_OPTIONS.findIndex((opt) => opt >= minDep));
-  const maxDepIdx = Math.max(0, DEPOSIT_OPTIONS.indexOf(Number(maxDep)));
-  depositValA.value = minDepIdx >= 0 ? minDepIdx : 0;
-  depositValB.value = maxDepIdx >= 0 ? maxDepIdx : DEPOSIT_OPTIONS.length - 1;
+watch(
+  () => props.modelValue,
+  (newVal) => {
+    if (!newVal) return;
+    const minDep = newVal.minDeposit ?? 0;
+    const maxDep = newVal.maxDeposit ?? DEPOSIT_MAX;
+    const minDepIdx = Math.max(
+      0,
+      DEPOSIT_OPTIONS.findIndex((opt) => opt >= minDep),
+    );
+    const maxDepIdx = Math.max(0, DEPOSIT_OPTIONS.indexOf(Number(maxDep)));
+    depositValA.value = minDepIdx >= 0 ? minDepIdx : 0;
+    depositValB.value = maxDepIdx >= 0 ? maxDepIdx : DEPOSIT_OPTIONS.length - 1;
 
-  rentValA.value = newVal.minRent ?? 0;
-  rentValB.value = newVal.maxRent ?? RENT_MAX;
+    rentValA.value = newVal.minRent ?? 0;
+    rentValB.value = newVal.maxRent ?? RENT_MAX;
 
-  travelValA.value = newVal.minTravelTime ?? 10;
-  travelValB.value = newVal.travelTime ?? 15;
-}, { immediate: true, deep: true });
+    travelValA.value = newVal.minTravelTime ?? 10;
+    travelValB.value = newVal.travelTime ?? 15;
+  },
+  { immediate: true, deep: true },
+);
 
 // 보증금 팝오버 표시 라벨
 const depositAmountLabel = computed(() => {
@@ -480,38 +548,53 @@ const rentAmountLabel = computed(() => {
   return `${minVal}만 ~ ${maxVal}만원`;
 });
 
-// 가격 퀵버튼 요약 텍스트
+// 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분)
 const priceSummaryText = computed(() => {
-  const { tradeType, minDeposit = 0, maxDeposit = DEPOSIT_MAX, minRent = 0, maxRent = RENT_MAX } = appliedQuickFilters.value;
+  const {
+    tradeType,
+    minDeposit = 0,
+    maxDeposit = DEPOSIT_MAX,
+    minRent = 0,
+    maxRent = RENT_MAX,
+  } = appliedQuickFilters.value;
+
   const minDepShort = formatDepositShort(minDeposit);
   const maxDepShort = formatDepositShort(maxDeposit);
-  const depStr = (minDeposit === 0 && maxDeposit >= DEPOSIT_MAX)
-    ? '전체'
-    : (minDeposit === 0 ? `${maxDepShort}이하` : `${minDepShort}~${maxDepShort}`);
+  const depStr =
+    minDeposit === 0 && maxDeposit >= DEPOSIT_MAX
+      ? '전체'
+      : minDeposit === 0
+        ? `${maxDepShort} 이하`
+        : maxDeposit >= DEPOSIT_MAX
+          ? `${minDepShort} 이상`
+          : `${minDepShort}~${maxDepShort}`;
 
-  if (tradeType === 'JEONSE') return `전세: ${depStr}`;
+  if (tradeType === 'JEONSE') {
+    return `전세: ${depStr}`;
+  }
 
-  const rentStr = (minRent === 0 && maxRent >= RENT_MAX)
-    ? '전체'
-    : (minRent === 0 ? `${maxRent}만 이하` : `${minRent}~${maxRent}만`);
+  const rentStr =
+    minRent === 0 && maxRent >= RENT_MAX
+      ? '전체'
+      : minRent === 0
+        ? `${maxRent}만 이하`
+        : maxRent >= RENT_MAX
+          ? `${minRent}만 이상`
+          : `${minRent}~${maxRent}만`;
+
+  if (depStr === '전체' && rentStr === '전체') {
+    return '월세: 전체';
+  }
   return `월세: ${depStr} / ${rentStr}`;
 });
 
-// 이동시간 퀵버튼 요약 텍스트 (도보: 단일 시간 이내, 대중교통: 범위 지정)
+// 이동시간 퀵버튼 요약 텍스트 (도보/대중교통 단일 시간 이내)
 const travelSummaryText = computed(() => {
+  const time = appliedQuickFilters.value.travelTime ?? 15;
   if (appliedQuickFilters.value.transportMode === 'WALK') {
-    const time = appliedQuickFilters.value.travelTime ?? 15;
     return `🚶 도보: ${time}분 이내`;
   }
-  const mode = '🚌 대중교통';
-  const minLimit = 10;
-  const maxLimit = 60;
-  const minT = appliedQuickFilters.value.minTravelTime ?? minLimit;
-  const maxT = appliedQuickFilters.value.travelTime ?? 15;
-
-  if (minT <= minLimit && maxT >= maxLimit) return `${mode}: 전체`;
-  if (minT <= minLimit) return `${mode}: ${maxT}분 이내`;
-  return `${mode}: ${minT}~${maxT}분`;
+  return `🚌 대중교통: ${time}분 이내`;
 });
 
 // 대출 상품 요약 텍스트
@@ -894,7 +977,7 @@ const safetyAccentClass = computed(() => {
                   ? 'bg-white text-blue-600 shadow-sm font-black'
                   : 'text-slate-500 hover:text-slate-700'
               "
-              @click="filters.tradeType = t.key"
+              @click="selectTradeType(t.key)"
             >
               {{ t.label }}
             </button>
@@ -904,14 +987,28 @@ const safetyAccentClass = computed(() => {
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>{{
-                filters.tradeType === 'JEONSE' ? '전세 보증금 범위' : '월세 보증금 범위'
+                filters.tradeType === 'JEONSE'
+                  ? '전세 보증금 범위'
+                  : '월세 보증금 범위'
+              }}</span>
+              <span class="text-blue-600 font-extrabold">{{
+                depositAmountLabel
               }}</span>
             </div>
             <div class="relative w-full h-7 flex items-center">
-              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
+              <div
+                class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"
+              ></div>
               <div
                 class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
-                :style="getDualRangeTrackStyle(depositValA, depositValB, 0, depositOptions.length - 1)"
+                :style="
+                  getDualRangeTrackStyle(
+                    depositValA,
+                    depositValB,
+                    0,
+                    depositOptions.length - 1,
+                  )
+                "
               ></div>
               <input
                 type="range"
@@ -936,7 +1033,9 @@ const safetyAccentClass = computed(() => {
                 @touchstart="activeSliderThumb = 'depB'"
               />
             </div>
-            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+            <div
+              class="flex justify-between text-[11px] font-bold text-slate-400"
+            >
               <span>{{ DEPOSIT_MIN_LABEL }}</span>
               <span>{{ DEPOSIT_MAX_LABEL }}</span>
             </div>
@@ -946,13 +1045,19 @@ const safetyAccentClass = computed(() => {
           <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>월세 금액 범위</span>
-              <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
+              <span class="text-blue-600 font-extrabold">{{
+                rentAmountLabel
+              }}</span>
             </div>
             <div class="relative w-full h-7 flex items-center">
-              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
+              <div
+                class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"
+              ></div>
               <div
                 class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
-                :style="getDualRangeTrackStyle(rentValA, rentValB, RENT_MIN, RENT_MAX)"
+                :style="
+                  getDualRangeTrackStyle(rentValA, rentValB, RENT_MIN, RENT_MAX)
+                "
               ></div>
               <input
                 type="range"
@@ -977,7 +1082,9 @@ const safetyAccentClass = computed(() => {
                 @touchstart="activeSliderThumb = 'rentB'"
               />
             </div>
-            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+            <div
+              class="flex justify-between text-[11px] font-bold text-slate-400"
+            >
               <span>{{ RENT_MIN_LABEL }}</span>
               <span>{{ RENT_MAX_LABEL }}</span>
             </div>
@@ -999,159 +1106,6 @@ const safetyAccentClass = computed(() => {
       </div>
 
       <!-- 🏦 퀵버튼 4: 대출 상품 (order-1) -->
-      <div class="relative order-4">
-        <button
-          type="button"
-          class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
-          :class="[
-            appliedQuickFilters.selectedLoanId &&
-            appliedQuickFilters.selectedLoanId !== 'NONE'
-              ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
-              : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
-          ]"
-          @click="togglePopover('loan')"
-        >
-          <span class="flex items-center gap-1">
-            <span>🏦</span>
-            <span class="whitespace-nowrap">{{ loanSummaryText }}</span>
-          </span>
-          <span class="text-[10px] text-slate-400">▼</span>
-        </button>
-
-        <!-- 대출 상품 팝업 -->
-        <div
-          v-if="activePopover === 'loan'"
-          class="absolute top-full left-0 mt-2 w-84 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-3"
-        >
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-black text-slate-800"
-              >🏦 맞춤 대출 상품 & 한도 우대</span
-            >
-            <button
-              type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-              aria-label="대출 상품 설정 닫기"
-              @click="activePopover = null"
-            >
-              ✕
-            </button>
-          </div>
-
-          <!-- 백엔드 API 연동 최저 금리 추천 배너 -->
-          <div
-            v-if="recommendedLoanFromApi"
-            class="p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900 font-bold flex items-center justify-between"
-          >
-            <div class="flex items-center gap-1.5">
-              <span>✨</span>
-              <div>
-                <div class="text-[10px] text-blue-600 font-extrabold">
-                  금융감독원/KB 추천 1위
-                </div>
-                <div class="text-xs font-black text-slate-800">
-                  {{ recommendedLoanFromApi.productName }}
-                </div>
-              </div>
-            </div>
-            <div class="text-right">
-              <span class="text-xs font-extrabold text-blue-700">{{
-                recommendedLoanFromApi.rateInfo
-              }}</span>
-            </div>
-          </div>
-
-          <!-- 대출 상품 선택 리스트 -->
-          <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-            <div
-              v-for="product in LOAN_PRODUCTS"
-              :key="product.id"
-              class="p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between"
-              :class="
-                filters.selectedLoanId === product.id
-                  ? 'border-blue-500 bg-blue-50/60 ring-2 ring-blue-100'
-                  : 'border-slate-200 hover:border-blue-200 hover:bg-slate-50'
-              "
-              @click="filters.selectedLoanId = product.id"
-            >
-              <div class="flex items-center gap-2">
-                <span class="text-base">{{ product.icon }}</span>
-                <div>
-                  <div class="text-xs font-bold text-slate-800">
-                    {{ product.name }}
-                  </div>
-                  <div class="text-[10px] text-slate-400">
-                    {{ product.company }}
-                  </div>
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="text-xs font-black text-blue-600">
-                  {{ product.rateInfo }}
-                </div>
-                <div
-                  v-if="product.ratio > 0"
-                  class="text-[10px] font-bold text-emerald-600"
-                >
-                  {{ Math.round(product.ratio * 100) }}% 한도
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 대출 레버리지 계산 카드 -->
-          <div
-            v-if="filters.selectedLoanId && filters.selectedLoanId !== 'NONE'"
-            class="p-3 rounded-xl bg-gradient-to-br from-slate-900 to-blue-950 text-white space-y-1.5 shadow-md"
-          >
-            <div
-              class="flex items-center justify-between text-xs font-bold text-blue-200"
-            >
-              <span>내 보유 자금</span>
-              <span>{{ depositAmountLabel }}</span>
-            </div>
-            <div
-              class="flex items-center justify-between text-xs font-bold text-emerald-300"
-            >
-              <span>+ 예상 대출금 (한도 적용)</span>
-              <span>{{
-                formatDepositAmount(
-                  filters.maxDeposit *
-                    (LOAN_PRODUCTS.find((l) => l.id === filters.selectedLoanId)
-                      ?.ratio || 0),
-                )
-              }}</span>
-            </div>
-            <div class="h-px bg-white/20 my-1"></div>
-            <div class="flex items-center justify-between text-xs font-black">
-              <span class="text-amber-300">🚀 최대 매물 탐색 가능 범위</span>
-              <span class="text-amber-300 text-sm font-black">
-                {{
-                  formatDepositAmount(
-                    filters.maxDeposit *
-                      (1 +
-                        (LOAN_PRODUCTS.find(
-                          (l) => l.id === filters.selectedLoanId,
-                        )?.ratio || 0)),
-                  )
-                }}
-              </span>
-            </div>
-          </div>
-
-          <!-- 팝업 하단 적용하기 버튼 -->
-          <button
-            type="button"
-            class="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-black text-white shadow-md transition-all hover:bg-blue-700"
-            @click="
-              updateFilters();
-              emit('apply');
-              activePopover = null;
-            "
-          >
-            대출 한도 적용하기
-          </button>
-        </div>
-      </div>
 
       <!-- 🚶‍♂️/🚌 퀵버튼 5: 이동 시간 & 수단 (고정 너비 min-w-[155px]) -->
       <div class="relative order-5">
@@ -1169,10 +1123,15 @@ const safetyAccentClass = computed(() => {
           <span class="text-[10px] opacity-80">▼</span>
         </button>
 
-        <!-- 이동시간 & 수단 팝업 -->
+        <!-- 이동시간 & 수단 팝업 (슬라이더 조절 동안만 모달창 35% 반투명 투영) -->
         <div
           v-if="activePopover === 'travel'"
-          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-4"
+          class="absolute top-full left-0 mt-2 w-80 rounded-2xl border p-4 shadow-2xl z-40 space-y-4 transition-all duration-300"
+          :class="[
+            isSliderDragging
+              ? 'bg-white/35 border-blue-400/90 backdrop-blur-xs opacity-40 shadow-inner'
+              : 'bg-white border-slate-200 opacity-100',
+          ]"
         >
           <!-- 헤더 타이틀 요약 -->
           <div class="flex items-center justify-between">
@@ -1182,7 +1141,7 @@ const safetyAccentClass = computed(() => {
                 {{
                   filters.transportMode === 'WALK'
                     ? `도보 ${filters.travelTime}분 이내`
-                    : `대중교통 ${minTravelTimeVal}~${maxTravelTimeVal}분 범위`
+                    : `대중교통 ${filters.travelTime}분 이내`
                 }}
               </span>
             </div>
@@ -1231,7 +1190,7 @@ const safetyAccentClass = computed(() => {
               "
               @click="
                 filters.transportMode = 'TRANSIT';
-                if (filters.minTravelTime < 10) filters.minTravelTime = 10;
+                filters.minTravelTime = 0;
                 if (filters.travelTime < 15) filters.travelTime = 15;
               "
             >
@@ -1246,7 +1205,9 @@ const safetyAccentClass = computed(() => {
 
           <!-- 🚶‍♂️ [도보 모드]: 단일 슬라이더 (핸들 1개) -->
           <div v-if="filters.transportMode === 'WALK'" class="space-y-1.5 pt-1">
-            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+            <div
+              class="flex items-center justify-between text-xs font-bold text-slate-800"
+            >
               <span>🎯 원하는 이동 시간</span>
               <span class="text-blue-600 font-extrabold text-sm"
                 >{{ filters.travelTime }}분 이내</span
@@ -1260,54 +1221,47 @@ const safetyAccentClass = computed(() => {
               step="5"
               class="w-full appearance-none cursor-pointer quick-range-input"
               :style="rangeStyle(filters.travelTime, 5, 40)"
+              @pointerdown="handleSliderStart('walk')"
+              @touchstart="handleSliderStart('walk')"
+              @pointerup="handleSliderEnd"
+              @touchend="handleSliderEnd"
               @input="updateFilters"
             />
-            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+            <div
+              class="flex justify-between text-[11px] font-bold text-slate-400"
+            >
               <span>5분</span>
               <span>40분</span>
             </div>
           </div>
 
-          <!-- 🚌 [대중교통 모드]: 양방향 슬라이더 (Dual Range - 자유로운 교차 및 역할 체인지) -->
+          <!-- 🚌 [대중교통 모드]: 단일 슬라이더 (최대 이동시간) -->
           <div v-else class="space-y-1.5 pt-1">
-            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>🎯 이동 시간 범위</span>
+            <div
+              class="flex items-center justify-between text-xs font-bold text-slate-800"
+            >
+              <span>🎯 최대 이동 시간</span>
               <span class="text-blue-600 font-extrabold text-sm"
-                >{{ minTravelTimeVal }}분 ~ {{ maxTravelTimeVal }}분</span
+                >{{ filters.travelTime }}분 이내</span
               >
             </div>
-            <div class="relative w-full h-7 flex items-center">
-              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
-              <div
-                class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
-                :style="getDualRangeTrackStyle(travelValA, travelValB, 10, 60)"
-              ></div>
-              <input
-                type="range"
-                v-model.number="travelValA"
-                min="10"
-                max="60"
-                step="5"
-                class="dual-range-input"
-                :style="{ zIndex: activeSliderThumb === 'travelA' ? 30 : 20 }"
-                @pointerdown="activeSliderThumb = 'travelA'"
-                @touchstart="activeSliderThumb = 'travelA'"
-                @input="updateFilters"
-              />
-              <input
-                type="range"
-                v-model.number="travelValB"
-                min="10"
-                max="60"
-                step="5"
-                class="dual-range-input"
-                :style="{ zIndex: activeSliderThumb === 'travelB' ? 30 : 20 }"
-                @pointerdown="activeSliderThumb = 'travelB'"
-                @touchstart="activeSliderThumb = 'travelB'"
-                @input="updateFilters"
-              />
-            </div>
-            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+            <input
+              type="range"
+              v-model.number="filters.travelTime"
+              min="10"
+              max="60"
+              step="5"
+              class="w-full appearance-none cursor-pointer quick-range-input"
+              :style="rangeStyle(filters.travelTime, 10, 60)"
+              @pointerdown="handleSliderStart('transit')"
+              @touchstart="handleSliderStart('transit')"
+              @pointerup="handleSliderEnd"
+              @touchend="handleSliderEnd"
+              @input="updateFilters"
+            />
+            <div
+              class="flex justify-between text-[11px] font-bold text-slate-400"
+            >
               <span>10분</span>
               <span>60분</span>
             </div>
@@ -1342,7 +1296,10 @@ const safetyAccentClass = computed(() => {
                     ? 'bg-white text-blue-600 shadow-sm font-black'
                     : 'text-slate-500 hover:text-slate-800'
                 "
-                @click="filters.walkPace = pace.key"
+                @click="
+                  filters.walkPace = pace.key;
+                  updateFilters();
+                "
               >
                 {{ pace.label }}
               </button>
@@ -1354,7 +1311,7 @@ const safetyAccentClass = computed(() => {
             </p>
           </div>
 
-          <!-- 🚌 [대중교통 모드]: 최소 이동 시간 -->
+          <!-- 🚌 [대중교통 모드]: 최소 이동시간 -->
           <div
             v-if="filters.transportMode === 'TRANSIT'"
             class="space-y-1.5 pt-1"
@@ -1362,9 +1319,11 @@ const safetyAccentClass = computed(() => {
             <div
               class="flex items-center justify-between text-xs font-bold text-slate-800"
             >
-              <span>⏳ 최소 이동 시간</span>
+              <span>⏳ 최소 이동시간</span>
               <span class="text-amber-500 font-extrabold text-sm"
-                >{{ filters.flexTime }}분 이상</span
+                >{{
+                  Math.max(0, filters.travelTime - filters.flexTime)
+                }}분</span
               >
             </div>
             <input
@@ -1382,18 +1341,30 @@ const safetyAccentClass = computed(() => {
                   '#f59e0b',
                 )
               "
+              @pointerdown="handleSliderStart('flex')"
+              @touchstart="handleSliderStart('flex')"
+              @pointerup="handleSliderEnd"
+              @touchend="handleSliderEnd"
+              @input="updateFilters"
             />
             <div
               class="flex justify-between text-[11px] font-bold text-slate-400"
             >
-              <span>5분</span>
-              <span>{{ Math.min(30, filters.travelTime) }}분</span>
+              <span
+                >{{
+                  Math.max(
+                    0,
+                    filters.travelTime - Math.min(30, filters.travelTime),
+                  )
+                }}분</span
+              >
+              <span>{{ Math.max(0, filters.travelTime - 5) }}분</span>
             </div>
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              {{ filters.flexTime }}분~{{ filters.travelTime }}분 이내 매물을
-              조회해요.
+              {{ Math.max(0, filters.travelTime - filters.flexTime) }}분
+              미만(너무 가까운 지역) 매물은 제외하고 표시해요.
             </p>
           </div>
 
@@ -1426,15 +1397,15 @@ const safetyAccentClass = computed(() => {
         <span>⭕ 영역 {{ filters.showIsochrone ? 'ON' : 'OFF' }}</span>
       </button>
 
-      <!-- 🔄 퀵버튼 7: 초기화 -->
+      <!-- 🔄 퀵버튼 7: 온보딩 초기화 -->
       <button
         type="button"
-        class="order-7 flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 transition-all border border-slate-200 shadow-sm"
-        title="필터 초기화"
+        class="order-7 flex items-center gap-1 px-3.5 py-2 rounded-full text-xs font-bold text-slate-600 bg-white hover:bg-slate-50 hover:border-slate-300 transition-all border border-slate-200 shadow-sm"
+        title="처음 설정한 온보딩 조건으로 초기화"
         @click="handleReset"
       >
         <span>↻</span>
-        <span>초기화</span>
+        <span>온보딩으로 되돌리기</span>
       </button>
     </div>
 
@@ -1639,7 +1610,10 @@ const safetyAccentClass = computed(() => {
   border: 2.5px solid #2563eb;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .dual-range-input::-webkit-slider-thumb:hover {
@@ -1657,6 +1631,9 @@ const safetyAccentClass = computed(() => {
   border: 2.5px solid #2563eb;
   cursor: pointer;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
-  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 </style>
