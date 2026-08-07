@@ -148,9 +148,9 @@ const detailImageUrl = computed(() => {
       @click="emit('close')"
     ></div>
 
-    <!-- 390px Slide-Over Panel (슬림형 가로폭 조정) -->
+    <!-- 420px Slide-Over Panel (슬림형 가로폭 조정) -->
     <aside
-      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[390px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
@@ -223,7 +223,7 @@ const detailImageUrl = computed(() => {
         ref="detailScrollRef"
         class="property-detail-scroll min-h-0 flex-1 overflow-y-auto"
       >
-        <div class="flex min-h-full flex-col gap-6 p-3 py-0">
+        <div class="flex min-h-full flex-col gap-4 p-3 py-0">
           <!-- 매물 갤러리/대표 사진 -->
           <div
             class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
@@ -377,7 +377,7 @@ const detailImageUrl = computed(() => {
             class="detail-section-flush detail-section-divider"
             :amenities="amenities"
           />
-          <section class="finance-section border-t border-slate-200 pt-5">
+          <section class="finance-section border-t border-slate-200 pt-3">
             <div class="finance-section-header" @click="isLoanOpen = !isLoanOpen">
               <div class="finance-section-title">
                 <span aria-hidden="true">🏦</span>
