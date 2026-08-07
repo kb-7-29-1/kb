@@ -62,6 +62,23 @@ const safetyScoreClass = computed(() => {
   if (score >= 60) return 'bg-amber-500/10 text-amber-600';
   return 'bg-rose-500/10 text-rose-600';
 });
+
+const SAMPLE_PROPERTY_IMAGES = [
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=400&q=80',
+  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=400&q=80',
+];
+
+const cardThumbnailUrl = computed(() => {
+  if (props.property.thumbnailUrl) return props.property.thumbnailUrl;
+  const idx = Math.abs(Number(props.property.propertyId || 0)) % SAMPLE_PROPERTY_IMAGES.length;
+  return SAMPLE_PROPERTY_IMAGES[idx];
+});
 </script>
 
 <template>
@@ -79,10 +96,7 @@ const safetyScoreClass = computed(() => {
       class="relative w-20 h-20 rounded-lg overflow-hidden bg-slate-100 shrink-0 md:w-28 md:h-28"
     >
       <img
-        :src="
-          property.thumbnailUrl ||
-          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=400&q=80'
-        "
+        :src="cardThumbnailUrl"
         :alt="property.title"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
       />

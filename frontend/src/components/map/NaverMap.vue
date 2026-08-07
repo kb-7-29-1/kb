@@ -2,6 +2,7 @@
 import { createApp, ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
+import { reverseGeocodeCoord } from '@/utils/geo';
 import {
   getClusteredMarkers,
   renderClusterPinHTML,
@@ -64,7 +65,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['select-property']);
+const emit = defineEmits(['select-property', 'change-destination']);
 
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
@@ -378,6 +379,14 @@ const initMap = () => {
         checkDistanceToDestination();
       });
 
+      // 지도 우클릭 (Right Click) 시 역지오코딩 & 목적지 확인 카드 팝업
+      window.naver.maps.Event.addListener(mapInstance.value, 'rightclick', (e) => {
+        handleMapRightClick(e);
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'click', () => {
+        clearPendingDestinationOverlay();
+      });
+
       renderMarkers();
       renderAmenityMarkers();
       setupResizeObserver();
@@ -385,6 +394,102 @@ const initMap = () => {
     } catch (e) {
       console.warn('Naver map init:', e);
     }
+  }
+};
+
+let pendingDestMarker = null;
+let pendingDestInfoWindow = null;
+
+const clearPendingDestinationOverlay = () => {
+  if (pendingDestInfoWindow) {
+    pendingDestInfoWindow.close();
+    pendingDestInfoWindow = null;
+  }
+  if (pendingDestMarker) {
+    pendingDestMarker.setMap(null);
+    pendingDestMarker = null;
+  }
+};
+
+const handleMapRightClick = async (e) => {
+  if (!e || !e.coord || !window.naver || !window.naver.maps) return;
+  const lat = e.coord.lat();
+  const lng = e.coord.lng();
+
+  clearPendingDestinationOverlay();
+
+  try {
+    const geoResult = await reverseGeocodeCoord(lat, lng);
+    const placeName = geoResult.name;
+
+    const pendingLatLng = new window.naver.maps.LatLng(lat, lng);
+
+    pendingDestMarker = new window.naver.maps.Marker({
+      position: pendingLatLng,
+      map: mapInstance.value,
+      icon: {
+        content: `
+          <div class="relative flex items-center justify-center">
+            <div class="h-7 w-7 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs font-black animate-bounce">
+              📍
+            </div>
+          </div>
+        `,
+        anchor: new window.naver.maps.Point(14, 14),
+      },
+      zIndex: 250,
+    });
+
+    const cardContainer = document.createElement('div');
+    cardContainer.className = 'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
+    cardContainer.innerHTML = `
+      <div class="flex items-center justify-between border-b pb-1.5 border-slate-100">
+        <span class="text-blue-600 font-black text-xs flex items-center gap-1">
+          <span>📍</span>
+          <span>목적지 변경 안내</span>
+        </span>
+        <button type="button" class="btn-close flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-xs font-bold transition-all">✕</button>
+      </div>
+      <div>
+        <div class="text-[11px] text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
+        <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${placeName}</div>
+      </div>
+      <div class="flex items-center gap-1.5 pt-1">
+        <button type="button" class="btn-confirm flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black py-2 text-xs transition-all shadow-md">
+          목적지로 지정
+        </button>
+        <button type="button" class="btn-cancel px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 font-extrabold py-2 text-xs transition-all">
+          취소
+        </button>
+      </div>
+    `;
+
+    cardContainer.querySelector('.btn-close').addEventListener('click', () => {
+      clearPendingDestinationOverlay();
+    });
+    cardContainer.querySelector('.btn-cancel').addEventListener('click', () => {
+      clearPendingDestinationOverlay();
+    });
+    cardContainer.querySelector('.btn-confirm').addEventListener('click', () => {
+      emit('change-destination', {
+        name: placeName,
+        lat,
+        lng,
+      });
+      clearPendingDestinationOverlay();
+    });
+
+    pendingDestInfoWindow = new window.naver.maps.InfoWindow({
+      content: cardContainer,
+      borderWidth: 0,
+      disableAnchor: false,
+      backgroundColor: 'transparent',
+      pixelOffset: new window.naver.maps.Point(0, -10),
+    });
+
+    pendingDestInfoWindow.open(mapInstance.value, pendingDestMarker);
+  } catch (err) {
+    console.warn('Map rightclick geocode error:', err);
   }
 };
 
@@ -503,6 +608,7 @@ onUnmounted(() => {
   activePropertyMarkersMap.clear();
   clearDestinationMarkers();
   clearAmenityMarkers();
+  clearPendingDestinationOverlay();
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
