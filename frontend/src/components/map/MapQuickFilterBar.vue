@@ -551,8 +551,6 @@ const rentAmountLabel = computed(() => {
 
 // 슬라이더 바 트랙 직접 클릭 시 가까운 핸들 자동 이동 클릭 핸들러
 const handleDepositTrackClick = (e) => {
-  if (e.target !== e.currentTarget && e.target.classList.contains('dual-range-input')) return;
-
   const rect = e.currentTarget.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
@@ -569,11 +567,10 @@ const handleDepositTrackClick = (e) => {
     depositValB.value = clickedIdx;
     activeSliderThumb.value = 'depB';
   }
+  updateFilters();
 };
 
 const handleRentTrackClick = (e) => {
-  if (e.target !== e.currentTarget && e.target.classList.contains('dual-range-input')) return;
-
   const rect = e.currentTarget.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
@@ -591,6 +588,7 @@ const handleRentTrackClick = (e) => {
     rentValB.value = finalVal;
     activeSliderThumb.value = 'rentB';
   }
+  updateFilters();
 };
 
 // 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분)
@@ -1241,7 +1239,7 @@ const safetyAccentClass = computed(() => {
               "
               @click="
                 filters.transportMode = 'TRANSIT';
-                filters.minTravelTime = 0;
+                if (!filters.minTravelTime) filters.minTravelTime = 5;
                 if (filters.travelTime < 15) filters.travelTime = 15;
               "
             >
