@@ -183,6 +183,7 @@ const buildPropertySearchParams = () => {
     lng: destinationConfig.value.lng,
     radius: getSearchRadiusKm(),
     maxDeposit: getEffectiveMaxDeposit(filters),
+    userId: authStore.user?.userId || authStore.user?.id || undefined,
   };
 
   if (filters.tradeType === 'JEONSE') {
@@ -955,7 +956,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
     ? JSON.parse(savedBookmarkProperty)
     : null;
   if (Number(bookmarkedProperty?.propertyId) === numericPropertyId) {
-    handleSelectProperty(bookmarkedProperty);
+    handleSelectProperty({ ...bookmarkedProperty, isBookmarked: true });
     sessionStorage.removeItem('selectedBookmarkProperty');
     return;
   }
@@ -1018,6 +1019,13 @@ const handleToggleBookmark = async (id) => {
       await api.post('/bookmark', { propertyId: id });
     }
     item.isBookmarked = !item.isBookmarked;
+
+    if (Number(selectedProperty.value?.propertyId) === Number(id)) {
+      selectedProperty.value = {
+        ...selectedProperty.value,
+        isBookmarked: item.isBookmarked,
+      };
+    }
   } catch (error) {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
   }
