@@ -271,7 +271,7 @@ const detailImageUrl = computed(() => {
 
           <!-- 건물 안전 정보 -->
           <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[16px] font-bold text-slate-800">
               <span aria-hidden="true">🏢</span>
               건물 안전 정보
             </h3>
@@ -319,7 +319,7 @@ const detailImageUrl = computed(() => {
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
           <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[16px] font-bold text-slate-800">
               <span aria-hidden="true">💡</span>
               귀갓길 안전 점수
             </h3>
@@ -491,7 +491,7 @@ const detailImageUrl = computed(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #444;
+  color: #1e293b;
   font-size: 16px;
   font-weight: 700;
 }
@@ -565,7 +565,7 @@ const detailImageUrl = computed(() => {
 
 .loan-item__name {
   margin: 5px 0 0;
-  color: #1f2b3a;
+  color: #1e293b;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;

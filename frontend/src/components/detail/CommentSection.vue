@@ -179,12 +179,12 @@ watch(
   align-items: center;
   gap: 7px;
   color: #1e293b;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .title-icon {
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .bigdata-label {
