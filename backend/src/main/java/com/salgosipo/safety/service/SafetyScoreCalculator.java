@@ -69,7 +69,10 @@ public class SafetyScoreCalculator {
                 + cctvCoveragePenalty
                 + streetLightPenalty
                 + policePenalty;
-        int safetyScore = Math.max(0, 100 - totalPenalty);
+        int safetyScore = Math.max(
+                0,
+                (int) Math.round(100 - totalPenalty / 2.0)
+        );
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
         breakdown.setCctvDensityPenalty(cctvDensityPenalty);
