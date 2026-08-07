@@ -45,7 +45,7 @@ const badgesList = ref([]);
 const maskPolygonInstance = shallowRef(null);
 let boundsListener = null;
 
-// 고해상도 측지선 원형 경로 정점 생성 (128정점)
+// 고해상도 구면 측지선 원형 경로 정점 생성 (128정점 - 네이버 지도 100% 밀착 동기화)
 const createCirclePath = (
   centerLat,
   centerLng,
@@ -55,17 +55,28 @@ const createCirclePath = (
   if (!window.naver || !window.naver.maps) return [];
   const points = [];
   const latRad = (centerLat * Math.PI) / 180;
+  const lngRad = (centerLng * Math.PI) / 180;
   const earthRadius = 6378137;
-
-  const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI);
-  const lngOffset =
-    ((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI;
+  const dDivR = radiusMeters / earthRadius;
 
   for (let i = numPoints; i >= 0; i--) {
-    const angle = (i * 2 * Math.PI) / numPoints;
-    const pLat = centerLat + latOffset * Math.sin(angle);
-    const pLng = centerLng + lngOffset * Math.cos(angle);
-    points.push(new window.naver.maps.LatLng(pLat, pLng));
+    const bearing = (i * 2 * Math.PI) / numPoints;
+    const pLatRad = Math.asin(
+      Math.sin(latRad) * Math.cos(dDivR) +
+        Math.cos(latRad) * Math.sin(dDivR) * Math.cos(bearing),
+    );
+    const pLngRad =
+      lngRad +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(dDivR) * Math.cos(latRad),
+        Math.cos(dDivR) - Math.sin(latRad) * Math.sin(pLatRad),
+      );
+    points.push(
+      new window.naver.maps.LatLng(
+        (pLatRad * 180) / Math.PI,
+        (pLngRad * 180) / Math.PI,
+      ),
+    );
   }
   return points;
 };
@@ -254,15 +265,18 @@ const updateIsochroneOverlays = () => {
       pTravelTime = lf.travelTime || 15;
       const pFlexTime = lf.flexTime != null ? lf.flexTime : 10;
       pTransitMaxRadius = Math.max(500, pTravelTime * 180);
-      pMinTime = Math.max(0, pTravelTime - pFlexTime);
+      pMinTime =
+        lf.minTravelTime != null && lf.minTravelTime > 0
+          ? lf.minTravelTime
+          : (lf.flexTime != null ? lf.flexTime : 5);
       pTransitBaseRadius = Math.max(200, pMinTime * 180);
     }
   }
 
-  // 🌑 외부 마스크 폴리곤 (미리보기 점선 원이 어둡게 가려지지 않도록 최대 반경으로 구멍 생성)
+  // 🌑 외부 마스크 폴리곤 (미리보기 시 liveFilter 반경에 정확히 1:1 밀착하여 구멍 생성)
   const maxMaskRadius =
     props.isPreviewMode && lf
-      ? Math.max(outerBoundaryMeters, previewRadius, pTransitMaxRadius)
+      ? (lf.transportMode === 'WALK' ? previewRadius : pTransitMaxRadius)
       : outerBoundaryMeters;
 
   const holeCirclePath = createCirclePath(destLat, destLng, maxMaskRadius, 128);
@@ -319,7 +333,10 @@ const updateIsochroneOverlays = () => {
       const pTravelTime = lf.travelTime || 15;
       const pFlexTime = lf.flexTime != null ? lf.flexTime : 10;
       const pTransitMaxRadius = Math.max(500, pTravelTime * 180);
-      const pMinTime = Math.max(0, pTravelTime - pFlexTime);
+      const pMinTime =
+        lf.minTravelTime != null && lf.minTravelTime > 0
+          ? lf.minTravelTime
+          : (lf.flexTime != null ? lf.flexTime : 5);
       const pTransitBaseRadius = Math.max(200, pMinTime * 180);
 
       const previewOuterCircle = new window.naver.maps.Circle({
