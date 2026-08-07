@@ -1,10 +1,13 @@
 package com.salgosipo.loan.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salgosipo.loan.client.LoanApiClient;
 import com.salgosipo.loan.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -18,6 +21,27 @@ import java.util.stream.Collectors;
 public class LoanService {
 
     private final LoanApiClient loanApiClient;
+
+    // 월세 대출 데이터 (금감원/기금e든든 Open API 미제공으로 국토교통부 고시 기준 수동 정리,
+    // resources/wolse_data/wolse_products.json 참고. 자격판정·한도 계산에 쓰는 숫자 기준은
+    // 정책 로직이라 코드에 유지하고, 회사명/상품명/금리안내/대상/신청방법 텍스트만 데이터로 분리)
+    private static final List<WolseLoanProductInfo> WOLSE_LOAN_PRODUCTS = loadWolseLoanProducts();
+
+    private static List<WolseLoanProductInfo> loadWolseLoanProducts() {
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream is = LoanService.class.getResourceAsStream("/wolse_data/wolse_products.json")) {
+            return mapper.readValue(is, mapper.getTypeFactory().constructCollectionType(List.class, WolseLoanProductInfo.class));
+        } catch (IOException e) {
+            throw new IllegalStateException("월세 대출 데이터를 불러오지 못했습니다.", e);
+        }
+    }
+
+    private static WolseLoanProductInfo findWolseLoanProduct(String type) {
+        return WOLSE_LOAN_PRODUCTS.stream()
+                .filter(info -> type.equals(info.getType()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("월세 대출 데이터 누락: " + type));
+    }
 
     public LoanRecommendationDto getOnboardingRecommendation(Integer deposit, Integer monthlyRent, Integer age){
         boolean isJeonse = (monthlyRent == null || monthlyRent == 0);
@@ -144,47 +168,57 @@ public class LoanService {
         boolean fitsYouthLoan = deposit != null && monthlyRent != null && deposit <= 6500 && monthlyRent <=70;
 
         if (isYouth && fitsYouthLoan) {
+            WolseLoanProductInfo info = findWolseLoanProduct("청년");
+            int monthlyCap = info.getMonthlyLimitAmount();
+
             String depositLimitInfo = (deposit != null && deposit <= 4500)
                     ? "보증금 전액(" + deposit + "만원) "
                     : "보증금 최대 4,500만원" + (deposit != null ? " (초과분 " + (deposit - 4500) + "만원은 본인 부담)" : "");
 
-            String monthlyLimitInfo = (monthlyRent != null && monthlyRent <= 50)
+            String monthlyLimitInfo = (monthlyRent != null && monthlyRent <= monthlyCap)
                     ? "월세 전액(" + monthlyRent + "만원)"
-                    : "월 최대 50만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 50) + "만원은 본인 부담)" : "");
+                    : "월 최대 " + monthlyCap + "만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - monthlyCap) + "만원은 본인 부담)" : "");
 
             return List.of(new LoanProductDto(
-                    "주택도시기금 (KB국민은행 등 수탁은행 취급)",
-                    "청년전용 보증부 월세대출",
+                    info.getCompanyName(),
+                    info.getProductName(),
                     depositLimitInfo + "/" + monthlyLimitInfo,
-                    "연 1.0%~2.0% (국토교통부 고시 변동금리)",
-                    "만 19~34세 청년, 무주택 세대주 (보증금 6,500만원·월세 70만원 이하)",
-                    "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
+                    info.getRateInfo(),
+                    info.getTarget(),
+                    info.getApplyMethod()
             ));
         }
 
         if (isSenior) {
+            WolseLoanProductInfo info = findWolseLoanProduct("시니어");
             return List.of(new LoanProductDto(
-                    "국민연금공단",
-                    "노후긴급자금대부",
-                    "최대 1,000만원 (연간 연금수령액 2배 이내)",
-                    "연 2.51% (국고채권 수익률 등 연동 변동금리)",
-                    "만 60세 이상 국민연금수급자 (노령·분할·유족·장애1~3급)",
-                    "국민연금공단 지사 또는 상담센터 방문"
+                    info.getCompanyName(),
+                    info.getProductName(),
+                    info.getTotalLimitText(),
+                    info.getRateInfo(),
+                    info.getTarget(),
+                    info.getApplyMethod()
             ));
         }
 
-        String limitInfo = (monthlyRent != null && monthlyRent <= 60)
-                    ? "월세 전액(" + monthlyRent + "만원) "
-                    : "월 최대 60만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - 60) + "만원은 본인 부담)" : "");
+        return WOLSE_LOAN_PRODUCTS.stream()
+                .filter(info -> "일반".equals(info.getType()))
+                .map(info -> {
+                    int monthlyLimit = info.getMonthlyLimitAmount();
+                    String limitInfo = (monthlyRent != null && monthlyRent <= monthlyLimit)
+                            ? "월세 전액(" + monthlyRent + "만원) "
+                            : "월 최대 " + monthlyLimit + "만원" + (monthlyRent != null ? " (초과분 " + (monthlyRent - monthlyLimit) + "만원은 본인 부담)" : "");
 
-        return List.of(new LoanProductDto(
-                "주택도시기금 (KB국민은행 등 수탁은행 취급)",
-                "주거안정 월세대출 (2년간 총 1440만원 한도)",
-                limitInfo,
-                "연 1.3%~1.8%",
-                "저소득 무주택 세대주 (소득 기준 등 자격 확인 필요)",
-                "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
-        ));
+                    return new LoanProductDto(
+                            info.getCompanyName(),
+                            info.getProductName(),
+                            limitInfo,
+                            info.getRateInfo(),
+                            info.getTarget(),
+                            info.getApplyMethod()
+                    );
+                })
+                .collect(Collectors.toList());
     }
 
     // 대출한도비율(%) 텍스트에서 숫자만 추출

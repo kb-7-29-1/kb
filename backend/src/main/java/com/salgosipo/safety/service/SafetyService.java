@@ -1,5 +1,7 @@
 package com.salgosipo.safety.service;
 
+import com.salgosipo.safety.dto.SafetyBatchRequestDTO;
+import com.salgosipo.safety.dto.SafetyBatchResponseDTO;
 import com.salgosipo.safety.dto.SafetyRouteRequestDTO;
 import com.salgosipo.safety.dto.SafetyRouteResponseDTO;
 
@@ -7,7 +9,13 @@ public interface SafetyService {
 
     /**
      * property_id + destination_id 캐시가 있으면 즉시 반환하고,
-     * 없으면 TMAP 경로 후보를 평가한 뒤 property_safety에 최초 1회 저장합니다.
+     * 없으면 TMAP 대로 우선 경로 한 건을 평가해 최초 1회 저장합니다.
      */
     SafetyRouteResponseDTO getOrCalculateSafety(SafetyRouteRequestDTO request);
+
+    /**
+     * 메인 화면에 표시할 여러 매물의 캐시를 한 번에 조회하고,
+     * 캐시가 없는 조합만 TMAP 대로 우선 경로로 계산해 저장합니다.
+     */
+    SafetyBatchResponseDTO getOrCalculateSafetyBatch(SafetyBatchRequestDTO request);
 }

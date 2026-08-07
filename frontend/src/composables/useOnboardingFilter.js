@@ -10,7 +10,9 @@ const ONBOARDING_DRAFT_KEY = 'salgosipo-onboarding-draft';
  */
 export function useOnboardingFilter() {
   const filterState = ref({
+    destinationId: null,
     destination: '세종대학교',
+    destinationAddress: '서울특별시 광진구 능동로 209',
     destinationLat: 37.5502,
     destinationLng: 127.0731,
     tradeType: 'MONTHLY',
@@ -30,7 +32,6 @@ export function useOnboardingFilter() {
   const loadOnboardingDefaultFilters = async () => {
     let saved = null;
 
-    // 1. localStorage 완료 결과 및 드래프트 저장값 확인
     try {
       const localResult = localStorage.getItem('salgosipo-onboarding-result');
       const localDraft = localStorage.getItem(ONBOARDING_DRAFT_KEY);
@@ -39,18 +40,17 @@ export function useOnboardingFilter() {
       } else if (localDraft) {
         saved = JSON.parse(localDraft);
       }
-    } catch (err) {
-      console.warn('LocalStorage onboarding data load error:', err);
+    } catch (error) {
+      console.warn('LocalStorage onboarding data load error:', error);
     }
 
-    // 2. 백엔드 GET /api/onboarding 연동 (로그인 유저 기준)
     try {
       const apiData = await onboardingApi.getOnboarding();
       if (apiData && typeof apiData === 'object') {
         saved = { ...saved, ...apiData };
       }
-    } catch (err) {
-      // API 통신 불가 시 localStorage 데이터 유지
+    } catch (error) {
+      // API 통신 불가 시 localStorage 값을 유지합니다.
     }
 
     // 3. 온보딩 설정값을 filterState 디폴트 값에 필드 매핑
@@ -114,6 +114,42 @@ export function useOnboardingFilter() {
         } else if (saved.safety === 'medium') {
           filterState.value.minSafetyScore = 70;
         }
+      } else if (typeof rawDestination === 'string') {
+        filterState.value.destination = rawDestination;
+      }
+    }
+
+    if (saved.transport || saved.transportMode) {
+      const mode = String(saved.transport || saved.transportMode).toUpperCase();
+      filterState.value.transportMode = mode.includes('WALK')
+        ? 'WALK'
+        : 'TRANSIT';
+    }
+
+    const travelTime = saved.maxTravelTime ?? saved.travelTime;
+    if (travelTime != null) {
+      filterState.value.travelTime = Number(travelTime);
+    }
+
+    const maxDeposit =
+      saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
+    if (maxDeposit != null) {
+      filterState.value.maxDeposit = Number(maxDeposit);
+    }
+
+    const maxRent =
+      saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
+    if (maxRent != null) {
+      filterState.value.maxRent = Number(maxRent);
+    }
+
+    if (saved.safety || saved.minSafetyScore !== undefined) {
+      if (typeof saved.minSafetyScore === 'number') {
+        filterState.value.minSafetyScore = saved.minSafetyScore;
+      } else if (saved.safety === 'high') {
+        filterState.value.minSafetyScore = 85;
+      } else if (saved.safety === 'medium') {
+        filterState.value.minSafetyScore = 70;
       }
     }
   };

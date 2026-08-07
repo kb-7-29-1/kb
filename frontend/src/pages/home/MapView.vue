@@ -18,6 +18,7 @@ import { saveRecentDestinationGlobal } from '@/utils/recentDestinations.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
+import safetyService from '@/api/safetyService.js';
 
 const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
 const route = useRoute();
@@ -77,11 +78,11 @@ const amenityDetailFilters = ref([]);
 const activeAmenityFilters = ref([]);
 
 watch(
-  () => props.appliedAmenityFilters,
-  (filters = []) => {
-    activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
-  },
-  { immediate: true, deep: true },
+    () => props.appliedAmenityFilters,
+    (filters = []) => {
+      activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+    },
+    { immediate: true, deep: true },
 );
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
@@ -99,7 +100,21 @@ let amenityFilterDebounceTimer = null;
 const properties = ref([]);
 const isPropertyApiError = ref(false);
 const isPropertyLoading = ref(true);
+const isFilterAnalysisLoading = ref(false);
 let propertyRequestSequence = 0;
+let filterAnalysisTimer = null;
+
+const showFilterAnalysisLoading = () => {
+  isFilterAnalysisLoading.value = true;
+  clearTimeout(filterAnalysisTimer);
+  filterAnalysisTimer = setTimeout(() => {
+    isFilterAnalysisLoading.value = false;
+  }, 450);
+};
+
+const isMapAnalysisLoading = computed(
+    () => isPropertyLoading.value || amenityFilterLoading.value || isFilterAnalysisLoading.value,
+);
 
 // 데이터 출처 계산 (DB vs PUBLIC_API)
 const currentDataSource = computed(() => {
@@ -152,31 +167,111 @@ const fetchPropertiesFromBackend = async (forceRefetch = false, showOverlay = fa
     isPropertyLoading.value = true;
   }
 
+// 대출 상품을 반영한 실제 보증금 상한을 서버 검색 조건에도 전달합니다.
+const getEffectiveMaxDeposit = (filters) => {
+  let maxDeposit = Number(filters.maxDeposit) || DEFAULT_DEPOSIT;
+
+  if (filters.selectedLoanId && filters.selectedLoanId !== 'NONE') {
+    const loan = LOAN_PRODUCTS.find((item) => item.id === filters.selectedLoanId);
+    if (loan?.ratio > 0) {
+      maxDeposit = Math.round(maxDeposit * (1 + loan.ratio));
+    }
+  }
+
+  return maxDeposit;
+};
+
+const buildPropertySearchParams = () => {
+  const filters = appliedFilterState.value || filterState.value;
+  const params = {
+    destinationId: filters.destinationId || undefined,
+    lat: destinationConfig.value.lat,
+    lng: destinationConfig.value.lng,
+    radius: getSearchRadiusKm(),
+    maxDeposit: getEffectiveMaxDeposit(filters),
+  };
+
+  if (filters.tradeType === 'JEONSE') {
+    params.maxMonthlyRent = 0;
+  } else if (Number(filters.maxRent) < DEFAULT_RENT) {
+    params.maxMonthlyRent = Number(filters.maxRent);
+  }
+
+  return params;
+};
+
+// 검색 조건에 맞는 매물을 조회한 뒤, 화면에 렌더링하기 전에 목적지별 안전점수를 일괄 준비합니다.
+const fetchPropertiesFromBackend = async () => {
+  const requestId = ++propertyRequestSequence;
+  isPropertyLoading.value = true;
+  isPropertyApiError.value = false;
+  properties.value = [];
+
   try {
-    const res = await api.get('/properties', {
-      params: {
-        lat: targetLat,
-        lng: targetLng,
-        radius: neededRadius,
-      },
+    const filters = appliedFilterState.value || filterState.value;
+
+    const propertyResponse = await api.get('/properties', {
+      params: buildPropertySearchParams(),
     });
+
     if (requestId !== propertyRequestSequence) return;
 
-    if (res.data && Array.isArray(res.data)) {
-      properties.value = res.data;
-      propertyCache.set(destKey, {
-        properties: res.data,
-        maxRadius: neededRadius,
-      });
-      isPropertyApiError.value = false;
+    const candidates = Array.isArray(propertyResponse.data)
+        ? propertyResponse.data
+        : [];
+
+    const propertyIds = candidates
+        .map((property) => Number(property.propertyId))
+        .filter((propertyId) => Number.isFinite(propertyId) && propertyId > 0);
+
+    if (!propertyIds.length) {
+      properties.value = candidates;
+      return;
     }
+
+    const safetyBatch = await safetyService.getScoresForProperties({
+      propertyIds,
+      destinationId: filters.destinationId,
+      destinationName: filters.destination,
+      destinationAddress: filters.destinationAddress,
+      destinationLatitude: destinationConfig.value.lat,
+      destinationLongitude: destinationConfig.value.lng,
+    });
+
+    if (requestId !== propertyRequestSequence) return;
+
+    if (safetyBatch.destinationId) {
+      filterState.value.destinationId = Number(safetyBatch.destinationId);
+      appliedFilterState.value.destinationId = Number(safetyBatch.destinationId);
+    }
+
+    const safetyByPropertyId = new Map(
+        (safetyBatch.items || []).map((item) => [Number(item.propertyId), item]),
+    );
+
+    properties.value = candidates.map((property) => {
+      const safety = safetyByPropertyId.get(Number(property.propertyId));
+
+      return {
+        ...property,
+        safetyScore: safety?.safetyScore ?? property.safetyScore ?? null,
+        safetyGrade: safety?.safetyGrade ?? property.safetyGrade ?? null,
+        cctvCount: safety?.cctvCount ?? 0,
+        streetLampCount: safety?.streetLampCount ?? 0,
+        streetlightCount: safety?.streetLampCount ?? 0,
+        hasPoliceStation: safety?.hasPoliceStation ?? false,
+        safetyStatus: safety?.status ?? 'FAILED',
+        safetyMessage: safety?.message ?? '',
+      };
+    });
+
+    isPropertyApiError.value = false;
   } catch (error) {
     if (requestId !== propertyRequestSequence) return;
-    console.error('Backend DB API connection failed:', error);
-    if (!cached) {
-      properties.value = [];
-      isPropertyApiError.value = true;
-    }
+
+    console.error('PROPERTY/SAFETY BATCH LOAD ERROR:', error);
+    properties.value = [];
+    isPropertyApiError.value = true;
   } finally {
     if (requestId === propertyRequestSequence) {
       isPropertyLoading.value = false;
@@ -299,9 +394,11 @@ const handleApplyFilters = (showOverlay = false) => {
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
   fetchPropertiesFromBackend(false, showOverlay);
+  await fetchPropertiesFromBackend();
 };
 
 const handleResetFilters = async () => {
+  showFilterAnalysisLoading();
   const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
 
@@ -310,14 +407,23 @@ const handleResetFilters = async () => {
   }
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
-  await fetchPropertiesFromBackend(true);
+  await fetchPropertiesFromBackend();
 };
 
 const applyMobileOnboardingFilters = (filters) => {
   if (!filters) return;
 
+  if (filters.destinationId != null) {
+    filterState.value.destinationId = Number(filters.destinationId);
+  }
+
   const destination = filters.destination;
   if (destination && typeof destination === 'object') {
+    const destinationId = destination.destinationId ?? destination.destId;
+    if (destinationId != null) {
+      filterState.value.destinationId = Number(destinationId);
+    }
+
     filterState.value.destination =
       destination.destName ||
       destination.destinationName ||
@@ -363,8 +469,8 @@ const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = activeAmenityFilters.value;
   const propertyIds = baseFilteredProperties.value
-    .map((property) => property.propertyId)
-    .filter((propertyId) => propertyId != null);
+      .map((property) => property.propertyId)
+      .filter((propertyId) => propertyId != null);
   const sequence = ++amenityRequestSequence;
 
   if (!filters.length || !propertyIds.length) {
@@ -390,14 +496,17 @@ const loadAmenitiesForProperties = async () => {
 };
 
 const scheduleAmenityLoad = () => {
+  showFilterAnalysisLoading();
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
 };
 
 onUnmounted(() => {
   mapStore.saveFilterState(filterState.value, appliedFilterState.value);
+  propertyRequestSequence += 1;
   amenityRequestSequence += 1;
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
+  clearTimeout(filterAnalysisTimer);
 });
 
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
@@ -447,7 +556,9 @@ const destinationConfig = computed(() => {
   const lng = filterState.value.destinationLng || 127.0731;
 
   return {
+    id: filterState.value.destinationId || null,
     name,
+    address: filterState.value.destinationAddress || '',
     lat,
     lng,
   };
@@ -589,9 +700,28 @@ const amenityFilteredProperties = computed(() => {
 });
 
 const visibleProperties = computed(() =>
-  activeAmenityFilters.value.length && amenityFilterLoading.value
-    ? []
-    : amenityFilteredProperties.value,
+    activeAmenityFilters.value.length && amenityFilterLoading.value
+        ? []
+        : amenityFilteredProperties.value,
+);
+
+const clearSelectedProperty = () => {
+  selectedProperty.value = null;
+  selectedPropertyDetailAmenities.value = [];
+  isPanelOpen.value = false;
+};
+
+watch(
+    [visibleProperties, selectedProperty, isMapAnalysisLoading],
+    ([nextProperties, currentProperty, isLoading]) => {
+      if (!currentProperty || isLoading) return;
+
+      const isStillVisible = nextProperties.some(
+          (property) => Number(property.propertyId) === Number(currentProperty.propertyId),
+      );
+
+      if (!isStillVisible) clearSelectedProperty();
+    },
 );
 
 const shouldHideAmenityPins = computed(
@@ -610,8 +740,8 @@ const handleSelectProperty = async (property) => {
 
   try {
     const amenities = await amenityService.filterAmenities(
-      property.propertyId,
-      activeAmenityFilters.value,
+        property.propertyId,
+        activeAmenityFilters.value,
     );
 
     if (selectedProperty.value?.propertyId === property.propertyId) {
@@ -645,7 +775,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   const listedProperty = properties.value.find(
-    (property) => Number(property.propertyId) === numericPropertyId,
+      (property) => Number(property.propertyId) === numericPropertyId,
   );
 
   if (listedProperty) {
@@ -654,7 +784,11 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   try {
-    const { data } = await api.get(`/properties/${numericPropertyId}`);
+    const { data } = await api.get(`/properties/${numericPropertyId}`, {
+      params: {
+        destinationId: appliedFilterState.value.destinationId || undefined,
+      },
+    });
     if (data) handleSelectProperty(data);
   } catch (error) {
     console.error('BOOKMARK PROPERTY DETAIL LOAD ERROR: ', error);
@@ -662,9 +796,9 @@ const openPropertyDetailFromQuery = async (propertyId) => {
 };
 
 watch(
-  () => route.query.propertyId,
-  (propertyId) => openPropertyDetailFromQuery(propertyId),
-  { immediate: true },
+    () => route.query.propertyId,
+    (propertyId) => openPropertyDetailFromQuery(propertyId),
+    { immediate: true },
 );
 
 const selectedPropertyAmenities = computed(() => {
@@ -680,10 +814,10 @@ const selectedPropertyAmenities = computed(() => {
 });
 
 watch(
-  () => activeAmenityFilters.value.length,
-  (length) => {
-    if (!length) selectedPropertyDetailAmenities.value = [];
-  },
+    () => activeAmenityFilters.value.length,
+    (length) => {
+      if (!length) selectedPropertyDetailAmenities.value = [];
+    },
 );
 
 // 찜 토글
@@ -705,6 +839,7 @@ const handleToggleBookmark = async (id) => {
 
 // 편의시설 적용 핸들러
 const handleApplyAmenities = (selectedList) => {
+  showFilterAnalysisLoading();
   activeAmenityFilters.value = selectedList.map((filter) => ({ ...filter }));
   filterState.value.selectedAmenities = selectedList.map(
     (filter) => filter.amenityType,
@@ -776,10 +911,10 @@ const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
   const normalizedFilters = normalizeAmenitySelection(selectedFilters);
   handleApplyAmenities(
-    normalizedFilters.map((filter) => ({
-      amenityType: filter.amenityType,
-      walkTimeMinutes: Number(filter.walkTimeMinutes),
-    })),
+      normalizedFilters.map((filter) => ({
+        amenityType: filter.amenityType,
+        walkTimeMinutes: Number(filter.walkTimeMinutes),
+      })),
   );
 };
 
@@ -791,10 +926,10 @@ const resetAmenityDetailFilters = () => {
 
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
-    amenityDetailFilters.value.map((item) => ({
-      amenityType: item.amenityType,
-      walkTimeMinutes: Number(item.timeLimit),
-    })),
+      amenityDetailFilters.value.map((item) => ({
+        amenityType: item.amenityType,
+        walkTimeMinutes: Number(item.timeLimit),
+      })),
   );
   isAmenityDetailFilterOpen.value = false;
 };
@@ -833,12 +968,12 @@ const {
 
 <template>
   <div
-    class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
+      class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
-      :class="[
+        class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
+        :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
           ? 'h-full xl:h-full'
@@ -846,14 +981,14 @@ const {
             ? 'h-[120px] xl:h-full'
             : 'h-1/3 xl:h-full',
       ]"
-      :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
+        :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
-        @click="toggleMobilePanel"
-        @mousedown="startDrag"
-        @touchstart.prevent="startDrag"
+          class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+          @click="toggleMobilePanel"
+          @mousedown="startDrag"
+          @touchstart.prevent="startDrag"
       >
         <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
@@ -864,15 +999,15 @@ const {
       >
         <div class="flex items-center justify-between xl:hidden">
           <span
-            v-if="isPropertyLoading"
-            class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+              v-if="isMapAnalysisLoading"
+              class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
             안전 분석 중
           </span>
           <span
-            v-else
-            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
+              v-else
+              class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
           >
             총 {{ visibleProperties.length }}개 매물
           </span>
@@ -880,14 +1015,14 @@ const {
 
         <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
         <OnboardingSummary
-          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
-          :destination="filterState.destination"
-          :transport-mode="filterState.transportMode"
-          :travel-time="filterState.travelTime"
-          :max-deposit="filterState.maxDeposit"
-          :max-rent="filterState.maxRent"
-          :min-safety-score="filterState.minSafetyScore"
-          :show-close="false"
+            class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
+            :destination="filterState.destination"
+            :transport-mode="filterState.transportMode"
+            :travel-time="filterState.travelTime"
+            :max-deposit="filterState.maxDeposit"
+            :max-rent="filterState.maxRent"
+            :min-safety-score="filterState.minSafetyScore"
+            :show-close="false"
         />
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
@@ -898,9 +1033,9 @@ const {
             <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
             <button
-              type="button"
-              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
-              @click="openAmenityDetailFilter()"
+                type="button"
+                class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
+                @click="openAmenityDetailFilter()"
             >
               <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
               <span>상세 필터</span>
@@ -912,12 +1047,12 @@ const {
           </div>
 
           <AmenityFilter
-            ref="amenityFilterRef"
-            class="desktop-amenity-filter"
-            :applied-filters="activeAmenityFilters"
-            :show-walking-time="false"
-            @apply="handleApplyAmenities"
-            @selection-change="handleAmenitySelectionChange"
+              ref="amenityFilterRef"
+              class="desktop-amenity-filter"
+              :applied-filters="activeAmenityFilters"
+              :show-walking-time="false"
+              @apply="handleApplyAmenities"
+              @selection-change="handleAmenitySelectionChange"
           />
 
           <p class="mt-2 text-[12px] leading-5 text-slate-500">
@@ -926,12 +1061,12 @@ const {
           </p>
 
           <AmenityDetailFilterPanel
-            v-if="isAmenityDetailFilterOpen"
-            :amenities="amenityDetailFilters"
-            @apply="applyAmenityDetailFilters"
-            @close="isAmenityDetailFilterOpen = false"
-            @reset="resetAmenityDetailFilters"
-            @update-time-limit="updateAmenityDetailTimeLimit"
+              v-if="isAmenityDetailFilterOpen"
+              :amenities="amenityDetailFilters"
+              @apply="applyAmenityDetailFilters"
+              @close="isAmenityDetailFilterOpen = false"
+              @reset="resetAmenityDetailFilters"
+              @update-time-limit="updateAmenityDetailTimeLimit"
           />
         </section>
 
@@ -941,16 +1076,16 @@ const {
           class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden"
         >
           <button
-            v-for="opt in sortOptions"
-            :key="opt.key"
-            type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-            :class="[
+              v-for="opt in sortOptions"
+              :key="opt.key"
+              type="button"
+              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+              :class="[
               currentSort === opt.key
                 ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                 : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
             ]"
-            @click="currentSort = opt.key"
+              @click="currentSort = opt.key"
           >
             <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
@@ -960,8 +1095,8 @@ const {
         <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
         <section class="hidden space-y-2 pt-3 xl:block">
           <p
-            v-if="isPropertyLoading"
-            class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+              v-if="isMapAnalysisLoading"
+              class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
             안전 분석 중
@@ -982,7 +1117,7 @@ const {
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                   : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
               "
-              @click="currentSort = opt.key"
+                @click="currentSort = opt.key"
             >
               <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
               {{ opt.label }}
@@ -1046,8 +1181,8 @@ const {
           />
         </template>
         <div
-          v-else-if="!amenityFilterLoading"
-          class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
+            v-else-if="!amenityFilterLoading"
+            class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
           <p class="text-sm font-bold text-slate-600">
@@ -1058,8 +1193,8 @@ const {
           </p>
         </div>
         <div
-          v-else
-          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+            v-else
+            class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
         >
           매물을 조회하고 있어요.
         </div>
@@ -1098,25 +1233,22 @@ const {
 
       <Transition name="analysis-loader">
         <div
-          v-if="isPropertyLoading"
-          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+            v-if="isMapAnalysisLoading"
+            class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
         >
           <div
-            class="flex max-w-[320px] flex-col items-center rounded-[22px] border border-white/70 bg-white/90 px-7 py-6 text-center shadow-xl backdrop-blur-md"
+              class="flex max-w-[320px] flex-col items-center rounded-[22px] border border-white/70 bg-white/90 px-7 py-6 text-center shadow-xl backdrop-blur-md"
           >
             <span
-              class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1ff] text-xl text-[#4058f5]"
+                class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1ff] text-xl text-[#4058f5]"
             >
               <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
             </span>
             <strong class="text-[15px] font-extrabold text-slate-800"
-              >안전 귀갓길과 생활 조건을 분석 중이에요</strong
+            >안전 귀갓길과 생활 조건을 분석 중이에요</strong
             >
             <span class="mt-1.5 text-[13px] leading-5 text-slate-500"
-              >잠시만 기다리면 맞춤 매물을 보여드릴게요</span
-            >
-            <span
-              class="mt-4 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100"
+            >잠시만 기다리시면 맞춤 매물을 보여드릴게요</span
             >
               <span
                 class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"
@@ -1128,15 +1260,15 @@ const {
 
       <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
       <div
-        v-if="isPropertyApiError"
-        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
+          v-if="isPropertyApiError"
+          class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
       >
         <span>⚠️</span>
         <span>백엔드 매물 데이터를 불러오는 데 실패했습니다.</span>
         <button
-          type="button"
-          class="underline ml-2 hover:text-red-200"
-          @click="fetchPropertiesFromBackend"
+            type="button"
+            class="underline ml-2 hover:text-red-200"
+            @click="fetchPropertiesFromBackend"
         >
           재시도
         </button>
@@ -1145,11 +1277,11 @@ const {
 
     <!-- 3. 우측 560px Slide-Over 매물 상세 패널 -->
     <SlidingDoorPanel
-      :is-open="isPanelOpen"
-      :property="selectedProperty"
-      :amenities="selectedPropertyAmenities"
-      @close="isPanelOpen = false"
-      @toggle-bookmark="handleToggleBookmark"
+        :is-open="isPanelOpen"
+        :property="selectedProperty"
+        :amenities="selectedPropertyAmenities"
+        @close="isPanelOpen = false"
+        @toggle-bookmark="handleToggleBookmark"
     />
   </div>
 </template>
@@ -1217,8 +1349,8 @@ const {
 .analysis-loader-enter-active,
 .analysis-loader-leave-active {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+      opacity 180ms ease,
+      transform 180ms ease;
 }
 
 .analysis-loader-enter-from,

@@ -12,8 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-import java.util.Collections;
-
 @Service
 @RequiredArgsConstructor
 @Log4j2
@@ -36,18 +34,51 @@ public class PropertyServiceImpl implements PropertyService {
             log.error("DB property search error: {}", e.getMessage(), e);
         }
         return Collections.emptyList();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        }
+
+        /*
+         * 목적지별 안전점수는 property_safety의 실제 property_id가 필요합니다.
+         * destinationId가 있는 메인 화면 요청에서는 공공 API 임시 매물로
+         * 대체하지 않고 DB 조회 결과를 그대로 반환합니다.
+         */
+        if (cond != null && cond.getDestinationId() != null) {
+            return List.of();
+        }
+
+        Double centerLat = cond != null ? cond.getLat() : null;
+        Double centerLng = cond != null ? cond.getLng() : null;
+        return publicDataApiService.getGwangjinMonthlyProperties(
+                centerLat,
+                centerLng
+        );
     }
 
     @Override
-    @Cacheable(value = "propertyDetail", key = "#propertyId + '_' + (#userId != null ? #userId : 0)")
-    public PropertyDetailDTO getPropertyDetail(Long propertyId, Long userId) {
-        PropertyDetailDTO detail = propertyMapper.selectPropertyDetail(propertyId, userId);
+    @Cacheable(
+            value = "propertyDetail",
+            key = "#propertyId + '_' + "
+                    + "(#destinationId != null ? #destinationId : 0) + '_' + "
+                    + "(#userId != null ? #userId : 0)"
+    )
+    public PropertyDetailDTO getPropertyDetail(
+            Long propertyId,
+            Integer destinationId,
+            Long userId
+    ) {
+        PropertyDetailDTO detail = propertyMapper.selectPropertyDetail(
+                propertyId,
+                destinationId,
+                userId
+        );
         if (detail != null) {
-            List<String> imageUrls = propertyMapper.selectPropertyImageUrls(propertyId);
-            detail.setImageUrls(imageUrls);
-
-            List<String> tags = propertyMapper.selectPropertyTags(propertyId);
-            detail.setTags(tags);
+            detail.setImageUrls(
+                    propertyMapper.selectPropertyImageUrls(propertyId)
+            );
+            detail.setTags(
+                    propertyMapper.selectPropertyTags(propertyId)
+            );
         }
         return detail;
     }

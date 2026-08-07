@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PropertySearchCondDTO {
+    private Integer destinationId; // 안전점수 조회 기준 목적지
     private String keyword;
     private String propertyType; // 원룸, 투룸, 오피스텔 등
     private Integer buildingType; // 건물 종류 (1: 빌라, 2: 다가구, 3: 오피스텔)

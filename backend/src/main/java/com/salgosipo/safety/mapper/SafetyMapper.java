@@ -5,6 +5,8 @@ import com.salgosipo.safety.domain.SafetyDestinationVO;
 import com.salgosipo.safety.domain.SafetyPropertyCoordinateVO;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 public interface SafetyMapper {
 
     PropertySafetyVO selectPropertySafety(
@@ -12,8 +14,17 @@ public interface SafetyMapper {
             @Param("destinationId") Integer destinationId
     );
 
+    List<PropertySafetyVO> selectPropertySafetyBatch(
+            @Param("propertyIds") List<Long> propertyIds,
+            @Param("destinationId") Integer destinationId
+    );
+
     SafetyPropertyCoordinateVO selectPropertyCoordinate(
             @Param("propertyId") Long propertyId
+    );
+
+    List<SafetyPropertyCoordinateVO> selectPropertyCoordinates(
+            @Param("propertyIds") List<Long> propertyIds
     );
 
     SafetyDestinationVO selectDestinationById(
