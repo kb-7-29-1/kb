@@ -125,14 +125,11 @@ watch(
 }
 
 .comment-list-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  position: absolute;
+  inset: 0;
   z-index: 60;
   display: flex;
-  width: 100vw;
-  max-width: 560px;
+  width: 100%;
   flex-direction: column;
   overflow: hidden;
   background: #f8fafc;
@@ -155,12 +152,6 @@ watch(
 
 .comment-submit-error {
   padding: 8px 18px;
-}
-
-@media (max-width: 560px) {
-  .comment-list-panel {
-    max-width: none;
-  }
 }
 
 .section-header {
