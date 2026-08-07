@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
-import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
+import { formatDeposit } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
 import { useAuthStore } from '@/stores/useAuthStore.js';
@@ -54,9 +54,9 @@ watch(
 );
 
 // 가격 포맷팅
-const formattedPrice = computed(() => {
+const depositLabel = computed(() => {
   if (!props.property) return '';
-  return formatPropertyPriceDetail(props.property.deposit, props.property.monthlyRent);
+  return `${formatDeposit(props.property.deposit)}원`;
 });
 
 const hasSafetyScore = computed(() => {
@@ -287,29 +287,27 @@ const detailImageUrl = computed(() => {
         class="property-detail-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
         <div class="flex min-h-full flex-col gap-4 p-4 py-0">
-          <!-- 매물 갤러리/대표 사진 -->
-          <div
-            class="relative h-60 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
-          >
-            <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
-            <!-- 하드코딩된 사진 개수 뱃지 주석 처리 -->
-            <!-- <div
-              class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
+          <!-- 매물 대표 사진 + 보증금/월세/평수/층수 -->
+          <div class="flex gap-4">
+            <div
+              class="relative h-28 w-28 flex-shrink-0 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
             >
-              사진 1 / 5
-            </div> -->
-          </div>
+              <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
+            </div>
 
-          <!-- 가격 및 타이틀 -->
-          <div>
-            <h1
-              class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]"
-            >
-              {{ formattedPrice }}
-            </h1>
-            <p class="text-[14px] font-medium text-slate-500">
-              {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
-            </p>
+            <div class="flex flex-1 flex-col justify-center gap-1.5">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[13px] font-medium text-slate-500">보증금</span>
+                <span class="text-[16px] font-extrabold text-slate-800">{{ depositLabel }}</span>
+              </div>
+              <div v-if="property.monthlyRent" class="flex items-baseline gap-1.5">
+                <span class="text-[13px] font-medium text-slate-500">월세</span>
+                <span class="text-[16px] font-extrabold text-slate-800">{{ property.monthlyRent }}만원</span>
+              </div>
+              <p class="text-[13px] font-medium text-slate-500">
+                {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
+              </p>
+            </div>
           </div>
 
           <!-- 건물 안전 정보 및 대장 상세 -->
