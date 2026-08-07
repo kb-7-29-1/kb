@@ -1213,6 +1213,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       :is-open="isPanelOpen"
       :property="selectedProperty"
       :amenities="selectedPropertyAmenities"
+      :destination="destinationConfig"
       @close="isPanelOpen = false"
       @toggle-bookmark="handleToggleBookmark"
     />

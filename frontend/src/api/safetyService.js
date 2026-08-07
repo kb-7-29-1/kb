@@ -1,6 +1,11 @@
 import api from '@/api/api.js';
 
 const safetyService = {
+  async getSafetyDetails(payload) {
+    const { data } = await api.post('/safety/score/details', payload);
+    return data;
+  },
+
   async getScoresForProperties({
     propertyIds,
     destinationId,
