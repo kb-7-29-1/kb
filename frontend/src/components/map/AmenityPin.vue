@@ -40,8 +40,8 @@ const walkingInfo = computed(() => {
     :title="amenity.amenityName"
   >
     <div
-      class="relative z-10 flex w-max min-w-12 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-3 py-2 text-sm font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl"
-      :class="isExpanded ? 'gap-2 px-4' : 'gap-2'"
+      class="relative z-10 flex w-max min-w-12 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl"
+      :class="isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5'"
     >
       <span class="shrink-0 text-violet-600">{{ icon }}</span>
       <span class="shrink-0">{{ amenity.amenityName }}</span>
@@ -52,8 +52,8 @@ const walkingInfo = computed(() => {
         {{ walkingInfo }}
       </span>
     </div>
-    <div class="relative z-0 -mt-2 h-3 w-3 rotate-45 bg-violet-500"></div>
-    <div class="mt-1 h-2 w-7 rounded-full bg-black/20 blur-sm"></div>
+    <div class="relative z-0 -mt-1.5 h-2.5 w-2.5 rotate-45 bg-violet-400"></div>
+    <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-sm"></div>
   </div>
 </template>
 
