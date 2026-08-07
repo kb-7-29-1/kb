@@ -97,20 +97,21 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
     else walkingInfo = `도보 ${minutes}분 · ${distance}m`;
   }
 
-  const detailBadge = isExpanded && walkingInfo
-    ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
-    : '';
+  const detailBadge =
+    isExpanded && walkingInfo
+      ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
+      : '';
 
   const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
 
   return `
     <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
-      <div class="relative z-10 flex w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
+      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
         <span class="shrink-0 text-violet-600">${icon}</span>
         <span class="shrink-0">${amenity.amenityName || ''}</span>
         ${detailBadge}
       </div>
-      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 border-b border-r border-violet-400 bg-white transition-colors duration-200 group-hover:bg-violet-50"></div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-400 transition-colors duration-200 group-hover:bg-violet-50"></div>
       <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
     </div>
   `;
@@ -441,7 +442,8 @@ const handleMapRightClick = async (e) => {
     });
 
     const cardContainer = document.createElement('div');
-    cardContainer.className = 'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
+    cardContainer.className =
+      'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
     cardContainer.innerHTML = `
       <div class="flex items-center justify-between border-b pb-1.5 border-slate-100">
         <span class="text-blue-600 font-black text-xs flex items-center gap-1">

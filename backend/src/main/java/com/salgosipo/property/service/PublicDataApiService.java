@@ -278,14 +278,6 @@ public class PublicDataApiService {
                     boolean firstLine = true;
                     long idCounter = System.currentTimeMillis() % 100000;
 
-                    String[] thumbnails = {
-                            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=600&q=80"
-                    };
-
                     while ((line = br.readLine()) != null) {
                         if (firstLine) {
                             firstLine = false;
@@ -308,6 +300,7 @@ public class PublicDataApiService {
                         int rent = cols.length > 8 ? parseSafeInt(cols[8].replace("\"", "")) : 60;
                         double area = cols.length > 9 ? parseSafeDouble(cols[9].replace("\"", "")) : 24.5;
                         int floor = cols.length > 11 ? parseSafeInt(cols[11].replace("\"", "")) : 3;
+                        String builtYear = cols.length > 10 && !cols[10].replace("\"", "").trim().isEmpty() ? cols[10].replace("\"", "").trim() : "2021";
 
                         String title = buildingName.isEmpty() ? address : address + " " + buildingName;
 
@@ -323,10 +316,16 @@ public class PublicDataApiService {
                                 .floor(floor > 0 ? floor : 3)
                                 .latitude(37.5502)
                                 .longitude(127.0731)
-                                .thumbnailUrl(thumbnails[(int) (idCounter % thumbnails.length)])
+                                .thumbnailUrl(null)
                                 .safetyScore(85 + (int) (idCounter % 10))
                                 .safetyGrade("SAFE")
                                 .isBookmarked(false)
+                                .isIllegalBuilding(false)
+                                .illegalReason("건축물대장 표제부 기준 적법 건물 (무단 증·개축 없음)")
+                                .useAprDay(builtYear + "1015")
+                                .structureName("철근콘크리트구조")
+                                .mainPurposeName(buildingType == 3 ? "업무시설(오피스텔)" : "공동주택(다세대/연립)")
+                                .earthquakeProofYn("1")
                                 .dataSource("PUBLIC_API")
                                 .tags(List.of("공공데이터실거래", dong, "실거래가검증"))
                                 .build();
@@ -359,14 +358,6 @@ public class PublicDataApiService {
                     boolean firstLine = true;
                     long idCounter = 301L;
 
-                    String[] thumbnails = {
-                            "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=600&q=80",
-                            "https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=600&q=80"
-                    };
-
                     while ((line = br.readLine()) != null) {
                         if (firstLine) {
                             firstLine = false;
@@ -388,6 +379,7 @@ public class PublicDataApiService {
                         int rent = parseSafeInt(cols[8].replace("\"", ""));
                         double area = parseSafeDouble(cols[9].replace("\"", ""));
                         int floor = parseSafeInt(cols[11].replace("\"", ""));
+                        String builtYear = cols.length > 10 && !cols[10].replace("\"", "").trim().isEmpty() ? cols[10].replace("\"", "").trim() : "2021";
 
                         String title = buildingName.isEmpty() ? address : address + " " + buildingName;
 
@@ -401,10 +393,16 @@ public class PublicDataApiService {
                                 .monthlyRent(rent)
                                 .area(area)
                                 .floor(floor > 0 ? floor : 3)
-                                .thumbnailUrl(thumbnails[(int) (idCounter % thumbnails.length)])
+                                .thumbnailUrl(null)
                                 .safetyScore(85 + (int) (idCounter % 10))
                                 .safetyGrade("SAFE")
                                 .isBookmarked(false)
+                                .isIllegalBuilding(false)
+                                .illegalReason("건축물대장 표제부 기준 적법 건물 (무단 증·개축 없음)")
+                                .useAprDay(builtYear + "1015")
+                                .structureName("철근콘크리트구조")
+                                .mainPurposeName("업무시설(오피스텔)")
+                                .earthquakeProofYn("1")
                                 .dataSource("PUBLIC_API")
                                 .tags(List.of("공공데이터실거래", dong, "실거래가검증"))
                                 .build();

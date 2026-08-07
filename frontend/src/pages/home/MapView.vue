@@ -78,11 +78,11 @@ const amenityDetailFilters = ref([]);
 const activeAmenityFilters = ref([]);
 
 watch(
-    () => props.appliedAmenityFilters,
-    (filters = []) => {
-      activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
-    },
-    { immediate: true, deep: true },
+  () => props.appliedAmenityFilters,
+  (filters = []) => {
+    activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+  },
+  { immediate: true, deep: true },
 );
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
@@ -113,7 +113,7 @@ const showFilterAnalysisLoading = () => {
 };
 
 const isMapAnalysisLoading = computed(
-    () => isPropertyLoading.value || amenityFilterLoading.value || isFilterAnalysisLoading.value,
+  () => isPropertyLoading.value || amenityFilterLoading.value || isFilterAnalysisLoading.value,
 );
 
 // 데이터 출처 계산 (DB vs PUBLIC_API)
@@ -122,20 +122,19 @@ const currentDataSource = computed(() => {
 });
 
 const getSearchRadiusKm = () => {
-  const filters = appliedFilterState.value || filterState.value;
+  const filters = appliedFilterState.value;
   const minutes = Number(filters.travelTime) || 15;
 
   if (filters.transportMode === 'WALK') {
-    const speedKmH =
-      filters.walkPace === 'SLOW'
-        ? 3.6
-        : filters.walkPace === 'FAST'
-          ? 6.0
-          : 4.8;
-    return speedKmH * (minutes / 60);
+    let speedMetersPerMin = 75;
+    if (filters.walkPace === 'SLOW') speedMetersPerMin = 58;
+    if (filters.walkPace === 'FAST') speedMetersPerMin = 92;
+    const maxMeters = Math.max(200, minutes * speedMetersPerMin);
+    return (maxMeters / 1000) * 1.25;
   }
 
-  return 18.0 * (minutes / 60);
+  const transitMaxRadius = Math.max(500, minutes * 180);
+  return (transitMaxRadius / 1000) * 1.25;
 };
 
 // 편의점 디폴트 도보 시간 (5분)
@@ -162,7 +161,7 @@ const getEffectiveMaxDeposit = (filters) => {
 };
 
 const buildPropertySearchParams = () => {
-  const filters = appliedFilterState.value || filterState.value;
+  const filters = appliedFilterState.value;
   const params = {
     destinationId: filters.destinationId || undefined,
     lat: destinationConfig.value.lat,
@@ -188,7 +187,7 @@ const fetchPropertiesFromBackend = async () => {
   properties.value = [];
 
   try {
-    const filters = appliedFilterState.value || filterState.value;
+    const filters = appliedFilterState.value;
 
     const propertyResponse = await api.get('/properties', {
       params: buildPropertySearchParams(),
@@ -196,13 +195,11 @@ const fetchPropertiesFromBackend = async () => {
 
     if (requestId !== propertyRequestSequence) return;
 
-    const candidates = Array.isArray(propertyResponse.data)
-        ? propertyResponse.data
-        : [];
+    const candidates = Array.isArray(propertyResponse.data) ? propertyResponse.data : [];
 
     const propertyIds = candidates
-        .map((property) => Number(property.propertyId))
-        .filter((propertyId) => Number.isFinite(propertyId) && propertyId > 0);
+      .map((property) => Number(property.propertyId))
+      .filter((propertyId) => Number.isFinite(propertyId) && propertyId > 0);
 
     if (!propertyIds.length) {
       properties.value = candidates;
@@ -226,7 +223,7 @@ const fetchPropertiesFromBackend = async () => {
     }
 
     const safetyByPropertyId = new Map(
-        (safetyBatch.items || []).map((item) => [Number(item.propertyId), item]),
+      (safetyBatch.items || []).map((item) => [Number(item.propertyId), item]),
     );
 
     properties.value = candidates.map((property) => {
@@ -296,15 +293,47 @@ const parseUrlQueryToFilters = () => {
   return true;
 };
 
+// 유저 ID 기반 퀵필터 로컬 캐시 유틸
+const getQuickFilterCacheKey = () => {
+  const userId = authStore.user?.userId || authStore.user?.id || 'guest';
+  return `kb_quick_filter_state_${userId}`;
+};
+
+const saveQuickFilterToCache = (filters) => {
+  if (!filters) return;
+  try {
+    const key = getQuickFilterCacheKey();
+    localStorage.setItem(key, JSON.stringify(filters));
+  } catch (e) {
+    console.error('Failed to save quick filter cache:', e);
+  }
+};
+
+const loadQuickFilterFromCache = () => {
+  try {
+    const key = getQuickFilterCacheKey();
+    const cached = localStorage.getItem(key);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {
+    console.error('Failed to load quick filter cache:', e);
+  }
+  return null;
+};
+
 onMounted(async () => {
   const hasUrlQuery = parseUrlQueryToFilters();
+  const cachedFilter = loadQuickFilterFromCache();
+
   if (hasUrlQuery) {
     appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  } else if (cachedFilter) {
+    filterState.value = JSON.parse(JSON.stringify(cachedFilter));
+    appliedFilterState.value = JSON.parse(JSON.stringify(cachedFilter));
   } else if (mapStore.hasSavedFilterState) {
     filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
-    appliedFilterState.value = JSON.parse(
-      JSON.stringify(mapStore.appliedFilterState),
-    );
+    appliedFilterState.value = JSON.parse(JSON.stringify(mapStore.appliedFilterState));
   } else {
     await loadOnboardingDefaultFilters();
     appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
@@ -313,8 +342,6 @@ onMounted(async () => {
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend(false, true);
 });
-
-
 
 const getDestinationKey = (filters) => {
   const name = filters?.destination ?? '';
@@ -364,19 +391,31 @@ const handleChangeDestination = ({ name, lat, lng, address }) => {
 };
 
 const handleApplyFilters = async (showOverlay = false) => {
-  if (
-    getDestinationKey(appliedFilterState.value) !==
-    getDestinationKey(filterState.value)
-  ) {
+  if (getDestinationKey(appliedFilterState.value) !== getDestinationKey(filterState.value)) {
     clearAmenitiesForDestinationChange();
   }
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  saveQuickFilterToCache(appliedFilterState.value);
   syncFiltersToUrlQuery(appliedFilterState.value);
   await fetchPropertiesFromBackend();
 };
 
+// ⭕ 이소크론 영역 보이기/가리기 버튼 토글 시 백엔드 재조회 없이 0ms 즉시 화면 반작용 동기화
+watch(
+  () => filterState.value?.showIsochrone,
+  (val) => {
+    if (appliedFilterState.value && val !== undefined) {
+      appliedFilterState.value.showIsochrone = val;
+      saveQuickFilterToCache(appliedFilterState.value);
+    }
+  },
+);
+
 const handleResetFilters = async () => {
+  const confirmReset = window.confirm('처음 설정한 온보딩 조건으로 필터를 되돌릴까요?');
+  if (!confirmReset) return;
+
   showFilterAnalysisLoading();
   const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters();
@@ -408,13 +447,10 @@ const applyMobileOnboardingFilters = (filters) => {
       destination.destinationName ||
       destination.name ||
       filterState.value.destination;
-    filterState.value.destinationAddress =
-      destination.destAddress || destination.address || '';
+    filterState.value.destinationAddress = destination.destAddress || destination.address || '';
 
-    const latitude =
-      destination.destLatitude ?? destination.latitude ?? destination.lat;
-    const longitude =
-      destination.destLongitude ?? destination.longitude ?? destination.lng;
+    const latitude = destination.destLatitude ?? destination.latitude ?? destination.lat;
+    const longitude = destination.destLongitude ?? destination.longitude ?? destination.lng;
     if (latitude != null && longitude != null) {
       filterState.value.destinationLat = Number(latitude);
       filterState.value.destinationLng = Number(longitude);
@@ -423,14 +459,13 @@ const applyMobileOnboardingFilters = (filters) => {
     filterState.value.destination = destination;
   }
 
-  if (filters.transportMode)
-    filterState.value.transportMode = filters.transportMode;
-  if (filters.maxTravelTime != null)
-    filterState.value.travelTime = Number(filters.maxTravelTime);
-  if (filters.budgetDeposit != null)
-    filterState.value.maxDeposit = Number(filters.budgetDeposit);
-  if (filters.budgetRent != null)
-    filterState.value.maxRent = Number(filters.budgetRent);
+  if (filters.transportMode) filterState.value.transportMode = filters.transportMode;
+  if (filters.maxTravelTime != null) filterState.value.travelTime = Number(filters.maxTravelTime);
+  if (filters.budgetDepositMin != null)
+    filterState.value.minDeposit = Number(filters.budgetDepositMin);
+  if (filters.budgetDeposit != null) filterState.value.maxDeposit = Number(filters.budgetDeposit);
+  if (filters.budgetRentMin != null) filterState.value.minRent = Number(filters.budgetRentMin);
+  if (filters.budgetRent != null) filterState.value.maxRent = Number(filters.budgetRent);
   if (filters.minSafetyScore != null) {
     filterState.value.minSafetyScore = Number(filters.minSafetyScore);
   }
@@ -448,8 +483,8 @@ const loadAmenitiesForProperties = async () => {
   // 목록 필터 적용 시 미계산 편의시설은 서버에서 계산·캐시한 뒤 매물별 결과를 받는다.
   const filters = activeAmenityFilters.value;
   const propertyIds = baseFilteredProperties.value
-      .map((property) => property.propertyId)
-      .filter((propertyId) => propertyId != null);
+    .map((property) => property.propertyId)
+    .filter((propertyId) => propertyId != null);
   const sequence = ++amenityRequestSequence;
 
   if (!filters.length || !propertyIds.length) {
@@ -475,6 +510,11 @@ const loadAmenitiesForProperties = async () => {
 };
 
 const scheduleAmenityLoad = () => {
+  if (!activeAmenityFilters.value.length) {
+    amenityFilterLoading.value = false;
+    amenitiesByProperty.value = {};
+    return;
+  }
   showFilterAnalysisLoading();
   if (amenityFilterDebounceTimer) clearTimeout(amenityFilterDebounceTimer);
   amenityFilterDebounceTimer = setTimeout(loadAmenitiesForProperties, 250);
@@ -500,29 +540,26 @@ watch(
     const searchQuery = newAddr || newDest;
 
     if (window.naver && window.naver.maps && window.naver.maps.Service) {
-      window.naver.maps.Service.geocode(
-        { query: searchQuery },
-        (status, response) => {
+      window.naver.maps.Service.geocode({ query: searchQuery }, (status, response) => {
+        if (
+          status === window.naver.maps.Service.Status.OK &&
+          response.v2 &&
+          response.v2.addresses &&
+          response.v2.addresses.length > 0
+        ) {
+          const item = response.v2.addresses[0];
+          const newLat = Number(item.y);
+          const newLng = Number(item.x);
           if (
-            status === window.naver.maps.Service.Status.OK &&
-            response.v2 &&
-            response.v2.addresses &&
-            response.v2.addresses.length > 0
+            filterState.value.destinationLat !== newLat ||
+            filterState.value.destinationLng !== newLng
           ) {
-            const item = response.v2.addresses[0];
-            const newLat = Number(item.y);
-            const newLng = Number(item.x);
-            if (
-              filterState.value.destinationLat !== newLat ||
-              filterState.value.destinationLng !== newLng
-            ) {
-              filterState.value.destinationLat = newLat;
-              filterState.value.destinationLng = newLng;
-              fetchPropertiesFromBackend(true);
-            }
+            filterState.value.destinationLat = newLat;
+            filterState.value.destinationLng = newLng;
+            fetchPropertiesFromBackend(true);
           }
-        },
-      );
+        }
+      });
     }
   },
   { immediate: true },
@@ -545,11 +582,10 @@ const destinationConfig = computed(() => {
 
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
 const baseFilteredProperties = computed(() => {
-  // 실시간 주 목적지 좌표
-  const destLat = destinationConfig.value.lat;
-  const destLng = destinationConfig.value.lng;
-
-  const currentFilters = appliedFilterState.value || filterState.value;
+  const currentFilters = appliedFilterState.value;
+  // 적용된 목적지 위경도 좌표
+  const destLat = Number(currentFilters.destinationLat) || destinationConfig.value.lat;
+  const destLng = Number(currentFilters.destinationLng) || destinationConfig.value.lng;
 
   // 이동 수단별 최대 도달 가능 거리 (km) 계산
   let maxReachKm = 1.2; // 기본 15분 도보 약 1.2km
@@ -568,23 +604,15 @@ const baseFilteredProperties = computed(() => {
 
   let list = properties.value.filter((p) => {
     // 1. 거래 유형 필터 (전세/월세)
-    if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0)
-      return false;
+    if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0) return false;
 
     // 2. 보증금 / 전세금 필터 (minDeposit ~ maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMinDeposit = currentFilters.minDeposit || 0;
     let effectiveMaxDeposit = currentFilters.maxDeposit;
-    if (
-      currentFilters.selectedLoanId &&
-      currentFilters.selectedLoanId !== 'NONE'
-    ) {
-      const loan = LOAN_PRODUCTS.find(
-        (l) => l.id === currentFilters.selectedLoanId,
-      );
+    if (currentFilters.selectedLoanId && currentFilters.selectedLoanId !== 'NONE') {
+      const loan = LOAN_PRODUCTS.find((l) => l.id === currentFilters.selectedLoanId);
       if (loan && loan.ratio > 0) {
-        effectiveMaxDeposit = Math.round(
-          currentFilters.maxDeposit * (1 + loan.ratio),
-        );
+        effectiveMaxDeposit = Math.round(currentFilters.maxDeposit * (1 + loan.ratio));
       }
     }
     if (p.deposit < effectiveMinDeposit || p.deposit > effectiveMaxDeposit) return false;
@@ -600,12 +628,7 @@ const baseFilteredProperties = computed(() => {
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터 (최소 ~ 최대 시간)
-    const distKm = getHaversineDistance(
-      destLat,
-      destLng,
-      p.latitude,
-      p.longitude,
-    );
+    const distKm = getHaversineDistance(destLat, destLng, p.latitude, p.longitude);
     const distMeters = distKm * 1000;
     const minTravelTime = currentFilters.minTravelTime || 0;
 
@@ -614,20 +637,18 @@ const baseFilteredProperties = computed(() => {
       if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
       if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
       const minReachMeters = minTravelTime > 0 ? minTravelTime * speedMetersPerMin : 0;
-      const maxReachMeters = Math.max(
-        200,
-        currentFilters.travelTime * speedMetersPerMin,
-      );
+      const maxReachMeters = Math.max(200, currentFilters.travelTime * speedMetersPerMin);
       if (distMeters < minReachMeters || distMeters > maxReachMeters) return false;
     } else {
-      // 대중교통 모드 (TRANSIT): 최소시간(transitBaseRadius) ~ 최대시간(transitMaxRadius) 범위 허용
-      const transitMaxRadius = Math.max(500, currentFilters.travelTime * 180);
-      const minTime = minTravelTime > 0 ? minTravelTime : Math.max(0, currentFilters.travelTime - (currentFilters.flexTime || 10));
+      // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius) ~ 외접원(transitMaxRadius) 도넛 영역 매물만 허용
+      const travelTime = currentFilters.travelTime || 15;
+      const flexTime = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+      const transitMaxRadius = Math.max(500, travelTime * 180);
+      const minTime = minTravelTime > 0 ? minTravelTime : Math.max(0, travelTime - flexTime);
       const transitBaseRadius = Math.max(0, minTime * 180);
 
-      // 내접원 안쪽 및 외접원 바깥 매물 제외
-      if (distMeters < transitBaseRadius || distMeters > transitMaxRadius)
-        return false;
+      // 내접원 안쪽 및 외접원 바깥 매물 제외 (도넛 도달 영역 내부 매물만 선택)
+      if (distMeters < transitBaseRadius || distMeters > transitMaxRadius) return false;
     }
 
     return true;
@@ -635,16 +656,10 @@ const baseFilteredProperties = computed(() => {
 
   // 5종 정렬 적용
   if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+    return list.sort((a, b) => a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100));
   }
   if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+    return list.sort((a, b) => b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -665,23 +680,18 @@ const amenityFilteredProperties = computed(() => {
     return baseFilteredProperties.value;
   }
 
-  const requiredTypes = new Set(
-    activeAmenityFilters.value.map((filter) => filter.amenityType),
-  );
+  const requiredTypes = new Set(activeAmenityFilters.value.map((filter) => filter.amenityType));
   return baseFilteredProperties.value.filter((property) => {
-    const propertyAmenities =
-      amenitiesByProperty.value[property.propertyId] ?? [];
-    const matchedTypes = new Set(
-      propertyAmenities.map((amenity) => amenity.amenityType),
-    );
+    const propertyAmenities = amenitiesByProperty.value[property.propertyId] ?? [];
+    const matchedTypes = new Set(propertyAmenities.map((amenity) => amenity.amenityType));
     return [...requiredTypes].every((type) => matchedTypes.has(type));
   });
 });
 
 const visibleProperties = computed(() =>
-    activeAmenityFilters.value.length && amenityFilterLoading.value
-        ? []
-        : amenityFilteredProperties.value,
+  activeAmenityFilters.value.length && amenityFilterLoading.value
+    ? []
+    : amenityFilteredProperties.value,
 );
 
 const clearSelectedProperty = () => {
@@ -691,16 +701,16 @@ const clearSelectedProperty = () => {
 };
 
 watch(
-    [visibleProperties, selectedProperty, isMapAnalysisLoading],
-    ([nextProperties, currentProperty, isLoading]) => {
-      if (!currentProperty || isLoading) return;
+  [visibleProperties, selectedProperty, isMapAnalysisLoading],
+  ([nextProperties, currentProperty, isLoading]) => {
+    if (!currentProperty || isLoading) return;
 
-      const isStillVisible = nextProperties.some(
-          (property) => Number(property.propertyId) === Number(currentProperty.propertyId),
-      );
+    const isStillVisible = nextProperties.some(
+      (property) => Number(property.propertyId) === Number(currentProperty.propertyId),
+    );
 
-      if (!isStillVisible) clearSelectedProperty();
-    },
+    if (!isStillVisible) clearSelectedProperty();
+  },
 );
 
 const shouldHideAmenityPins = computed(
@@ -719,8 +729,8 @@ const handleSelectProperty = async (property) => {
 
   try {
     const amenities = await amenityService.filterAmenities(
-        property.propertyId,
-        activeAmenityFilters.value,
+      property.propertyId,
+      activeAmenityFilters.value,
     );
 
     if (selectedProperty.value?.propertyId === property.propertyId) {
@@ -741,12 +751,8 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   const numericPropertyId = Number(propertyId);
   if (!Number.isFinite(numericPropertyId)) return;
 
-  const savedBookmarkProperty = sessionStorage.getItem(
-    'selectedBookmarkProperty',
-  );
-  const bookmarkedProperty = savedBookmarkProperty
-    ? JSON.parse(savedBookmarkProperty)
-    : null;
+  const savedBookmarkProperty = sessionStorage.getItem('selectedBookmarkProperty');
+  const bookmarkedProperty = savedBookmarkProperty ? JSON.parse(savedBookmarkProperty) : null;
   if (Number(bookmarkedProperty?.propertyId) === numericPropertyId) {
     handleSelectProperty(bookmarkedProperty);
     sessionStorage.removeItem('selectedBookmarkProperty');
@@ -754,7 +760,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   const listedProperty = properties.value.find(
-      (property) => Number(property.propertyId) === numericPropertyId,
+    (property) => Number(property.propertyId) === numericPropertyId,
   );
 
   if (listedProperty) {
@@ -775,9 +781,9 @@ const openPropertyDetailFromQuery = async (propertyId) => {
 };
 
 watch(
-    () => route.query.propertyId,
-    (propertyId) => openPropertyDetailFromQuery(propertyId),
-    { immediate: true },
+  () => route.query.propertyId,
+  (propertyId) => openPropertyDetailFromQuery(propertyId),
+  { immediate: true },
 );
 
 const selectedPropertyAmenities = computed(() => {
@@ -786,17 +792,14 @@ const selectedPropertyAmenities = computed(() => {
   if (!activeAmenityFilters.value.length) return [];
 
   const propertyId = selectedProperty.value.propertyId;
-  return (
-    amenitiesByProperty.value[propertyId] ??
-    selectedPropertyDetailAmenities.value
-  );
+  return amenitiesByProperty.value[propertyId] ?? selectedPropertyDetailAmenities.value;
 });
 
 watch(
-    () => activeAmenityFilters.value.length,
-    (length) => {
-      if (!length) selectedPropertyDetailAmenities.value = [];
-    },
+  () => activeAmenityFilters.value.length,
+  (length) => {
+    if (!length) selectedPropertyDetailAmenities.value = [];
+  },
 );
 
 // 찜 토글
@@ -820,9 +823,7 @@ const handleToggleBookmark = async (id) => {
 const handleApplyAmenities = (selectedList) => {
   showFilterAnalysisLoading();
   activeAmenityFilters.value = selectedList.map((filter) => ({ ...filter }));
-  filterState.value.selectedAmenities = selectedList.map(
-    (filter) => filter.amenityType,
-  );
+  filterState.value.selectedAmenities = selectedList.map((filter) => filter.amenityType);
   emit('apply-amenity-filters', activeAmenityFilters.value);
 };
 
@@ -832,9 +833,7 @@ const normalizeAmenitySelection = (selectedFilters) =>
     const appliedFilter = activeAmenityFilters.value.find(
       (item) => item.amenityType === filter.amenityType,
     );
-    const detailFilter = amenityDetailFilters.value.find(
-      (item) => item.id === filter.id,
-    );
+    const detailFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
 
     // 편의점은 5분, 그 외 기타 편의시설은 15분을 디폴트 기본값으로 설정
     const defaultWalkTime =
@@ -862,27 +861,20 @@ const openAmenityDetailFilter = (selectedFilters) => {
     return;
   }
 
-  const filters =
-    selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
-  amenityDetailFilters.value = normalizeAmenitySelection(filters).map(
-    (filter) => ({ ...filter }),
-  );
+  const filters = selectedFilters ?? amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
+  amenityDetailFilters.value = normalizeAmenitySelection(filters).map((filter) => ({ ...filter }));
   isAmenityDetailFilterOpen.value = true;
 };
 
 const syncAmenityDetailFilter = (selectedFilters) => {
   if (!isAmenityDetailFilterOpen.value) return;
-  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map(
-    (filter) => {
-      const existingFilter = amenityDetailFilters.value.find(
-        (item) => item.id === filter.id,
-      );
-      return {
-        ...filter,
-        timeLimit: existingFilter?.timeLimit ?? filter.timeLimit,
-      };
-    },
-  );
+  amenityDetailFilters.value = normalizeAmenitySelection(selectedFilters).map((filter) => {
+    const existingFilter = amenityDetailFilters.value.find((item) => item.id === filter.id);
+    return {
+      ...filter,
+      timeLimit: existingFilter?.timeLimit ?? filter.timeLimit,
+    };
+  });
 };
 
 // PC 필터에서 이미 적용된 항목을 해제하면, 상세 필터를 다시 열지 않아도 즉시 반영한다.
@@ -890,10 +882,10 @@ const handleAmenitySelectionChange = (selectedFilters) => {
   syncAmenityDetailFilter(selectedFilters);
   const normalizedFilters = normalizeAmenitySelection(selectedFilters);
   handleApplyAmenities(
-      normalizedFilters.map((filter) => ({
-        amenityType: filter.amenityType,
-        walkTimeMinutes: Number(filter.walkTimeMinutes),
-      })),
+    normalizedFilters.map((filter) => ({
+      amenityType: filter.amenityType,
+      walkTimeMinutes: Number(filter.walkTimeMinutes),
+    })),
   );
 };
 
@@ -905,10 +897,10 @@ const resetAmenityDetailFilters = () => {
 
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
-      amenityDetailFilters.value.map((item) => ({
-        amenityType: item.amenityType,
-        walkTimeMinutes: Number(item.timeLimit),
-      })),
+    amenityDetailFilters.value.map((item) => ({
+      amenityType: item.amenityType,
+      walkTimeMinutes: Number(item.timeLimit),
+    })),
   );
   isAmenityDetailFilterOpen.value = false;
 };
@@ -921,38 +913,33 @@ const updateAmenityDetailTimeLimit = ({ id, timeLimit }) => {
 const activePopoverName = ref(null);
 const handlePopoverChange = (name) => {
   activePopoverName.value = name;
+  if (!name && appliedFilterState.value && filterState.value) {
+    // 팝오버 모달이 닫힐 때, 미적용 드래프트 변경사항이 있는 경우에만 원래 적용값으로 복구 (불필요한 재탐색/로딩 100% 방지)
+    const draftJson = JSON.stringify(filterState.value);
+    const appliedJson = JSON.stringify(appliedFilterState.value);
+    if (draftJson !== appliedJson) {
+      Object.assign(filterState.value, JSON.parse(appliedJson));
+    }
+  }
 };
 
 const isPreviewingIsochrone = computed(() => {
-  if (activePopoverName.value === 'travel') return true;
-  if (!filterState.value || !appliedFilterState.value) return false;
-  return (
-    filterState.value.travelTime !== appliedFilterState.value.travelTime ||
-    filterState.value.flexTime !== appliedFilterState.value.flexTime ||
-    filterState.value.transportMode !==
-      appliedFilterState.value.transportMode ||
-    filterState.value.walkPace !== appliedFilterState.value.walkPace
-  );
+  return activePopoverName.value === 'travel';
 });
 
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
-const {
-  mobilePanelHeight,
-  isDragging,
-  dragPixelHeight,
-  toggleMobilePanel,
-  startDrag,
-} = useMobilePanelDrag();
+const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, startDrag } =
+  useMobilePanelDrag();
 </script>
 
 <template>
   <div
-      class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
+    class="relative w-full flex-1 min-h-0 h-full overflow-hidden bg-slate-100 xl:flex xl:flex-row"
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-        class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
-        :class="[
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
+      :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
           ? 'h-full xl:h-full'
@@ -960,33 +947,31 @@ const {
             ? 'h-[120px] xl:h-full'
             : 'h-1/3 xl:h-full',
       ]"
-        :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
+      :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-          class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
-          @click="toggleMobilePanel"
-          @mousedown="startDrag"
-          @touchstart.prevent="startDrag"
+        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        @click="toggleMobilePanel"
+        @mousedown="startDrag"
+        @touchstart.prevent="startDrag"
       >
         <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
 
       <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div
-        class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3"
-      >
+      <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3">
         <div class="flex items-center justify-between xl:hidden">
           <span
-              v-if="isMapAnalysisLoading"
-              class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+            v-if="isMapAnalysisLoading"
+            class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
             안전 분석 중
           </span>
           <span
-              v-else
-              class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
+            v-else
+            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
           >
             총 {{ visibleProperties.length }}개 매물
           </span>
@@ -994,44 +979,39 @@ const {
 
         <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
         <OnboardingSummary
-            class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
-            :destination="filterState.destination"
-            :transport-mode="filterState.transportMode"
-            :travel-time="filterState.travelTime"
-            :max-deposit="filterState.maxDeposit"
-            :max-rent="filterState.maxRent"
-            :min-safety-score="filterState.minSafetyScore"
-            :show-close="false"
+          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
+          :destination="filterState.destination"
+          :transport-mode="filterState.transportMode"
+          :travel-time="filterState.travelTime"
+          :max-deposit="filterState.maxDeposit"
+          :max-rent="filterState.maxRent"
+          :min-safety-score="filterState.minSafetyScore"
+          :show-close="false"
         />
 
         <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
-        <section
-          class="relative hidden border-b border-slate-200 py-3 xl:block"
-        >
+        <section class="relative hidden border-b border-slate-200 py-3 xl:block">
           <div class="flex w-full items-center justify-between mb-1">
             <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
             <button
-                type="button"
-                class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
-                @click="openAmenityDetailFilter()"
+              type="button"
+              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
+              @click="openAmenityDetailFilter()"
             >
               <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
               <span>상세 필터</span>
-              <i
-                class="fa-solid fa-chevron-right text-[9px]"
-                aria-hidden="true"
-              ></i>
+              <i class="fa-solid fa-chevron-right text-[9px]" aria-hidden="true"></i>
             </button>
           </div>
 
           <AmenityFilter
-              ref="amenityFilterRef"
-              class="desktop-amenity-filter"
-              :applied-filters="activeAmenityFilters"
-              :show-walking-time="false"
-              @apply="handleApplyAmenities"
-              @selection-change="handleAmenitySelectionChange"
+            ref="amenityFilterRef"
+            class="desktop-amenity-filter"
+            :applied-filters="activeAmenityFilters"
+            :show-walking-time="false"
+            @apply="handleApplyAmenities"
+            @selection-change="handleAmenitySelectionChange"
           />
 
           <p class="mt-2 text-[12px] leading-5 text-slate-500">
@@ -1040,31 +1020,29 @@ const {
           </p>
 
           <AmenityDetailFilterPanel
-              v-if="isAmenityDetailFilterOpen"
-              :amenities="amenityDetailFilters"
-              @apply="applyAmenityDetailFilters"
-              @close="isAmenityDetailFilterOpen = false"
-              @reset="resetAmenityDetailFilters"
-              @update-time-limit="updateAmenityDetailTimeLimit"
+            v-if="isAmenityDetailFilterOpen"
+            :amenities="amenityDetailFilters"
+            @apply="applyAmenityDetailFilters"
+            @close="isAmenityDetailFilterOpen = false"
+            @reset="resetAmenityDetailFilters"
+            @update-time-limit="updateAmenityDetailTimeLimit"
           />
         </section>
 
         <!-- 5종 정렬 선택 탭 -->
         <!-- 모바일: 가로 스크롤 정렬 버튼 -->
-        <div
-          class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden"
-        >
+        <div class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden">
           <button
-              v-for="opt in sortOptions"
-              :key="opt.key"
-              type="button"
-              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-              :class="[
+            v-for="opt in sortOptions"
+            :key="opt.key"
+            type="button"
+            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+            :class="[
               currentSort === opt.key
                 ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                 : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
             ]"
-              @click="currentSort = opt.key"
+            @click="currentSort = opt.key"
           >
             <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
             {{ opt.label }}
@@ -1074,8 +1052,8 @@ const {
         <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
         <section class="hidden space-y-2 pt-3 xl:block">
           <p
-              v-if="isMapAnalysisLoading"
-              class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+            v-if="isMapAnalysisLoading"
+            class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
           >
             <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
             안전 분석 중
@@ -1085,9 +1063,7 @@ const {
           </p>
           <div class="flex flex-wrap items-center gap-1.5 pb-1">
             <button
-              v-for="opt in isDesktopSortExpanded
-                ? sortOptions
-                : sortOptions.slice(0, 3)"
+              v-for="opt in isDesktopSortExpanded ? sortOptions : sortOptions.slice(0, 3)"
               :key="opt.key"
               type="button"
               class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
@@ -1096,7 +1072,7 @@ const {
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                   : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
               "
-                @click="currentSort = opt.key"
+              @click="currentSort = opt.key"
             >
               <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
               {{ opt.label }}
@@ -1105,24 +1081,15 @@ const {
               type="button"
               class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
               :class="
-                isDesktopSortExpanded ||
-                sortOptions.slice(3).some((opt) => opt.key === currentSort)
+                isDesktopSortExpanded || sortOptions.slice(3).some((opt) => opt.key === currentSort)
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
                   : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
               "
-              :aria-label="
-                isDesktopSortExpanded
-                  ? '정렬 옵션 접기'
-                  : '추가 정렬 옵션 펼치기'
-              "
+              :aria-label="isDesktopSortExpanded ? '정렬 옵션 접기' : '추가 정렬 옵션 펼치기'"
               @click="isDesktopSortExpanded = !isDesktopSortExpanded"
             >
               <i
-                :class="
-                  isDesktopSortExpanded
-                    ? 'fa-solid fa-chevron-up'
-                    : 'fa-solid fa-ellipsis'
-                "
+                :class="isDesktopSortExpanded ? 'fa-solid fa-chevron-up' : 'fa-solid fa-ellipsis'"
                 aria-hidden="true"
               ></i>
             </button>
@@ -1133,11 +1100,7 @@ const {
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
         <template v-if="isPropertyLoading">
-          <div
-            v-for="index in 3"
-            :key="index"
-            class="property-card-skeleton animate-pulse"
-          >
+          <div v-for="index in 3" :key="index" class="property-card-skeleton animate-pulse">
             <div class="property-card-skeleton__image"></div>
             <div class="property-card-skeleton__content">
               <span class="property-card-skeleton__tag"></span>
@@ -1151,29 +1114,24 @@ const {
             v-for="prop in visibleProperties"
             :key="prop.propertyId"
             :property="prop"
-            :is-selected="
-              selectedProperty &&
-              selectedProperty.propertyId === prop.propertyId
-            "
+            :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
             @select="handleSelectProperty"
             @toggle-bookmark="handleToggleBookmark"
           />
         </template>
         <div
-            v-else-if="!amenityFilterLoading"
-            class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
+          v-else-if="!amenityFilterLoading"
+          class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
         >
           <span class="text-3xl mb-2">🏠</span>
-          <p class="text-sm font-bold text-slate-600">
-            조건에 맞는 매물이 없습니다.
-          </p>
+          <p class="text-sm font-bold text-slate-600">조건에 맞는 매물이 없습니다.</p>
           <p class="text-xs text-slate-400 mt-1">
             필터 조건을 변경하거나 검색어를 재설정해 보세요.
           </p>
         </div>
         <div
-            v-else
-            class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+          v-else
+          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
         >
           매물을 조회하고 있어요.
         </div>
@@ -1181,9 +1139,7 @@ const {
     </aside>
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
-    <main
-      class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1"
-    >
+    <main class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1">
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
       <div class="absolute top-4 left-4 z-30 pointer-events-none">
         <MapQuickFilterBar
@@ -1193,7 +1149,6 @@ const {
           @open-filter="emit('open-filter')"
           @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
-          @update-filters="handleApplyFilters"
           @reset="handleResetFilters"
         />
       </div>
@@ -1212,14 +1167,14 @@ const {
 
       <Transition name="analysis-loader">
         <div
-            v-if="isMapAnalysisLoading"
-            class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+          v-if="isMapAnalysisLoading"
+          class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
         >
           <div
-              class="flex max-w-[320px] flex-col items-center rounded-[22px] border border-white/70 bg-white/90 px-7 py-6 text-center shadow-xl backdrop-blur-md"
+            class="flex max-w-[320px] flex-col items-center rounded-[22px] border border-white/70 bg-white/90 px-7 py-6 text-center shadow-xl backdrop-blur-md"
           >
             <span
-                class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1ff] text-xl text-[#4058f5]"
+              class="mb-3.5 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef1ff] text-xl text-[#4058f5]"
             >
               <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
             </span>
@@ -1230,9 +1185,7 @@ const {
               잠시만 기다리시면 맞춤 매물을 보여드릴게요
             </span>
             <span class="mt-4 h-1.5 w-32 overflow-hidden rounded-full bg-slate-100">
-              <span
-                class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"
-              ></span>
+              <span class="analysis-loader-bar block h-full rounded-full bg-[#4058f5]"></span>
             </span>
           </div>
         </div>
@@ -1240,15 +1193,15 @@ const {
 
       <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
       <div
-          v-if="isPropertyApiError"
-          class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
+        v-if="isPropertyApiError"
+        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
       >
         <span>⚠️</span>
         <span>백엔드 매물 데이터를 불러오는 데 실패했습니다.</span>
         <button
-            type="button"
-            class="underline ml-2 hover:text-red-200"
-            @click="fetchPropertiesFromBackend"
+          type="button"
+          class="underline ml-2 hover:text-red-200"
+          @click="fetchPropertiesFromBackend"
         >
           재시도
         </button>
@@ -1257,12 +1210,12 @@ const {
 
     <!-- 3. 우측 560px Slide-Over 매물 상세 패널 -->
     <SlidingDoorPanel
-        :is-open="isPanelOpen"
-        :property="selectedProperty"
-        :amenities="selectedPropertyAmenities"
-        :destination="destinationConfig"
-        @close="isPanelOpen = false"
-        @toggle-bookmark="handleToggleBookmark"
+      :is-open="isPanelOpen"
+      :property="selectedProperty"
+      :amenities="selectedPropertyAmenities"
+      :destination="destinationConfig"
+      @close="isPanelOpen = false"
+      @toggle-bookmark="handleToggleBookmark"
     />
   </div>
 </template>
@@ -1330,8 +1283,8 @@ const {
 .analysis-loader-enter-active,
 .analysis-loader-leave-active {
   transition:
-      opacity 180ms ease,
-      transform 180ms ease;
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .analysis-loader-enter-from,

@@ -129,12 +129,13 @@ public class SafetyRouteClient {
             if (responseBody != null && !responseBody.isBlank()) {
                 message += ": " + abbreviate(responseBody, 300);
             }
-            log.warn("{}", message);
+            // TMAP 할당량 초과(429) 경고 로그 임시 주석 처리
+            // log.warn("{}", message);
             throw new IllegalStateException(message, exception);
         } catch (Exception exception) {
             String message = "TMAP 보행자 경로 호출 실패: "
                     + defaultName(exception.getMessage(), "알 수 없는 오류");
-            log.warn("{}", message);
+            // log.warn("{}", message);
             throw new IllegalStateException(message, exception);
         }
     }

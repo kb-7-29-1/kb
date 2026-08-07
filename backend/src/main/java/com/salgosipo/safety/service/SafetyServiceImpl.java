@@ -252,6 +252,8 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
+            /*
+            // [원래 TMAP 계산 로직 100% 보존 - 실행 안 되게 주석 처리만 적용]
             try {
                 CalculationResult calculation = calculateAndPersist(
                         property,
@@ -282,6 +284,13 @@ public class SafetyServiceImpl implements SafetyService {
                 ));
                 failedCount++;
             }
+            */
+            items.add(createFailedBatchItem(
+                    propertyId,
+                    destination.getDestinationId(),
+                    "안전점수 계산 실행 중단 (임시 주석 처리)"
+            ));
+            failedCount++;
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();

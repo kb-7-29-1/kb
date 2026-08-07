@@ -60,12 +60,12 @@ export const renderDestinationPinHTML = (destination) => {
   const name = destination?.name || '주 목적지';
   return `
     <div class="inline-flex w-max flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
-      <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-blue-400 bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xl transition-all hover:bg-blue-700">
+      <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-blue-400 bg-blue-600 px-2.5 py-2 text-xs font-bold text-white shadow-xl transition-all hover:bg-blue-700">
         <span class="inline-block shrink-0 animate-bounce">🚩</span>
         <span class="shrink-0">${name}</span>
       </div>
-      <div class="w-3 h-3 bg-blue-600 rotate-45 -mt-1.5"></div>
-      <div class="w-8 h-3 bg-black/20 rounded-full blur-xs mt-1"></div>
+      <div class="w-2.5 h-2.5 bg-blue-600 rotate-45 -mt-1.5"></div>
+      <div class="w-6 h-2 bg-black/20 rounded-full blur-sm mt-1"></div>
     </div>
   `;
 };
@@ -96,7 +96,10 @@ export const getClusteredMarkers = (properties, currentZoom, bounds, customOptio
 
   const options = { ...DEFAULT_CLUSTER_OPTIONS, ...customOptions };
 
-  let minLat = -90, maxLat = 90, minLng = -180, maxLng = 180;
+  let minLat = -90,
+    maxLat = 90,
+    minLng = -180,
+    maxLng = 180;
   if (bounds) {
     const sw = bounds.getSW();
     const ne = bounds.getNE();
@@ -109,7 +112,15 @@ export const getClusteredMarkers = (properties, currentZoom, bounds, customOptio
   // 1. 줌 레벨이 minClusterZoom 이상으로 확대되면 개별 매물 핀 표출
   if (currentZoom >= options.minClusterZoom) {
     return properties
-      .filter((p) => p.latitude && p.longitude && p.latitude >= minLat && p.latitude <= maxLat && p.longitude >= minLng && p.longitude <= maxLng)
+      .filter(
+        (p) =>
+          p.latitude &&
+          p.longitude &&
+          p.latitude >= minLat &&
+          p.latitude <= maxLat &&
+          p.longitude >= minLng &&
+          p.longitude <= maxLng,
+      )
       .map((p) => ({ isCluster: false, item: p }));
   }
 
@@ -119,7 +130,8 @@ export const getClusteredMarkers = (properties, currentZoom, bounds, customOptio
 
   properties.forEach((p) => {
     if (!p.latitude || !p.longitude) return;
-    if (p.latitude < minLat || p.latitude > maxLat || p.longitude < minLng || p.longitude > maxLng) return;
+    if (p.latitude < minLat || p.latitude > maxLat || p.longitude < minLng || p.longitude > maxLng)
+      return;
 
     const gridX = Math.floor(p.longitude / gridSize);
     const gridY = Math.floor(p.latitude / gridSize);

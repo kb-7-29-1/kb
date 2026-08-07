@@ -1,6 +1,6 @@
 <script setup>
 import { computed, nextTick, ref, watch } from 'vue';
-import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
+import { formatDeposit } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
 import SafetyModal from '@/components/detail/SafetyModal.vue';
@@ -66,9 +66,9 @@ watch(
 );
 
 // 가격 포맷팅
-const formattedPrice = computed(() => {
+const depositLabel = computed(() => {
   if (!props.property) return '';
-  return formatPropertyPriceDetail(props.property.deposit, props.property.monthlyRent);
+  return `${formatDeposit(props.property.deposit)}원`;
 });
 
 const hasSafetyScore = computed(() => {
@@ -137,6 +137,34 @@ const buildingAge = computed(() => {
   const builtYear = parseInt(props.property?.builtYear || '2022', 10);
   if (!Number.isInteger(builtYear) || builtYear <= 0) return null;
   return Math.max(new Date().getFullYear() - builtYear, 0);
+});
+
+// 4단계 세부 건물 연차 분류 (신축 / 준신축 / 구축 / 노후)
+const buildingAgeCategory = computed(() => {
+  if (buildingAge.value === null) {
+    return { label: '정보 없음', class: 'text-slate-400' };
+  }
+  const age = buildingAge.value;
+  if (age <= 5) {
+    return { label: '✨ 신축 (5년 이내)', class: 'text-emerald-600' };
+  }
+  if (age <= 10) {
+    return { label: '🏢 준신축 (10년 이내)', class: 'text-blue-600' };
+  }
+  if (age <= 20) {
+    return { label: '🏠 구축 (20년 이내)', class: 'text-indigo-600' };
+  }
+  return { label: '🛠️ 노후 (20년 초과)', class: 'text-amber-600' };
+});
+
+const formattedUseAprDay = computed(() => {
+  const raw = props.property?.useAprDay;
+  if (!raw) return null;
+  const clean = String(raw).replace(/[^0-9]/g, '');
+  if (clean.length === 8) {
+    return `${clean.substring(0, 4)}.${clean.substring(4, 6)}.${clean.substring(6, 8)} 승인`;
+  }
+  return `${props.property?.builtYear || '2022'}년 승인`;
 });
 
 const fetchLoanList = async () => {
@@ -294,48 +322,46 @@ const detailImageUrl = computed(() => {
         class="property-detail-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
         <div class="flex min-h-full flex-col gap-4 p-4 py-0">
-          <!-- 매물 갤러리/대표 사진 -->
-          <div
-            class="relative h-60 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
-          >
-            <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
-            <!-- 하드코딩된 사진 개수 뱃지 주석 처리 -->
-            <!-- <div
-              class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
+          <!-- 매물 대표 사진 + 보증금/월세/평수/층수 -->
+          <div class="flex gap-4">
+            <div
+              class="relative h-28 w-28 flex-shrink-0 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
             >
-              사진 1 / 5
-            </div> -->
+              <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
+            </div>
+
+            <div class="flex flex-1 flex-col justify-center gap-1.5">
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-[13px] font-medium text-slate-500">보증금</span>
+                <span class="text-[16px] font-extrabold text-slate-800">{{ depositLabel }}</span>
+              </div>
+              <div v-if="property.monthlyRent" class="flex items-baseline gap-1.5">
+                <span class="text-[13px] font-medium text-slate-500">월세</span>
+                <span class="text-[16px] font-extrabold text-slate-800">{{ property.monthlyRent }}만원</span>
+              </div>
+              <p class="text-[13px] font-medium text-slate-500">
+                {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
+              </p>
+            </div>
           </div>
 
-          <!-- 가격 및 타이틀 -->
-          <div>
-            <h1
-              class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]"
-            >
-              {{ formattedPrice }}
-            </h1>
-            <p class="text-[14px] font-medium text-slate-500">
-              {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
-            </p>
-          </div>
-
-          <!-- 건물 안전 정보 -->
+          <!-- 건물 안전 정보 및 대장 상세 -->
           <section class="border-t border-slate-200 pt-4">
             <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">🏢</span>
-              건물 안전 정보
+              건물 정보 및 대장 안전
             </h3>
             <div class="grid grid-cols-2 gap-3">
               <div
-                class="flex min-h-[110px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[110px]"
+                class="flex min-h-[110px] flex-col items-center justify-center rounded-xl border px-3 py-3 text-center"
                 :class="
                   property.isIllegalBuilding
                     ? 'border-rose-200 bg-rose-50'
-                    : 'border-emerald-200 bg-emerald-50'
+                    : 'border-emerald-200 bg-emerald-50/60'
                 "
               >
                 <i
-                  class="fa-solid mb-1.5 text-[16px]"
+                  class="fa-solid mb-1 text-[16px]"
                   :class="
                     property.isIllegalBuilding
                       ? 'fa-triangle-exclamation text-rose-500'
@@ -344,25 +370,55 @@ const detailImageUrl = computed(() => {
                   aria-hidden="true"
                 ></i>
                 <p
-                  class="text-sm font-bold"
-                  :class="property.isIllegalBuilding ? 'text-rose-500' : 'text-emerald-600'"
+                  class="text-sm font-extrabold"
+                  :class="property.isIllegalBuilding ? 'text-rose-600' : 'text-emerald-700'"
                 >
                   {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
                 </p>
-                <p class="mt-0.5 text-[10px] text-slate-500">건축물대장 기준</p>
+                <p class="mt-1 text-[10px] font-medium leading-tight text-slate-500">
+                  {{ property.illegalReason || (property.isIllegalBuilding ? '위반건축물 지정 이력' : '건축물대장 기준 적법') }}
+                </p>
               </div>
               <div
-                class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
+                class="flex min-h-[110px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-center"
               >
                 <p class="text-[18px] font-extrabold leading-none text-slate-800">
                   {{ buildingAge === null ? '-' : `${buildingAge}년` }}
                 </p>
-                <p class="mt-1 text-[11px] font-medium text-slate-500">
-                  {{ property.builtYear || '2022' }}년 준공
+                <p class="mt-1 text-[11px] font-medium text-slate-600">
+                  {{ formattedUseAprDay || `${property.builtYear || '2022'}년 준공` }}
                 </p>
-                <p class="mt-0.5 text-[10px] font-bold text-emerald-500">
-                  {{ buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축' }}
+                <p
+                  class="mt-0.5 text-[10px] font-bold"
+                  :class="buildingAgeCategory.class"
+                >
+                  {{ buildingAgeCategory.label }}
                 </p>
+              </div>
+            </div>
+
+            <!-- 건축물대장 상세 3대 지표 (구조 / 주용도 / 내진설계) -->
+            <div class="mt-3 grid grid-cols-3 gap-2">
+              <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-center">
+                <span class="block text-[10px] font-medium text-slate-400 mb-0.5">건물 구조</span>
+                <strong class="block truncate text-[11px] font-bold text-slate-700">
+                  {{ property.structureName || '철근콘크리트' }}
+                </strong>
+              </div>
+              <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-center">
+                <span class="block text-[10px] font-medium text-slate-400 mb-0.5">주 용도</span>
+                <strong class="block truncate text-[11px] font-bold text-slate-700">
+                  {{ property.mainPurposeName || (property.buildingType === 3 ? '오피스텔' : '공동주택') }}
+                </strong>
+              </div>
+              <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-center">
+                <span class="block text-[10px] font-medium text-slate-400 mb-0.5">내진 설계</span>
+                <strong
+                  class="block truncate text-[11px] font-bold"
+                  :class="property.earthquakeProofYn === '1' ? 'text-emerald-600' : 'text-slate-600'"
+                >
+                  {{ property.earthquakeProofYn === '1' ? '적용 🟢' : '미적용 ⚪' }}
+                </strong>
               </div>
             </div>
           </section>
