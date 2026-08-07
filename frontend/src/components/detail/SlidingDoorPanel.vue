@@ -73,27 +73,53 @@ const safetyScoreClass = computed(() => {
   return 'bg-rose-500/10 text-rose-600';
 });
 
+const safetyScoreValue = computed(() => {
+  if (!hasSafetyScore.value) return 0;
+  return Math.min(Math.max(Number(props.property.safetyScore), 0), 100);
+});
+
+const safetyScoreEndPoint = computed(() => {
+  const radians = (safetyScoreValue.value / 100) * Math.PI * 2;
+  return {
+    x: 36 + 30 * Math.cos(radians),
+    y: 36 + 30 * Math.sin(radians),
+  };
+});
+
 const safetyGradeLabel = computed(() => {
   if (!hasSafetyScore.value) return '계산되지 않음';
-  if (props.property.safetyGrade === 'SAFE') return '안심';
-  if (props.property.safetyGrade === 'WARNING') return '주의';
-  return '위험';
+  if (safetyScoreValue.value >= 80) return '안심';
+  if (safetyScoreValue.value >= 60) return '보통';
+  return '주의 필요';
 });
 
-const safetyGradeBadgeClass = computed(() => {
-  if (!hasSafetyScore.value) return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  if (props.property.safetyGrade === 'SAFE') {
-    return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+const safetyReport = computed(() => {
+  if (!hasSafetyScore.value) {
+    return {
+      tone: 'pending',
+      color: '#94a3b8',
+    };
   }
-  if (props.property.safetyGrade === 'WARNING') {
-    return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-  }
-  return 'bg-rose-500/20 text-rose-400 border-rose-500/30';
-});
 
-const policeFacilityText = computed(() =>
-  props.property?.hasPoliceStation ? '경로 300m 내 위치' : '경로 300m 내 없음',
-);
+  if (safetyScoreValue.value >= 80) {
+    return {
+      tone: 'safe',
+      color: '#22a06b',
+    };
+  }
+
+  if (safetyScoreValue.value >= 60) {
+    return {
+      tone: 'caution',
+      color: '#e69a1d',
+    };
+  }
+
+  return {
+    tone: 'warning',
+    color: '#e25858',
+  };
+});
 
 const buildingAge = computed(() => {
   const builtYear = parseInt(props.property?.builtYear || '2022', 10);
@@ -259,7 +285,7 @@ const detailImageUrl = computed(() => {
           </div>
 
           <!-- 건물 안전 정보 -->
-          <section class="border-t border-slate-200 pt-3">
+          <section class="border-t border-slate-200 pt-4">
             <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">🏢</span>
               건물 안전 정보
@@ -307,56 +333,85 @@ const detailImageUrl = computed(() => {
           </section>
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
-          <section class="border-t border-slate-200 pt-3">
+          <section class="border-t border-slate-200 pt-4">
             <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">💡</span>
               귀갓길 안전 점수
             </h3>
             <div
-              class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
+              class="safety-report-card"
+              :class="`is-${safetyReport.tone}`"
+              :style="{
+                '--score-color': safetyReport.color,
+              }"
             >
-              <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
-                <div class="flex items-center gap-2">
-                  <span class="text-xl">🛡️</span>
-                  <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
-                </div>
-                <span
-                  class="px-2.5 py-0.5 rounded-full border text-xs font-bold"
-                  :class="safetyGradeBadgeClass"
-                >
-                  {{ safetyGradeLabel }} 등급
-                </span>
-              </div>
-
-              <div class="grid grid-cols-2 gap-3 pt-1">
-                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div class="text-xs text-slate-400 mb-1">경로 50m 내 CCTV</div>
-                  <div class="text-lg font-bold text-emerald-400">
-                    {{ property.cctvCount || 0 }}개
+              <div class="safety-report-summary">
+                <div class="safety-score-chart">
+                  <svg class="safety-score-chart__svg" viewBox="0 0 72 72" aria-hidden="true">
+                    <circle class="safety-score-chart__track" cx="36" cy="36" r="30" />
+                    <circle
+                      class="safety-score-chart__progress"
+                      cx="36"
+                      cy="36"
+                      r="30"
+                      :stroke="safetyReport.color"
+                      :stroke-dasharray="`${safetyScoreValue * 1.885} 188.5`"
+                      stroke-linecap="round"
+                    />
+                    <circle
+                      v-if="hasSafetyScore && safetyScoreValue > 0"
+                      class="safety-score-chart__cap"
+                      cx="66"
+                      cy="36"
+                      r="3"
+                      :fill="safetyReport.color"
+                    />
+                    <circle
+                      v-if="hasSafetyScore && safetyScoreValue > 0"
+                      class="safety-score-chart__cap"
+                      :cx="safetyScoreEndPoint.x"
+                      :cy="safetyScoreEndPoint.y"
+                      r="3"
+                      :fill="safetyReport.color"
+                    />
+                  </svg>
+                  <div class="safety-score-chart__inner">
+                    <strong>{{ hasSafetyScore ? safetyScoreValue : '-' }}</strong>
+                    <span>/ 100</span>
                   </div>
                 </div>
-                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div class="text-xs text-slate-400 mb-1">경로 내 가로등/보안등</div>
-                  <div class="text-lg font-bold text-amber-400">
-                    {{ property.streetLampCount ?? property.streetlightCount ?? 0 }}개
+
+                <div class="min-w-0 flex-1">
+                  <div class="mb-1 flex items-center gap-2">
+                    <span class="safety-grade-tag">
+                      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                      {{ safetyGradeLabel }}
+                    </span>
                   </div>
+                  <p class="text-[12px] leading-5 text-slate-500">
+                    주변 안전 시설을 종합해 산출한 귀갓길 점수예요.
+                  </p>
                 </div>
               </div>
 
-              <div class="flex items-center justify-between text-xs text-slate-300 pt-1">
-                <span
-                  >건물 위반건축물 여부:
-                  <strong class="text-white">{{
-                    property.isIllegalBuilding ? '위반' : '정상 (미해당)'
-                  }}</strong></span
-                >
-                <span
-                  >경찰서/파출소:
+              <div class="safety-metric-grid">
+                <div class="safety-metric-card safety-metric-card--cctv">
+                  <i class="fa-solid fa-video" aria-hidden="true"></i>
+                  <span>CCTV</span>
+                  <strong>{{ property.cctvCount || 0 }}개</strong>
+                </div>
+                <div class="safety-metric-card safety-metric-card--light">
+                  <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                  <span>가로등</span>
                   <strong
-                    :class="property.hasPoliceStation ? 'text-emerald-400' : 'text-rose-400'"
-                    >{{ policeFacilityText }}</strong
-                  ></span
-                >
+                    >{{ property.streetLampCount ?? property.streetlightCount ?? 0 }}개</strong
+                  >
+                </div>
+                <div class="safety-metric-card safety-metric-card--police">
+                  <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                  <span>파출소</span>
+                  <strong>{{ property.hasPoliceStation ? '근처' : '확인 필요' }}</strong>
+                </div>
               </div>
             </div>
           </section>
@@ -466,6 +521,179 @@ const detailImageUrl = computed(() => {
 
 :deep(.comment-section.detail-section-flush) {
   border-top: 0 !important;
+}
+
+.safety-report-card {
+  padding: 0 14px;
+  padding-top: 0;
+}
+
+.safety-report-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.safety-score-chart {
+  position: relative;
+  display: grid;
+  width: 78px;
+  height: 78px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.safety-score-chart__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.safety-score-chart__track,
+.safety-score-chart__progress {
+  fill: none;
+  stroke-width: 6;
+}
+
+.safety-score-chart__track {
+  stroke: #e6ebf3;
+}
+
+.safety-score-chart__progress {
+  stroke-linecap: round;
+}
+
+.safety-score-chart__cap {
+  pointer-events: none;
+}
+
+.safety-score-chart__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 4%);
+}
+
+.safety-score-chart__inner strong {
+  color: var(--score-color);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.safety-score-chart__inner span {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.safety-grade-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--score-color) 34%, white);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--score-color) 11%, white);
+  color: var(--score-color);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.safety-grade-tag i {
+  font-size: 10px;
+}
+
+.safety-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.safety-metric-card {
+  display: flex;
+  min-width: 0;
+  min-height: 76px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.safety-metric-card i {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.safety-metric-card span {
+  color: #8b95a7;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.safety-metric-card strong {
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.safety-metric-card--cctv {
+  border-color: #dce5ff;
+  background: #f1f5ff;
+}
+
+.safety-metric-card--cctv i {
+  color: #4f64ff;
+}
+
+.safety-metric-card--light {
+  border-color: #f7e4bd;
+  background: #fffaed;
+}
+
+.safety-metric-card--light i {
+  color: #e69a1d;
+}
+
+.safety-metric-card--police {
+  border-color: #ccecdc;
+  background: #effaf4;
+}
+
+.safety-metric-card--police i {
+  color: #22a06b;
+}
+
+.safety-report-card.is-safe {
+  border-color: #c9eadb;
+}
+
+.safety-report-card.is-caution {
+  border-color: #f5dfb7;
+}
+
+.safety-report-card.is-warning {
+  border-color: #f4cccc;
 }
 
 .finance-section-header {
