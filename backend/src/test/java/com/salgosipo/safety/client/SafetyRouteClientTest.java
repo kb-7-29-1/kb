@@ -51,10 +51,12 @@ class SafetyRouteClientTest {
 
         PedestrianRoute route = client.parseRoute(
                 response,
-                new SafetyRouteClient.RouteOption("0", "추천")
+                SafetyRouteClient.PREFERRED_ROUTE_OPTION
         );
 
         assertNotNull(route);
+        assertEquals("4", route.getSearchOption());
+        assertEquals("대로 우선", route.getRouteType());
         assertEquals(620, route.getDistanceMeters());
         assertEquals(480, route.getTotalTimeSeconds());
         assertEquals(3, route.getRoutePoints().size());

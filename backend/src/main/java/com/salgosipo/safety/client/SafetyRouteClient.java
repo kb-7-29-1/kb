@@ -11,15 +11,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public class SafetyRouteClient {
@@ -30,16 +29,12 @@ public class SafetyRouteClient {
             "https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1";
 
     /**
-     * TMAP 보행자 API는 한 요청에서 탐색 옵션 하나만 받으므로 여러 번 호출합니다.
-     * 0(추천), 4(대로 우선), 10(최단)을 우선 사용하고 중복 경로가 있으면
-     * 30(계단 제외)을 보조 후보로 사용해 서로 다른 경로를 최대 3개 확보합니다.
+     * 모든 매물에 동일한 기준을 적용하기 위해 TMAP의 대로 우선 경로만 사용합니다.
+     * 기존처럼 여러 옵션을 호출해 후보를 비교하지 않으므로 캐시 미스 한 건당
+     * TMAP 호출도 정확히 한 번만 발생합니다.
      */
-    private static final List<RouteOption> ROUTE_OPTIONS = List.of(
-            new RouteOption("0", "추천"),
-            new RouteOption("4", "대로 우선"),
-            new RouteOption("10", "최단"),
-            new RouteOption("30", "계단 제외")
-    );
+    static final RouteOption PREFERRED_ROUTE_OPTION =
+            new RouteOption("4", "대로 우선");
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -61,7 +56,7 @@ public class SafetyRouteClient {
         this.objectMapper = objectMapper;
     }
 
-    public List<PedestrianRoute> findCandidateRoutes(
+    public PedestrianRoute findPreferredRoute(
             double startLatitude,
             double startLongitude,
             String startName,
@@ -73,31 +68,25 @@ public class SafetyRouteClient {
             throw new IllegalStateException("TMAP_API_KEY가 설정되어 있지 않습니다.");
         }
 
-        Map<String, PedestrianRoute> uniqueRoutes = new LinkedHashMap<>();
-        for (RouteOption option : ROUTE_OPTIONS) {
-            if (uniqueRoutes.size() >= 3) {
-                break;
-            }
+        PedestrianRoute route = requestRoute(
+                startLatitude,
+                startLongitude,
+                startName,
+                endLatitude,
+                endLongitude,
+                endName,
+                PREFERRED_ROUTE_OPTION
+        );
 
-            PedestrianRoute route = requestRoute(
-                    startLatitude,
-                    startLongitude,
-                    startName,
-                    endLatitude,
-                    endLongitude,
-                    endName,
-                    option
+        if (route == null
+                || route.getRoutePoints() == null
+                || route.getRoutePoints().size() < 2) {
+            throw new IllegalStateException(
+                    "TMAP에서 대로 우선 보행자 경로를 찾지 못했습니다."
             );
-            if (route == null || route.getRoutePoints() == null || route.getRoutePoints().size() < 2) {
-                continue;
-            }
-            uniqueRoutes.putIfAbsent(createGeometryFingerprint(route.getRoutePoints()), route);
         }
 
-        if (uniqueRoutes.isEmpty()) {
-            throw new IllegalStateException("TMAP에서 보행자 경로를 찾지 못했습니다.");
-        }
-        return new ArrayList<>(uniqueRoutes.values());
+        return route;
     }
 
     private PedestrianRoute requestRoute(
@@ -133,9 +122,20 @@ public class SafetyRouteClient {
                     String.class
             );
             return parseRoute(response.getBody(), option);
-        } catch (Exception e) {
-            log.warn("TMAP 보행자 경로 호출 실패. option={}, message={}", option.code(), e.getMessage());
-            return null;
+        } catch (HttpStatusCodeException exception) {
+            String responseBody = exception.getResponseBodyAsString();
+            String message = "TMAP 보행자 경로 호출 실패 (HTTP "
+                    + exception.getRawStatusCode() + ")";
+            if (responseBody != null && !responseBody.isBlank()) {
+                message += ": " + abbreviate(responseBody, 300);
+            }
+            log.warn("{}", message);
+            throw new IllegalStateException(message, exception);
+        } catch (Exception exception) {
+            String message = "TMAP 보행자 경로 호출 실패: "
+                    + defaultName(exception.getMessage(), "알 수 없는 오류");
+            log.warn("{}", message);
+            throw new IllegalStateException(message, exception);
         }
     }
 
@@ -156,10 +156,12 @@ public class SafetyRouteClient {
 
         for (JsonNode feature : features) {
             JsonNode properties = feature.path("properties");
-            if ((totalDistance == null || totalDistance <= 0) && properties.has("totalDistance")) {
+            if ((totalDistance == null || totalDistance <= 0)
+                    && properties.has("totalDistance")) {
                 totalDistance = properties.path("totalDistance").asInt();
             }
-            if ((totalTime == null || totalTime <= 0) && properties.has("totalTime")) {
+            if ((totalTime == null || totalTime <= 0)
+                    && properties.has("totalTime")) {
                 totalTime = properties.path("totalTime").asInt();
             }
 
@@ -169,7 +171,8 @@ public class SafetyRouteClient {
 
             if ("LineString".equals(geometryType)) {
                 appendLineString(routePoints, coordinates);
-            } else if ("MultiLineString".equals(geometryType) && coordinates.isArray()) {
+            } else if ("MultiLineString".equals(geometryType)
+                    && coordinates.isArray()) {
                 for (JsonNode line : coordinates) {
                     appendLineString(routePoints, line);
                 }
@@ -208,7 +211,8 @@ public class SafetyRouteClient {
                     coordinate.get(1).asDouble(),
                     coordinate.get(0).asDouble()
             );
-            if (routePoints.isEmpty() || !samePoint(routePoints.get(routePoints.size() - 1), point)) {
+            if (routePoints.isEmpty()
+                    || !samePoint(routePoints.get(routePoints.size() - 1), point)) {
                 routePoints.add(point);
             }
         }
@@ -217,24 +221,6 @@ public class SafetyRouteClient {
     private boolean samePoint(RoutePointDTO first, RoutePointDTO second) {
         return Math.abs(first.getLatitude() - second.getLatitude()) < 1e-8
                 && Math.abs(first.getLongitude() - second.getLongitude()) < 1e-8;
-    }
-
-    private String createGeometryFingerprint(List<RoutePointDTO> points) {
-        StringBuilder builder = new StringBuilder();
-        int sampleCount = Math.min(24, points.size());
-        for (int i = 0; i < sampleCount; i++) {
-            int index = sampleCount == 1
-                    ? 0
-                    : (int) Math.round(i * (points.size() - 1.0) / (sampleCount - 1.0));
-            RoutePointDTO point = points.get(index);
-            builder.append(String.format(
-                    Locale.ROOT,
-                    "%.5f,%.5f|",
-                    point.getLatitude(),
-                    point.getLongitude()
-            ));
-        }
-        return builder.toString();
     }
 
     private double calculatePolylineLength(List<RoutePointDTO> points) {
@@ -263,6 +249,13 @@ public class SafetyRouteClient {
 
     private String encodeName(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private String abbreviate(String value, int maxLength) {
+        if (value == null || value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength) + "...";
     }
 
     static record RouteOption(String code, String label) {

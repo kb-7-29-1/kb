@@ -6,7 +6,12 @@ import com.salgosipo.property.dto.PropertySearchCondDTO;
 import com.salgosipo.property.service.PropertyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -24,20 +29,28 @@ public class PropertyController {
     @GetMapping
     public ResponseEntity<List<PropertyListDTO>> getPropertyList(
             @ModelAttribute PropertySearchCondDTO cond,
-            @RequestParam(value = "userId", required = false) Long userId) {
+            @RequestParam(value = "userId", required = false) Long userId
+    ) {
         List<PropertyListDTO> list = propertyService.getPropertyList(cond, userId);
         return ResponseEntity.ok(list);
     }
 
     /**
-     * 매물 상세 정보 조회 (우측 560px 슬라이딩 도어 패널용)
-     * GET /api/properties/{propertyId}
+     * 매물 상세 정보 조회 (우측 슬라이딩 도어 패널용)
+     * destinationId가 있으면 해당 목적지와의 안전점수만 조인합니다.
      */
     @GetMapping("/{propertyId}")
     public ResponseEntity<PropertyDetailDTO> getPropertyDetail(
             @PathVariable("propertyId") Long propertyId,
-            @RequestParam(value = "userId", required = false) Long userId) {
-        PropertyDetailDTO detail = propertyService.getPropertyDetail(propertyId, userId);
+            @RequestParam(value = "destinationId", required = false)
+            Integer destinationId,
+            @RequestParam(value = "userId", required = false) Long userId
+    ) {
+        PropertyDetailDTO detail = propertyService.getPropertyDetail(
+                propertyId,
+                destinationId,
+                userId
+        );
         if (detail == null) {
             return ResponseEntity.notFound().build();
         }
