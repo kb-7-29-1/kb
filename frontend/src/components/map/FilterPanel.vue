@@ -108,6 +108,7 @@ const handleApply = async () => {
           v-show="activeTab === 'amenity'"
           ref="amenityFilterRef"
           :applied-filters="props.appliedAmenityFilters"
+          :show-guide-text="true"
         />
       </div>
 
@@ -162,5 +163,12 @@ const handleApply = async () => {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.amenity-guide-text {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.6;
 }
 </style>
