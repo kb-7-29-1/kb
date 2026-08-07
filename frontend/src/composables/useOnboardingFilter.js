@@ -14,10 +14,13 @@ export function useOnboardingFilter() {
     destinationLat: 37.5502,
     destinationLng: 127.0731,
     tradeType: 'MONTHLY',
+    minDeposit: 0,
     maxDeposit: DEFAULT_DEPOSIT,
+    minRent: 0,
     maxRent: DEFAULT_RENT,
     minSafetyScore: 0,
     transportMode: 'WALK',
+    minTravelTime: 5,
     travelTime: 15,
     walkPace: 'NORMAL',
     showIsochrone: true,
@@ -52,8 +55,9 @@ export function useOnboardingFilter() {
 
     // 3. 온보딩 설정값을 filterState 디폴트 값에 필드 매핑
     if (saved) {
-      // 목적지 및 실제 주소/좌표 (address, lat, lng) 매핑
-      const rawDest = saved.destination || saved.destinationName || saved.destName;
+      // 사용자가 직접 검색/선택한 목적지가 이미 존재하는 경우 DB 온보딩값(송파구 등)으로 덮어쓰지 않음
+      if (!filterState.value.destinationLat || !filterState.value.destinationLng) {
+        const rawDest = saved.destination || saved.destinationName || saved.destName;
       if (rawDest) {
         if (typeof rawDest === 'object' && rawDest !== null) {
           filterState.value.destination =
@@ -70,6 +74,7 @@ export function useOnboardingFilter() {
           filterState.value.destination = rawDest;
         }
       }
+    }
 
       // 이동 수단 매핑
       if (saved.transport || saved.transportMode) {
@@ -81,15 +86,24 @@ export function useOnboardingFilter() {
       if (travelTime !== undefined && travelTime !== null) {
         filterState.value.travelTime = Number(travelTime);
       }
+      if (saved.minTravelTime !== undefined && saved.minTravelTime !== null) {
+        filterState.value.minTravelTime = Number(saved.minTravelTime);
+      }
       // 보증금 한도 매핑
       const maxDeposit = saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
       if (maxDeposit !== undefined && maxDeposit !== null) {
         filterState.value.maxDeposit = Number(maxDeposit);
       }
+      if (saved.minDeposit !== undefined && saved.minDeposit !== null) {
+        filterState.value.minDeposit = Number(saved.minDeposit);
+      }
       // 월세 한도 매핑
       const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
       if (maxRent !== undefined && maxRent !== null) {
         filterState.value.maxRent = Number(maxRent);
+      }
+      if (saved.minRent !== undefined && saved.minRent !== null) {
+        filterState.value.minRent = Number(saved.minRent);
       }
       // 안심 점수 매핑
       if (saved.safety || saved.minSafetyScore !== undefined) {
