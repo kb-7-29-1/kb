@@ -21,7 +21,7 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableScheduling
-@PropertySource({"classpath:/application.properties"})
+@PropertySource(value = {"classpath:/application.properties"}, ignoreResourceNotFound = true)
 @MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
         "com.salgosipo.auth.mapper",
         "com.salgosipo.bookmark.mapper",
@@ -38,6 +38,7 @@ import javax.sql.DataSource;
         "com.salgosipo.destination.service",
         "com.salgosipo.onboarding.service",
         "com.salgosipo.property.service",
+        "com.salgosipo.property.client",
         "com.salgosipo.safety.service",
         "com.salgosipo.user.service",
         "com.salgosipo.loan.service",

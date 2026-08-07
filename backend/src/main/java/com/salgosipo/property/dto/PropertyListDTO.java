@@ -22,6 +22,11 @@ public class PropertyListDTO {
     private Integer floor;          // 층수
     private String builtYear;      // 준공연도 (YYYY)
     private Boolean isIllegalBuilding; // 위반 건축물 여부
+    private String illegalReason;  // 위반/적법 지정 사유
+    private String useAprDay;      // 사용승인일 (YYYYMMDD)
+    private String structureName;  // 건축물 구조
+    private String mainPurposeName;// 주용도
+    private String earthquakeProofYn; // 내진설계 여부 (1/0)
     private String address;
     private Double latitude;       // 위도
     private Double longitude;      // 경도
