@@ -127,6 +127,23 @@ const fetchLoanList = async () =>{
 };
 
 watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
+
+const SAMPLE_PROPERTY_IMAGES = [
+  'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80',
+];
+
+const detailImageUrl = computed(() => {
+  if (props.property?.thumbnailUrl) return props.property.thumbnailUrl;
+  const idx = Math.abs(Number(props.property?.propertyId || 0)) % SAMPLE_PROPERTY_IMAGES.length;
+  return SAMPLE_PROPERTY_IMAGES[idx];
+});
 </script>
 
 <template>
@@ -138,14 +155,14 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
       @click="emit('close')"
     ></div>
 
-    <!-- 560px Slide-Over Panel -->
+    <!-- 390px Slide-Over Panel (슬림형 가로폭 조정) -->
     <aside
-      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[560px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[390px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
       <div
-        class="min-h-[76px] px-5 py-5 flex items-center justify-between gap-3 bg-white shrink-0"
+        class="min-h-[68px] px-5 pt-4 pb-2.5 flex items-center justify-between gap-3 bg-white shrink-0"
       >
         <div v-if="property" class="min-w-0">
           <div class="mb-1.5 flex items-center gap-1.5">
@@ -228,18 +245,16 @@ watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
             class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
           >
             <img
-              :src="
-                property.thumbnailUrl ||
-                'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80'
-              "
+              :src="detailImageUrl"
               :alt="property.title"
               class="w-full h-full object-cover"
             />
-            <div
+            <!-- 하드코딩된 사진 개수 뱃지 주석 처리 -->
+            <!-- <div
               class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
             >
               사진 1 / 5
-            </div>
+            </div> -->
           </div>
 
           <!-- 가격 및 타이틀 -->

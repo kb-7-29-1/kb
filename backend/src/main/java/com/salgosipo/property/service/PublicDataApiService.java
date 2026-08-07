@@ -140,6 +140,26 @@ public class PublicDataApiService {
                     for (int temp = 0; temp < nList.getLength(); temp++) {
                         Element element = (Element) nList.item(temp);
 
+                        // 🎯 일 단위 정밀 커트라인: 90일 이전(예: 8/6 기준 5/8 이전) 매물 제외
+                        String dealYearStr = getFirstValidTagValue(element, "년", "dealYear", "dealyear");
+                        String dealMonthStr = getFirstValidTagValue(element, "월", "dealMonth", "dealmonth");
+                        String dealDayStr = getFirstValidTagValue(element, "일", "dealDay", "dealday");
+
+                        if (!dealYearStr.isEmpty() && !dealMonthStr.isEmpty() && !dealDayStr.isEmpty()) {
+                            int y = parseSafeInt(dealYearStr);
+                            int m = parseSafeInt(dealMonthStr);
+                            int d = parseSafeInt(dealDayStr);
+                            if (y > 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                                try {
+                                    java.time.LocalDate dealDate = java.time.LocalDate.of(y, m, d);
+                                    java.time.LocalDate cutoff90Days = java.time.LocalDate.now().minusDays(90);
+                                    if (dealDate.isBefore(cutoff90Days)) {
+                                        continue; // 90일 이전 거래건 커트라인 제외
+                                    }
+                                } catch (Exception ignored) {}
+                            }
+                        }
+
                         String depositStr = getFirstValidTagValue(element, "보증금액", "deposit", "depositRent").replace(",", "");
                         String rentStr = getFirstValidTagValue(element, "월세금액", "monthlyRent", "monthlyrent", "rent").replace(",", "");
                         String areaStr = getFirstValidTagValue(element, "전용면적", "excluUseAr", "excluusear", "계약면적");

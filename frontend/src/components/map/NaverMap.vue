@@ -2,6 +2,7 @@
 import { createApp, ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
+import { reverseGeocodeCoord } from '@/utils/geo';
 import {
   getClusteredMarkers,
   renderClusterPinHTML,
@@ -64,7 +65,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['select-property']);
+const emit = defineEmits(['select-property', 'change-destination']);
 
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
@@ -73,14 +74,46 @@ const amenityMarkers = new Map();
 const expandedAmenityMarkerKeys = ref(new Set());
 let resizeObserver = null;
 
-// 편의시설 마커 핀
+// 편의시설 마커 핀 (순수 초고속 HTML 스트링 템플릿)
+const amenityIcons = {
+  1: '🏪',
+  2: '☕',
+  3: '🧺',
+  4: '🍔',
+  5: '🛍️',
+  6: '💄',
+  7: '🛒',
+};
+
 const renderAmenityPin = (amenity, isExpanded = false) => {
-  const container = document.createElement('div');
-  const pinApp = createApp(AmenityPin, { amenity, isExpanded });
-  pinApp.mount(container);
-  const content = container.innerHTML;
-  pinApp.unmount();
-  return content;
+  const icon = amenityIcons[amenity.amenityType] ?? '📍';
+  let walkingInfo = '';
+  const minutes = amenity.walkTimeMinutes;
+  const distance = amenity.distanceMeters;
+
+  if (minutes != null || distance != null) {
+    if (distance == null) walkingInfo = `도보 ${minutes}분`;
+    else if (minutes == null) walkingInfo = `${distance}m`;
+    else walkingInfo = `도보 ${minutes}분 · ${distance}m`;
+  }
+
+  const detailBadge = isExpanded && walkingInfo
+    ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
+    : '';
+
+  const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
+
+  return `
+    <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
+      <div class="relative z-10 flex w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
+        <span class="shrink-0 text-violet-600">${icon}</span>
+        <span class="shrink-0">${amenity.amenityName || ''}</span>
+        ${detailBadge}
+      </div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 border-b border-r border-violet-400 bg-white transition-colors duration-200 group-hover:bg-violet-50"></div>
+      <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
+    </div>
+  `;
 };
 
 const activePropertyMarkersMap = new Map();
@@ -346,6 +379,14 @@ const initMap = () => {
         checkDistanceToDestination();
       });
 
+      // 지도 우클릭 (Right Click) 시 역지오코딩 & 목적지 확인 카드 팝업
+      window.naver.maps.Event.addListener(mapInstance.value, 'rightclick', (e) => {
+        handleMapRightClick(e);
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'click', () => {
+        clearPendingDestinationOverlay();
+      });
+
       renderMarkers();
       renderAmenityMarkers();
       setupResizeObserver();
@@ -353,6 +394,102 @@ const initMap = () => {
     } catch (e) {
       console.warn('Naver map init:', e);
     }
+  }
+};
+
+let pendingDestMarker = null;
+let pendingDestInfoWindow = null;
+
+const clearPendingDestinationOverlay = () => {
+  if (pendingDestInfoWindow) {
+    pendingDestInfoWindow.close();
+    pendingDestInfoWindow = null;
+  }
+  if (pendingDestMarker) {
+    pendingDestMarker.setMap(null);
+    pendingDestMarker = null;
+  }
+};
+
+const handleMapRightClick = async (e) => {
+  if (!e || !e.coord || !window.naver || !window.naver.maps) return;
+  const lat = e.coord.lat();
+  const lng = e.coord.lng();
+
+  clearPendingDestinationOverlay();
+
+  try {
+    const geoResult = await reverseGeocodeCoord(lat, lng);
+    const placeName = geoResult.name;
+
+    const pendingLatLng = new window.naver.maps.LatLng(lat, lng);
+
+    pendingDestMarker = new window.naver.maps.Marker({
+      position: pendingLatLng,
+      map: mapInstance.value,
+      icon: {
+        content: `
+          <div class="relative flex items-center justify-center">
+            <div class="h-7 w-7 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center text-white text-xs font-black animate-bounce">
+              📍
+            </div>
+          </div>
+        `,
+        anchor: new window.naver.maps.Point(14, 14),
+      },
+      zIndex: 250,
+    });
+
+    const cardContainer = document.createElement('div');
+    cardContainer.className = 'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
+    cardContainer.innerHTML = `
+      <div class="flex items-center justify-between border-b pb-1.5 border-slate-100">
+        <span class="text-blue-600 font-black text-xs flex items-center gap-1">
+          <span>📍</span>
+          <span>목적지 변경 안내</span>
+        </span>
+        <button type="button" class="btn-close flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-xs font-bold transition-all">✕</button>
+      </div>
+      <div>
+        <div class="text-[11px] text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
+        <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${placeName}</div>
+      </div>
+      <div class="flex items-center gap-1.5 pt-1">
+        <button type="button" class="btn-confirm flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black py-2 text-xs transition-all shadow-md">
+          목적지로 지정
+        </button>
+        <button type="button" class="btn-cancel px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 font-extrabold py-2 text-xs transition-all">
+          취소
+        </button>
+      </div>
+    `;
+
+    cardContainer.querySelector('.btn-close').addEventListener('click', () => {
+      clearPendingDestinationOverlay();
+    });
+    cardContainer.querySelector('.btn-cancel').addEventListener('click', () => {
+      clearPendingDestinationOverlay();
+    });
+    cardContainer.querySelector('.btn-confirm').addEventListener('click', () => {
+      emit('change-destination', {
+        name: placeName,
+        lat,
+        lng,
+      });
+      clearPendingDestinationOverlay();
+    });
+
+    pendingDestInfoWindow = new window.naver.maps.InfoWindow({
+      content: cardContainer,
+      borderWidth: 0,
+      disableAnchor: false,
+      backgroundColor: 'transparent',
+      pixelOffset: new window.naver.maps.Point(0, -10),
+    });
+
+    pendingDestInfoWindow.open(mapInstance.value, pendingDestMarker);
+  } catch (err) {
+    console.warn('Map rightclick geocode error:', err);
   }
 };
 
@@ -471,6 +608,7 @@ onUnmounted(() => {
   activePropertyMarkersMap.clear();
   clearDestinationMarkers();
   clearAmenityMarkers();
+  clearPendingDestinationOverlay();
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;

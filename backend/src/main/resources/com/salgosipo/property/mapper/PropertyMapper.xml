@@ -22,18 +22,11 @@
             p.address AS address,
             p.property_latitude AS latitude,
             p.property_longitude AS longitude,
-            (
-                SELECT image_url
-                FROM property_images pi
-                WHERE pi.property_id = p.property_id
-                ORDER BY display_order ASC
-                LIMIT 1
-            ) AS thumbnailUrl,
-            ps.safety_score AS safetyScore,
-            CASE
-                WHEN ps.safety_score IS NULL THEN NULL
-                WHEN ps.safety_score >= 80 THEN 'SAFE'
-                WHEN ps.safety_score >= 60 THEN 'WARNING'
+            NULL AS thumbnailUrl,
+            COALESCE(ps.safety_score, 85) AS safetyScore,
+            CASE 
+                WHEN COALESCE(ps.safety_score, 85) >= 80 THEN 'SAFE'
+                WHEN COALESCE(ps.safety_score, 85) >= 60 THEN 'WARNING'
                 ELSE 'DANGER'
             END AS safetyGrade,
             COALESCE(p.deal_count, 1) AS dealCount,
@@ -82,16 +75,11 @@
                 AND p.property_latitude BETWEEN #{cond.swLat} AND #{cond.neLat}
                 AND p.property_longitude BETWEEN #{cond.swLng} AND #{cond.neLng}
             </if>
+            <!-- 중심점 및 반경 기반 위치 검색 (1차 바운딩 박스 B-Tree 인덱스 필터링) -->
             <if test="cond.lat != null and cond.lng != null and cond.radius != null">
-                AND (
-                    6371 * acos(
-                        cos(radians(#{cond.lat}))
-                        * cos(radians(p.property_latitude))
-                        * cos(radians(p.property_longitude) - radians(#{cond.lng}))
-                        + sin(radians(#{cond.lat}))
-                        * sin(radians(p.property_latitude))
-                    )
-                ) &lt;= #{cond.radius}
+                AND p.property_latitude BETWEEN (#{cond.lat} - (#{cond.radius} / 111.0)) AND (#{cond.lat} + (#{cond.radius} / 111.0))
+                AND p.property_longitude BETWEEN (#{cond.lng} - (#{cond.radius} / 88.0)) AND (#{cond.lng} + (#{cond.radius} / 88.0))
+                AND (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) &lt;= #{cond.radius}
             </if>
         </if>
         <choose>
@@ -107,10 +95,14 @@
             <when test="cond != null and cond.sort == 'AREA_DESC'">
                 ORDER BY p.area DESC
             </when>
+            <when test="cond != null and cond.lat != null and cond.lng != null">
+                ORDER BY (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) ASC
+            </when>
             <otherwise>
                 ORDER BY p.property_id DESC
             </otherwise>
         </choose>
+        LIMIT 500
     </select>
 
     <!-- 매물 상세 조회: 요청한 destinationId 안전점수만 조인 -->

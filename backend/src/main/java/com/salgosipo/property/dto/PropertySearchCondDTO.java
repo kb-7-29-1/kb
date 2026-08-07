@@ -33,4 +33,19 @@ public class PropertySearchCondDTO {
 
     // 정렬 (RECOMMENDED, PRICE_ASC, PRICE_DESC, SAFETY_SCORE_DESC 등)
     private String sort;
+
+    public String toCacheKey() {
+        String latStr = lat != null ? String.format("%.3f", lat) : "";
+        String lngStr = lng != null ? String.format("%.3f", lng) : "";
+        String radStr = radius != null ? String.format("%.1f", radius) : "";
+        return String.format("%s_%s_%s_%s_%s_%s_%s_%s_%s_%s",
+                keyword != null ? keyword : "",
+                propertyType != null ? propertyType : "",
+                minDeposit != null ? minDeposit : 0,
+                maxDeposit != null ? maxDeposit : 999999,
+                minMonthlyRent != null ? minMonthlyRent : 0,
+                maxMonthlyRent != null ? maxMonthlyRent : 9999,
+                latStr, lngStr, radStr,
+                sort != null ? sort : "");
+    }
 }
