@@ -1,5 +1,11 @@
 <script setup>
 import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue';
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import {
+  getRecentDestinations,
+  saveRecentDestinationGlobal,
+  removeRecentDestinationGlobal,
+} from '@/utils/recentDestinations.js';
 import onboardingApi from '@/api/onboardingApi';
 import api from '@/api/api.js';
 import {
@@ -24,11 +30,14 @@ const props = defineProps({
     default: () => ({
       destination: '세종대학교',
       tradeType: 'MONTHLY', // 'MONTHLY' | 'JEONSE'
+      minDeposit: 0, // 만원
       maxDeposit: 5000, // 만원
+      minRent: 0, // 만원
       maxRent: 100, // 만원
       minSafetyScore: 0, // 0 ~ 100
       transportMode: 'WALK', // 'WALK' | 'TRANSIT'
-      travelTime: 15, // 5분 ~ 60분 (도보 min 5, 대중교통 min 10)
+      minTravelTime: 5, // 분
+      travelTime: 15, // 분 (5분 ~ 60분)
       walkPace: 'NORMAL', // 'SLOW' | 'NORMAL' | 'FAST'
       flexTime: 10, // ±5분 ~ ±20분
       showIsochrone: true,
@@ -42,7 +51,14 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:modelValue', 'reset', 'apply', 'open-filter', 'popover-change']);
+const emit = defineEmits([
+  'update:modelValue',
+  'reset',
+  'apply',
+  'open-filter',
+  'popover-change',
+  'update-filters',
+]);
 
 // 로컬 반응형 상태
 const filters = ref({
@@ -61,6 +77,7 @@ const appliedQuickFilters = computed(() => props.modelValue);
 // 모바일 바텀시트 모달 상태
 // PC 드롭다운 열림 상태 (activePopover: null | 'destination' | 'price' | 'safety' | 'travel')
 const activePopover = ref(null);
+const activeSliderThumb = ref(null);
 
 watch(activePopover, (newVal) => {
   emit('popover-change', newVal);
@@ -166,45 +183,29 @@ const destinationList = computed(() => {
   return defaults;
 });
 
-const RECENT_DESTINATIONS_KEY = 'recent_destinations';
+const authStore = useAuthStore();
+const currentUserId = computed(
+  () => authStore.user?.userId || authStore.user?.id || 'guest',
+);
 
-const getRecentDestinations = () => {
-  try {
-    const data = localStorage.getItem(RECENT_DESTINATIONS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    return [];
-  }
-};
+const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 
-const recentDestinations = ref(getRecentDestinations());
+watch(currentUserId, (newUserId) => {
+  recentDestinations.value = getRecentDestinations(newUserId);
+});
 
 const saveRecentDestination = (destObj) => {
-  if (!destObj || !destObj.destName) return;
-  const list = getRecentDestinations();
-  const filtered = list.filter((item) => item.destName !== destObj.destName);
-  const updated = [
-    {
-      destName: destObj.destName,
-      destAddress: destObj.destAddress || '',
-      destLatitude: destObj.destLatitude || destObj.lat || null,
-      destLongitude: destObj.destLongitude || destObj.lng || null,
-    },
-    ...filtered,
-  ].slice(0, 5);
-  try {
-    localStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(updated));
-  } catch (e) {}
-  recentDestinations.value = updated;
+  recentDestinations.value = saveRecentDestinationGlobal(
+    destObj,
+    currentUserId.value,
+  );
 };
 
 const removeRecentDestination = (destName) => {
-  const list = getRecentDestinations();
-  const updated = list.filter((item) => item.destName !== destName);
-  try {
-    localStorage.setItem(RECENT_DESTINATIONS_KEY, JSON.stringify(updated));
-  } catch (e) {}
-  recentDestinations.value = updated;
+  recentDestinations.value = removeRecentDestinationGlobal(
+    destName,
+    currentUserId.value,
+  );
 };
 
 const selectRecentDestination = (item) => {
@@ -371,11 +372,25 @@ onBeforeUnmount(() => {
   clearTimeout(destinationSearchTimer);
   clearTimeout(destinationSelectionReleaseTimer);
   clearTimeout(destinationCompositionEndTimer);
+  if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
 });
 
-// 필터 상태 변경 시 부모로 전달
+let updateFiltersDebounceTimer = null;
+
+// 필터 상태 변경 시 부모로 전달 (슬라이더 연속 조절 시 300ms 디바운스 적용)
 const updateFilters = () => {
   emit('update:modelValue', { ...filters.value });
+  if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
+  updateFiltersDebounceTimer = setTimeout(() => {
+    emit('update-filters', { ...filters.value });
+  }, 300);
+};
+
+// 버튼 클릭 시 즉시 수신
+const updateFiltersImmediate = () => {
+  if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
+  emit('update:modelValue', { ...filters.value });
+  emit('update-filters', { ...filters.value });
 };
 
 // 드롭다운 토글
@@ -424,13 +439,119 @@ const activeFilterCount = computed(() => {
   return count;
 });
 
-// 가격 요약 텍스트
+// 듀얼 슬라이더 활성 범위 트랙 스타일 계산 함수 (valA, valB 순서 상관없이 Min~Max 트랙 표기)
+const getDualRangeTrackStyle = (valA, valB, minLimit, maxLimit) => {
+  const minVal = Math.min(Number(valA), Number(valB));
+  const maxVal = Math.max(Number(valA), Number(valB));
+  const minPercent = Math.max(0, Math.min(100, ((minVal - minLimit) / (maxLimit - minLimit)) * 100));
+  const maxPercent = Math.max(0, Math.min(100, ((maxVal - minLimit) / (maxLimit - minLimit)) * 100));
+  return {
+    left: `${minPercent}%`,
+    width: `${Math.max(0, maxPercent - minPercent)}%`,
+  };
+};
+
+// 보증금 핸들 A, B (독립 2개 핸들)
+const depositValA = ref(0);
+const depositValB = ref(9);
+
+watch([depositValA, depositValB], ([a, b]) => {
+  const minIdx = Math.min(Number(a), Number(b));
+  const maxIdx = Math.max(Number(a), Number(b));
+  filters.value.minDeposit = DEPOSIT_OPTIONS[minIdx];
+  filters.value.maxDeposit = DEPOSIT_OPTIONS[maxIdx];
+}, { immediate: true });
+
+// 월세 핸들 A, B (독립 2개 핸들)
+const rentValA = ref(0);
+const rentValB = ref(100);
+
+watch([rentValA, rentValB], ([a, b]) => {
+  filters.value.minRent = Math.min(Number(a), Number(b));
+  filters.value.maxRent = Math.max(Number(a), Number(b));
+}, { immediate: true });
+
+// 대중교통 이동시간 핸들 A, B (독립 2개 핸들)
+const travelValA = ref(10);
+const travelValB = ref(15);
+
+watch([travelValA, travelValB], ([a, b]) => {
+  filters.value.minTravelTime = Math.min(Number(a), Number(b));
+  filters.value.travelTime = Math.max(Number(a), Number(b));
+}, { immediate: true });
+
+const minTravelTimeVal = computed(() => Math.min(travelValA.value, travelValB.value));
+const maxTravelTimeVal = computed(() => Math.max(travelValA.value, travelValB.value));
+
+// external modelValue 또는 reset 시 핸들 위치 맞춤 동기화
+watch(() => props.modelValue, (newVal) => {
+  if (!newVal) return;
+  const minDep = newVal.minDeposit ?? 0;
+  const maxDep = newVal.maxDeposit ?? DEPOSIT_MAX;
+  const minDepIdx = Math.max(0, DEPOSIT_OPTIONS.findIndex((opt) => opt >= minDep));
+  const maxDepIdx = Math.max(0, DEPOSIT_OPTIONS.indexOf(Number(maxDep)));
+  depositValA.value = minDepIdx >= 0 ? minDepIdx : 0;
+  depositValB.value = maxDepIdx >= 0 ? maxDepIdx : DEPOSIT_OPTIONS.length - 1;
+
+  rentValA.value = newVal.minRent ?? 0;
+  rentValB.value = newVal.maxRent ?? RENT_MAX;
+
+  travelValA.value = newVal.minTravelTime ?? 10;
+  travelValB.value = newVal.travelTime ?? 15;
+}, { immediate: true, deep: true });
+
+// 보증금 팝오버 표시 라벨
+const depositAmountLabel = computed(() => {
+  const minVal = filters.value.minDeposit ?? 0;
+  const maxVal = filters.value.maxDeposit ?? DEPOSIT_MAX;
+  if (minVal === 0 && maxVal >= DEPOSIT_MAX) return '전체';
+  if (minVal === 0) return `${formatDepositAmount(maxVal)} 이하`;
+  if (maxVal >= DEPOSIT_MAX) return `${formatDepositAmount(minVal)} 이상`;
+  return `${formatDepositAmount(minVal)} ~ ${formatDepositAmount(maxVal)}`;
+});
+
+// 월세 팝오버 표시 라벨
+const rentAmountLabel = computed(() => {
+  const minVal = filters.value.minRent ?? 0;
+  const maxVal = filters.value.maxRent ?? RENT_MAX;
+  if (minVal === 0 && maxVal >= RENT_MAX) return '전체';
+  if (minVal === 0) return `${maxVal}만원 이하`;
+  if (maxVal >= RENT_MAX) return `${minVal}만원 이상`;
+  return `${minVal}만 ~ ${maxVal}만원`;
+});
+
+// 가격 퀵버튼 요약 텍스트
 const priceSummaryText = computed(() => {
-  const { tradeType, maxDeposit, maxRent } = appliedQuickFilters.value;
-  const deposit = formatDepositShort(maxDeposit);
-  if (tradeType === 'JEONSE') return `전세: ${deposit}`;
-  if (maxRent === 0) return `보증금: ${deposit}`;
-  return `월세: ${deposit}/${maxRent}`;
+  const { tradeType, minDeposit = 0, maxDeposit = DEPOSIT_MAX, minRent = 0, maxRent = RENT_MAX } = appliedQuickFilters.value;
+  const minDepShort = formatDepositShort(minDeposit);
+  const maxDepShort = formatDepositShort(maxDeposit);
+  const depStr = (minDeposit === 0 && maxDeposit >= DEPOSIT_MAX)
+    ? '전체'
+    : (minDeposit === 0 ? `${maxDepShort}이하` : `${minDepShort}~${maxDepShort}`);
+
+  if (tradeType === 'JEONSE') return `전세: ${depStr}`;
+
+  const rentStr = (minRent === 0 && maxRent >= RENT_MAX)
+    ? '전체'
+    : (minRent === 0 ? `${maxRent}만 이하` : `${minRent}~${maxRent}만`);
+  return `월세: ${depStr} / ${rentStr}`;
+});
+
+// 이동시간 퀵버튼 요약 텍스트 (도보: 단일 시간 이내, 대중교통: 범위 지정)
+const travelSummaryText = computed(() => {
+  if (appliedQuickFilters.value.transportMode === 'WALK') {
+    const time = appliedQuickFilters.value.travelTime ?? 15;
+    return `🚶 도보: ${time}분 이내`;
+  }
+  const mode = '🚌 대중교통';
+  const minLimit = 10;
+  const maxLimit = 60;
+  const minT = appliedQuickFilters.value.minTravelTime ?? minLimit;
+  const maxT = appliedQuickFilters.value.travelTime ?? 15;
+
+  if (minT <= minLimit && maxT >= maxLimit) return `${mode}: 전체`;
+  if (minT <= minLimit) return `${mode}: ${maxT}분 이내`;
+  return `${mode}: ${minT}~${maxT}분`;
 });
 
 // 대출 상품 요약 텍스트
@@ -439,21 +560,6 @@ const loanSummaryText = computed(() => {
   const loan = LOAN_PRODUCTS.find((l) => l.id === currentLoanId);
   return loan ? loan.shortName : '대출 상품';
 });
-
-const depositIndex = computed({
-  get: () => {
-    const index = depositOptions.indexOf(Number(filters.value.maxDeposit));
-    return index >= 0 ? index : depositOptions.length - 1;
-  },
-  set: (index) => {
-    filters.value.maxDeposit = depositOptions[index];
-  },
-});
-
-const depositAmountLabel = computed(() => formatDepositAmount(filters.value.maxDeposit));
-const rentAmountLabel = computed(() =>
-  filters.value.maxRent === 0 ? '전세' : `${filters.value.maxRent}만원`,
-);
 
 const rangeStyle = (value, min, max, color = '#3b82f6') => {
   const percent = ((value - min) / (max - min)) * 100;
@@ -545,31 +651,45 @@ const safetyAccentClass = computed(() => {
             </button>
           </label>
 
-          <!-- 🕒 최근 검색 목적지 기록 칩 목록 -->
+          <!-- 🕒 최근 검색 목적지 기록 (유저 ID 결합, 세로 미니멀 리스트, 최대 10개) -->
           <div v-if="recentDestinations.length > 0" class="mt-3">
             <div
-              class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5"
+              class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5 px-0.5"
             >
-              <span>🕒 최근 검색 목적지</span>
+              <span>🕒 최근 검색 목적지 (최대 10개)</span>
             </div>
-            <div class="flex flex-wrap gap-1.5">
-              <span
-                v-for="item in recentDestinations"
+            <ul
+              class="max-h-44 overflow-y-auto space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-1.5"
+            >
+              <li
+                v-for="item in recentDestinations.slice(0, 10)"
                 :key="item.destName"
-                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-600 cursor-pointer transition-colors"
+                class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-100 hover:border-blue-300 hover:bg-blue-50/50 cursor-pointer transition-colors text-xs"
                 @click="selectRecentDestination(item)"
               >
-                <span>📍 {{ item.destName }}</span>
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <i
+                    class="fa-solid fa-clock-rotate-left text-[10px] text-blue-500 shrink-0"
+                  ></i>
+                  <span class="font-bold text-slate-800 truncate text-[12px]">{{
+                    item.destName
+                  }}</span>
+                  <small
+                    v-if="item.destAddress"
+                    class="text-[10px] text-slate-400 truncate hidden sm:inline"
+                    >{{ item.destAddress }}</small
+                  >
+                </div>
                 <button
                   type="button"
-                  class="text-[10px] text-slate-400 hover:text-slate-600 ml-0.5"
+                  class="h-5 w-5 shrink-0 flex items-center justify-center rounded-full text-[10px] text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors"
                   aria-label="삭제"
                   @click.stop="removeRecentDestination(item.destName)"
                 >
                   ✕
                 </button>
-              </span>
-            </div>
+              </li>
+            </ul>
           </div>
 
           <p v-if="isDestinationSearching" class="mt-3 text-center text-xs text-slate-400">
@@ -807,44 +927,84 @@ const safetyAccentClass = computed(() => {
             </button>
           </div>
 
-          <!-- 전세금/보증금 슬라이더 -->
+          <!-- 전세금/보증금 슬라이더 (Dual Range - 자유로운 교차 및 역할 체인지) -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>{{
-                filters.tradeType === 'JEONSE' ? '최대 전세 보증금' : '최대 월세 보증금'
+                filters.tradeType === 'JEONSE' ? '전세 보증금 범위' : '월세 보증금 범위'
               }}</span>
               <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
-            <input
-              type="range"
-              v-model="depositIndex"
-              min="0"
-              :max="depositOptions.length - 1"
-              step="1"
-              class="w-full appearance-none cursor-pointer quick-range-input"
-              :style="rangeStyle(depositIndex, 0, depositOptions.length - 1)"
-            />
+            <div class="relative w-full h-7 flex items-center">
+              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
+              <div
+                class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
+                :style="getDualRangeTrackStyle(depositValA, depositValB, 0, depositOptions.length - 1)"
+              ></div>
+              <input
+                type="range"
+                v-model.number="depositValA"
+                min="0"
+                :max="depositOptions.length - 1"
+                step="1"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'depA' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'depA'"
+                @touchstart="activeSliderThumb = 'depA'"
+              />
+              <input
+                type="range"
+                v-model.number="depositValB"
+                min="0"
+                :max="depositOptions.length - 1"
+                step="1"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'depB' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'depB'"
+                @touchstart="activeSliderThumb = 'depB'"
+              />
+            </div>
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>{{ DEPOSIT_MIN_LABEL }}</span>
               <span>{{ DEPOSIT_MAX_LABEL }}</span>
             </div>
           </div>
 
-          <!-- 월세 슬라이더 (월세 모드일 때만 표시) -->
+          <!-- 월세 슬라이더 (Dual Range - 자유로운 교차 및 역할 체인지) -->
           <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>최대 월세</span>
+              <span>월세 금액 범위</span>
               <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
             </div>
-            <input
-              type="range"
-              v-model.number="filters.maxRent"
-              :min="RENT_MIN"
-              :max="RENT_MAX"
-              :step="RENT_STEP"
-              class="w-full appearance-none cursor-pointer quick-range-input"
-              :style="rangeStyle(filters.maxRent, RENT_MIN, RENT_MAX)"
-            />
+            <div class="relative w-full h-7 flex items-center">
+              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
+              <div
+                class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
+                :style="getDualRangeTrackStyle(rentValA, rentValB, RENT_MIN, RENT_MAX)"
+              ></div>
+              <input
+                type="range"
+                v-model.number="rentValA"
+                :min="RENT_MIN"
+                :max="RENT_MAX"
+                :step="RENT_STEP"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'rentA' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'rentA'"
+                @touchstart="activeSliderThumb = 'rentA'"
+              />
+              <input
+                type="range"
+                v-model.number="rentValB"
+                :min="RENT_MIN"
+                :max="RENT_MAX"
+                :step="RENT_STEP"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'rentB' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'rentB'"
+                @touchstart="activeSliderThumb = 'rentB'"
+              />
+            </div>
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>{{ RENT_MIN_LABEL }}</span>
               <span>{{ RENT_MAX_LABEL }}</span>
@@ -1015,10 +1175,7 @@ const safetyAccentClass = computed(() => {
           ]"
           @click="togglePopover('travel')"
         >
-          <span class="whitespace-nowrap"
-            >{{ appliedQuickFilters.transportMode === 'WALK' ? '🚶 도보' : '🚌 대중교통' }}:
-            {{ appliedQuickFilters.travelTime }}분 이내</span
-          >
+          <span class="whitespace-nowrap">{{ travelSummaryText }}</span>
           <span class="text-[10px] opacity-80">▼</span>
         </button>
 
@@ -1031,10 +1188,13 @@ const safetyAccentClass = computed(() => {
           <div class="flex items-center justify-between">
             <div class="text-sm font-black text-slate-800">
               시간
-              <span class="text-blue-600"
-                >{{ filters.transportMode === 'WALK' ? '도보' : '대중교통' }}
-                {{ filters.travelTime }}분 이내</span
-              >
+              <span class="text-blue-600">
+                {{
+                  filters.transportMode === 'WALK'
+                    ? `도보 ${filters.travelTime}분 이내`
+                    : `대중교통 ${minTravelTimeVal}~${maxTravelTimeVal}분 범위`
+                }}
+              </span>
             </div>
             <button
               type="button"
@@ -1058,6 +1218,7 @@ const safetyAccentClass = computed(() => {
               "
               @click="
                 filters.transportMode = 'WALK';
+                filters.minTravelTime = 0;
                 if (filters.travelTime < 5) filters.travelTime = 5;
                 if (filters.travelTime > 40) filters.travelTime = 40;
                 updateFilters();
@@ -1081,6 +1242,7 @@ const safetyAccentClass = computed(() => {
               "
               @click="
                 filters.transportMode = 'TRANSIT';
+                if (filters.minTravelTime < 10) filters.minTravelTime = 10;
                 if (filters.travelTime < 15) filters.travelTime = 15;
                 updateFilters();
               "
@@ -1094,8 +1256,8 @@ const safetyAccentClass = computed(() => {
             </button>
           </div>
 
-          <!-- 슬라이더 1: 🎯 원하는 이동 시간 -->
-          <div class="space-y-1.5 pt-1">
+          <!-- 🚶‍♂️ [도보 모드]: 단일 슬라이더 (핸들 1개) -->
+          <div v-if="filters.transportMode === 'WALK'" class="space-y-1.5 pt-1">
             <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🎯 원하는 이동 시간</span>
               <span class="text-blue-600 font-extrabold text-sm"
@@ -1105,27 +1267,61 @@ const safetyAccentClass = computed(() => {
             <input
               type="range"
               v-model.number="filters.travelTime"
-              :min="filters.transportMode === 'WALK' ? 5 : 15"
-              :max="filters.transportMode === 'WALK' ? 40 : 60"
+              min="5"
+              max="40"
               step="5"
               class="w-full appearance-none cursor-pointer quick-range-input"
-              :style="
-                rangeStyle(
-                  filters.travelTime,
-                  filters.transportMode === 'WALK' ? 5 : 15,
-                  filters.transportMode === 'WALK' ? 40 : 60,
-                )
-              "
-              @input="
-                if (filters.transportMode === 'TRANSIT' && filters.flexTime > filters.travelTime) {
-                  filters.flexTime = filters.travelTime;
-                }
-                updateFilters();
-              "
+              :style="rangeStyle(filters.travelTime, 5, 40)"
+              @input="updateFilters"
             />
             <div class="flex justify-between text-[11px] font-bold text-slate-400">
-              <span>{{ filters.transportMode === 'WALK' ? '5분' : '15분' }}</span>
-              <span>{{ filters.transportMode === 'WALK' ? '40분' : '60분' }}</span>
+              <span>5분</span>
+              <span>40분</span>
+            </div>
+          </div>
+
+          <!-- 🚌 [대중교통 모드]: 양방향 슬라이더 (Dual Range - 자유로운 교차 및 역할 체인지) -->
+          <div v-else class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
+              <span>🎯 이동 시간 범위</span>
+              <span class="text-blue-600 font-extrabold text-sm"
+                >{{ minTravelTimeVal }}분 ~ {{ maxTravelTimeVal }}분</span
+              >
+            </div>
+            <div class="relative w-full h-7 flex items-center">
+              <div class="absolute inset-x-0 h-2 bg-slate-200 rounded-full pointer-events-none"></div>
+              <div
+                class="absolute h-2 bg-blue-600 rounded-full pointer-events-none transition-all duration-75"
+                :style="getDualRangeTrackStyle(travelValA, travelValB, 10, 60)"
+              ></div>
+              <input
+                type="range"
+                v-model.number="travelValA"
+                min="10"
+                max="60"
+                step="5"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'travelA' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'travelA'"
+                @touchstart="activeSliderThumb = 'travelA'"
+                @input="updateFilters"
+              />
+              <input
+                type="range"
+                v-model.number="travelValB"
+                min="10"
+                max="60"
+                step="5"
+                class="dual-range-input"
+                :style="{ zIndex: activeSliderThumb === 'travelB' ? 30 : 20 }"
+                @pointerdown="activeSliderThumb = 'travelB'"
+                @touchstart="activeSliderThumb = 'travelB'"
+                @input="updateFilters"
+              />
+            </div>
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
+              <span>10분</span>
+              <span>60분</span>
             </div>
           </div>
 
@@ -1401,5 +1597,50 @@ const safetyAccentClass = computed(() => {
     background-color 0.2s ease,
     transform 0.15s ease,
     box-shadow 0.2s ease;
+}
+
+/* 듀얼 범위 슬라이더 전용 CSS */
+.dual-range-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+  z-index: 10;
+  margin: 0;
+}
+
+.dual-range-input::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dual-range-input::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  border-color: #1d4ed8;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+}
+
+.dual-range-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2.5px solid #2563eb;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 </style>
