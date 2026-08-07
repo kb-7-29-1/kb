@@ -8,13 +8,13 @@
       </div>
 
       <button
-          type="button"
-          class="toggle-button"
-          :aria-expanded="isOpen"
-          @click.stop="isOpen = !isOpen"
+        type="button"
+        class="toggle-button"
+        :aria-expanded="isOpen"
+        @click.stop="isOpen = !isOpen"
       >
         <svg class="toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path :d="isOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'"/>
+          <path :d="isOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" />
         </svg>
       </button>
     </div>
@@ -22,9 +22,9 @@
     <!-- 편의시설 목록 -->
     <div v-if="isOpen" class="amenity-list">
       <div
-          v-for="amenity in displayAmenities"
-          :key="`${amenity.type}-${amenity.name}`"
-          class="amenity-item"
+        v-for="amenity in displayAmenities"
+        :key="`${amenity.type}-${amenity.name}`"
+        class="amenity-item"
       >
         <!-- 편의시설 이름 -->
         <div class="amenity-name">
@@ -39,8 +39,8 @@
         <div class="progress-area">
           <div class="progress-bar">
             <div
-                class="progress-fill"
-                :style="{ width: getProgressWidth(amenity.walkingTime) }"
+              class="progress-fill"
+              :style="{ width: getProgressWidth(amenity.walkingTime) }"
             ></div>
           </div>
 
@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import {computed, ref, watch} from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const isOpen = ref(false);
 
@@ -68,12 +68,12 @@ const props = defineProps({
 });
 
 watch(
-    () => props.amenities,
-    (amenities) => {
-      console.log('WalkingTime 받은 amenities:', amenities);
-      console.table(amenities);
-    },
-    {immediate: true, deep: true},
+  () => props.amenities,
+  (amenities) => {
+    console.log('WalkingTime 받은 amenities:', amenities);
+    console.table(amenities);
+  },
+  { immediate: true, deep: true },
 );
 
 const amenityIcons = {
@@ -87,14 +87,14 @@ const amenityIcons = {
 };
 
 const displayAmenities = computed(() =>
-    props.amenities
-        .filter((amenity) => amenity.walkTimeMinutes != null || amenity.walkingTime != null)
-        .map((amenity) => ({
-          type: amenity.amenityType ?? amenity.type,
-          name: amenity.amenityName ?? amenity.name,
-          icon: amenityIcons[amenity.amenityType ?? amenity.type] ?? amenity.icon ?? '📍',
-          walkingTime: amenity.walkTimeMinutes ?? amenity.walkingTime,
-        })),
+  props.amenities
+    .filter((amenity) => amenity.walkTimeMinutes != null || amenity.walkingTime != null)
+    .map((amenity) => ({
+      type: amenity.amenityType ?? amenity.type,
+      name: amenity.amenityName ?? amenity.name,
+      icon: amenityIcons[amenity.amenityType ?? amenity.type] ?? amenity.icon ?? '📍',
+      walkingTime: amenity.walkTimeMinutes ?? amenity.walkingTime,
+    })),
 );
 
 // 도보 소요 시간 게이지 최대 스케일 (20분 간격/범위 기준)
@@ -130,13 +130,13 @@ const getProgressWidth = (walkingTime) => {
   align-items: center;
   gap: 6px;
 
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
-  color: #444;
+  color: #1e293b;
 }
 
 .title-icon {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .toggle-button {
@@ -196,7 +196,7 @@ const getProgressWidth = (walkingTime) => {
 
   font-size: 14px;
   font-weight: 600;
-  color: #555;
+  color: #1e293b;
 }
 
 .amenity-icon {
@@ -253,7 +253,7 @@ const getProgressWidth = (walkingTime) => {
 
   font-size: 13px;
   font-weight: 600;
-  color: #555;
+  color: #1e293b;
   white-space: nowrap;
 }
 

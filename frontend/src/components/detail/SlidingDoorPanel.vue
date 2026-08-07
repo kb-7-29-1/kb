@@ -3,19 +3,20 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
-import {useAuthStore} from "@/stores/useAuthStore.js";
-import api from "@/api/api.js";
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import api from '@/api/api.js';
 
 const authStore = useAuthStore();
 
-const age = computed(() =>{
+const age = computed(() => {
   const birthDate = authStore.user?.birthDate;
-  if(!birthDate) return null;
+  if (!birthDate) return null;
   return new Date().getFullYear() - new Date(birthDate).getFullYear() + 1;
-})
+});
 
 const loanList = ref([]);
 const loanListLoading = ref(false);
+const isLoanOpen = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -37,33 +38,30 @@ const emit = defineEmits(['close', 'toggle-bookmark']);
 const detailScrollRef = ref(null);
 const detailSessionKey = ref(0);
 
+const resetDetailView = async () => {
+  isLoanOpen.value = false;
+  detailSessionKey.value += 1;
+  await nextTick();
+  detailScrollRef.value?.scrollTo({ top: 0 });
+};
+
 watch(
   () => props.isOpen,
-  async (isOpen, wasOpen) => {
+  (isOpen, wasOpen) => {
     if (!isOpen || wasOpen) return;
-
-    detailSessionKey.value += 1;
-    await nextTick();
-
-    if (detailScrollRef.value) {
-      detailScrollRef.value.scrollTop = 0;
-    }
+    resetDetailView();
   },
 );
 
 // 가격 포맷팅
 const formattedPrice = computed(() => {
   if (!props.property) return '';
-  return formatPropertyPriceDetail(
-    props.property.deposit,
-    props.property.monthlyRent,
-  );
+  return formatPropertyPriceDetail(props.property.deposit, props.property.monthlyRent);
 });
 
 const hasSafetyScore = computed(() => {
   const value = props.property?.safetyScore;
-  return value !== null && value !== undefined && value !== ''
-    && Number.isFinite(Number(value));
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 });
 
 // 안전점수 색상
@@ -75,31 +73,53 @@ const safetyScoreClass = computed(() => {
   return 'bg-rose-500/10 text-rose-600';
 });
 
+const safetyScoreValue = computed(() => {
+  if (!hasSafetyScore.value) return 0;
+  return Math.min(Math.max(Number(props.property.safetyScore), 0), 100);
+});
 
+const safetyScoreEndPoint = computed(() => {
+  const radians = (safetyScoreValue.value / 100) * Math.PI * 2;
+  return {
+    x: 36 + 30 * Math.cos(radians),
+    y: 36 + 30 * Math.sin(radians),
+  };
+});
 
 const safetyGradeLabel = computed(() => {
   if (!hasSafetyScore.value) return '계산되지 않음';
-  if (props.property.safetyGrade === 'SAFE') return '안심';
-  if (props.property.safetyGrade === 'WARNING') return '주의';
-  return '위험';
+  if (safetyScoreValue.value >= 80) return '안심';
+  if (safetyScoreValue.value >= 60) return '보통';
+  return '주의 필요';
 });
 
-const safetyGradeBadgeClass = computed(() => {
-  if (!hasSafetyScore.value) return 'bg-slate-500/20 text-slate-300 border-slate-500/30';
-  if (props.property.safetyGrade === 'SAFE') {
-    return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
+const safetyReport = computed(() => {
+  if (!hasSafetyScore.value) {
+    return {
+      tone: 'pending',
+      color: '#94a3b8',
+    };
   }
-  if (props.property.safetyGrade === 'WARNING') {
-    return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-  }
-  return 'bg-rose-500/20 text-rose-400 border-rose-500/30';
-});
 
-const policeFacilityText = computed(() =>
-  props.property?.hasPoliceStation
-    ? '경로 300m 내 위치'
-    : '경로 300m 내 없음',
-);
+  if (safetyScoreValue.value >= 80) {
+    return {
+      tone: 'safe',
+      color: '#22a06b',
+    };
+  }
+
+  if (safetyScoreValue.value >= 60) {
+    return {
+      tone: 'caution',
+      color: '#e69a1d',
+    };
+  }
+
+  return {
+    tone: 'warning',
+    color: '#e25858',
+  };
+});
 
 const buildingAge = computed(() => {
   const builtYear = parseInt(props.property?.builtYear || '2022', 10);
@@ -107,15 +127,15 @@ const buildingAge = computed(() => {
   return Math.max(new Date().getFullYear() - builtYear, 0);
 });
 
-const fetchLoanList = async () =>{
-  if(!props.property) return;
+const fetchLoanList = async () => {
+  if (!props.property) return;
   loanListLoading.value = true;
   try {
-    const response = await api.get('/loan/property-recommend',{
-      params : {
-        deposit : props.property.deposit,
-        monthlyRent : props.property.monthlyRent,
-        age : age.value,
+    const response = await api.get('/loan/property-recommend', {
+      params: {
+        deposit: props.property.deposit,
+        monthlyRent: props.property.monthlyRent,
+        age: age.value,
       },
     });
     loanList.value = response.data;
@@ -126,7 +146,15 @@ const fetchLoanList = async () =>{
   }
 };
 
-watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
+watch(
+  () => props.property?.propertyId,
+  (propertyId) => {
+    if (!propertyId) return;
+    resetDetailView();
+    fetchLoanList();
+  },
+  { immediate: true },
+);
 
 const SAMPLE_PROPERTY_IMAGES = [
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
@@ -155,14 +183,14 @@ const detailImageUrl = computed(() => {
       @click="emit('close')"
     ></div>
 
-    <!-- 390px Slide-Over Panel (슬림형 가로폭 조정) -->
+    <!-- 420px Slide-Over Panel (슬림형 가로폭 조정) -->
     <aside
-      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[390px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] overflow-x-hidden bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
       <div
-        class="min-h-[68px] px-5 pt-4 pb-2.5 flex items-center justify-between gap-3 bg-white shrink-0"
+        class="min-h-[68px] px-6 pt-4 pb-2.5 flex items-center justify-between gap-3 bg-white shrink-0"
       >
         <div v-if="property" class="min-w-0">
           <div class="mb-1.5 flex items-center gap-1.5">
@@ -175,10 +203,7 @@ const detailImageUrl = computed(() => {
               class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold"
               :class="safetyScoreClass"
             >
-              <i
-                class="fa-solid fa-shield-halved text-[10px]"
-                aria-hidden="true"
-              ></i>
+              <i class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
               {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
             </span>
           </div>
@@ -187,9 +212,7 @@ const detailImageUrl = computed(() => {
           </p>
         </div>
 
-        <h2
-          class="hidden font-bold text-lg text-slate-900 flex items-center gap-2"
-        >
+        <h2 class="hidden font-bold text-lg text-slate-900 flex items-center gap-2">
           <span>🏠</span>
           <span>매물 상세 리포트</span>
         </h2>
@@ -204,11 +227,7 @@ const detailImageUrl = computed(() => {
             <svg
               viewBox="0 0 24 24"
               class="h-5 w-5 transition-colors"
-              :class="
-                property?.isBookmarked
-                  ? 'fill-[#dc4b5d] text-[#dc4b5d]'
-                  : 'fill-none'
-              "
+              :class="property?.isBookmarked ? 'fill-[#dc4b5d] text-[#dc4b5d]' : 'fill-none'"
               fill="none"
               stroke="currentColor"
               stroke-width="1.7"
@@ -237,18 +256,14 @@ const detailImageUrl = computed(() => {
       <div
         v-if="property"
         ref="detailScrollRef"
-        class="property-detail-scroll min-h-0 flex-1 overflow-y-auto"
+        class="property-detail-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
-        <div class="flex min-h-full flex-col gap-6 p-6 py-0">
+        <div class="flex min-h-full flex-col gap-4 p-4 py-0">
           <!-- 매물 갤러리/대표 사진 -->
           <div
-            class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
+            class="relative h-60 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
           >
-            <img
-              :src="detailImageUrl"
-              :alt="property.title"
-              class="w-full h-full object-cover"
-            />
+            <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
             <!-- 하드코딩된 사진 개수 뱃지 주석 처리 -->
             <!-- <div
               class="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium"
@@ -259,26 +274,6 @@ const detailImageUrl = computed(() => {
 
           <!-- 가격 및 타이틀 -->
           <div>
-            <div class="hidden items-center gap-2 mb-1.5">
-              <span
-                class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200"
-              >
-                {{ property.buildingType === 3 ? '오피스텔' : '빌라/연립' }}
-              </span>
-              <span
-                class="px-2.5 py-1 rounded-md text-xs font-bold border"
-                :class="safetyScoreClass"
-              >
-                안전지수 {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
-              </span>
-              <span
-                v-if="property.dealCount && property.dealCount > 1"
-                class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"
-              >
-                🏢 동일 건물 실거래 {{ property.dealCount }}건
-              </span>
-            </div>
-
             <h1
               class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]"
             >
@@ -290,16 +285,14 @@ const detailImageUrl = computed(() => {
           </div>
 
           <!-- 건물 안전 정보 -->
-          <section class="border-t border-slate-200 pt-5">
-            <h3
-              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
-            >
+          <section class="border-t border-slate-200 pt-4">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">🏢</span>
               건물 안전 정보
             </h3>
             <div class="grid grid-cols-2 gap-3">
               <div
-                class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[124px]"
+                class="flex min-h-[110px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[110px]"
                 :class="
                   property.isIllegalBuilding
                     ? 'border-rose-200 bg-rose-50'
@@ -317,11 +310,7 @@ const detailImageUrl = computed(() => {
                 ></i>
                 <p
                   class="text-sm font-bold"
-                  :class="
-                    property.isIllegalBuilding
-                      ? 'text-rose-500'
-                      : 'text-emerald-600'
-                  "
+                  :class="property.isIllegalBuilding ? 'text-rose-500' : 'text-emerald-600'"
                 >
                   {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
                 </p>
@@ -330,82 +319,99 @@ const detailImageUrl = computed(() => {
               <div
                 class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center md:min-h-[124px]"
               >
-                <p
-                  class="text-[18px] font-extrabold leading-none text-slate-800"
-                >
+                <p class="text-[18px] font-extrabold leading-none text-slate-800">
                   {{ buildingAge === null ? '-' : `${buildingAge}년` }}
                 </p>
                 <p class="mt-1 text-[11px] font-medium text-slate-500">
                   {{ property.builtYear || '2022' }}년 준공
                 </p>
                 <p class="mt-0.5 text-[10px] font-bold text-emerald-500">
-                  {{
-                    buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축'
-                  }}
+                  {{ buildingAge !== null && buildingAge <= 5 ? '신축' : '준신축' }}
                 </p>
               </div>
             </div>
           </section>
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
-          <section class="border-t border-slate-200 pt-5">
-            <h3
-              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
-            >
+          <section class="border-t border-slate-200 pt-4">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">💡</span>
               귀갓길 안전 점수
             </h3>
             <div
-              class="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white shadow-xl space-y-4"
+              class="safety-report-card"
+              :class="`is-${safetyReport.tone}`"
+              :style="{
+                '--score-color': safetyReport.color,
+              }"
             >
-              <div
-                class="flex items-center justify-between border-b border-slate-700/80 pb-3"
-              >
-                <div class="flex items-center gap-2">
-                  <span class="text-xl">🛡️</span>
-                  <h3 class="font-bold text-base">골목 귀갓길 안전 리포트</h3>
+              <div class="safety-report-summary">
+                <div class="safety-score-chart">
+                  <svg class="safety-score-chart__svg" viewBox="0 0 72 72" aria-hidden="true">
+                    <circle class="safety-score-chart__track" cx="36" cy="36" r="30" />
+                    <circle
+                      class="safety-score-chart__progress"
+                      cx="36"
+                      cy="36"
+                      r="30"
+                      :stroke="safetyReport.color"
+                      :stroke-dasharray="`${safetyScoreValue * 1.885} 188.5`"
+                      stroke-linecap="round"
+                    />
+                    <circle
+                      v-if="hasSafetyScore && safetyScoreValue > 0"
+                      class="safety-score-chart__cap"
+                      cx="66"
+                      cy="36"
+                      r="3"
+                      :fill="safetyReport.color"
+                    />
+                    <circle
+                      v-if="hasSafetyScore && safetyScoreValue > 0"
+                      class="safety-score-chart__cap"
+                      :cx="safetyScoreEndPoint.x"
+                      :cy="safetyScoreEndPoint.y"
+                      r="3"
+                      :fill="safetyReport.color"
+                    />
+                  </svg>
+                  <div class="safety-score-chart__inner">
+                    <strong>{{ hasSafetyScore ? safetyScoreValue : '-' }}</strong>
+                    <span>/ 100</span>
+                  </div>
                 </div>
-                <span
-                  class="px-2.5 py-0.5 rounded-full border text-xs font-bold"
-                  :class="safetyGradeBadgeClass"
-                >
-                  {{ safetyGradeLabel }} 등급
-                </span>
+
+                <div class="min-w-0 flex-1">
+                  <div class="mb-1 flex items-center gap-2">
+                    <span class="safety-grade-tag">
+                      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                      {{ safetyGradeLabel }}
+                    </span>
+                  </div>
+                  <p class="text-[12px] leading-5 text-slate-500">
+                    주변 안전 시설을 종합해 산출한 귀갓길 점수예요.
+                  </p>
+                </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-3 pt-1">
-                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div class="text-xs text-slate-400 mb-1">경로 50m 내 CCTV</div>
-                  <div class="text-lg font-bold text-emerald-400">
-                    {{ property.cctvCount || 0 }}개
-                  </div>
+              <div class="safety-metric-grid">
+                <div class="safety-metric-card safety-metric-card--cctv">
+                  <i class="fa-solid fa-video" aria-hidden="true"></i>
+                  <span>CCTV</span>
+                  <strong>{{ property.cctvCount || 0 }}개</strong>
                 </div>
-                <div class="p-3 rounded-xl bg-white/5 border border-white/10">
-                  <div class="text-xs text-slate-400 mb-1">
-                    경로 내 가로등/보안등
-                  </div>
-                  <div class="text-lg font-bold text-amber-400">
-                    {{ property.streetLampCount ?? property.streetlightCount ?? 0 }}개
-                  </div>
-                </div>
-              </div>
-
-              <div
-                class="flex items-center justify-between text-xs text-slate-300 pt-1"
-              >
-                <span
-                  >건물 위반건축물 여부:
-                  <strong class="text-white">{{
-                    property.isIllegalBuilding ? '위반' : '정상 (미해당)'
-                  }}</strong></span
-                >
-                <span
-                  >경찰서/파출소:
+                <div class="safety-metric-card safety-metric-card--light">
+                  <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
+                  <span>가로등</span>
                   <strong
-                    :class="property.hasPoliceStation ? 'text-emerald-400' : 'text-rose-400'"
-                    >{{ policeFacilityText }}</strong
-                  ></span
-                >
+                    >{{ property.streetLampCount ?? property.streetlightCount ?? 0 }}개</strong
+                  >
+                </div>
+                <div class="safety-metric-card safety-metric-card--police">
+                  <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+                  <span>파출소</span>
+                  <strong>{{ property.hasPoliceStation ? '근처' : '확인 필요' }}</strong>
+                </div>
               </div>
             </div>
           </section>
@@ -415,27 +421,38 @@ const detailImageUrl = computed(() => {
             class="detail-section-flush detail-section-divider"
             :amenities="amenities"
           />
-          <section class="border-t border-slate-200 pt-5">
-            <h3
-              class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800"
-            >
-              <span aria-hidden="true">🏦</span>
-              맞춤 금융 상품
-            </h3>
-            <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
-              상품을 찾고 있어요...
+          <section class="finance-section border-t border-slate-200 pt-3">
+            <div class="finance-section-header" @click="isLoanOpen = !isLoanOpen">
+              <div class="finance-section-title">
+                <span aria-hidden="true">🏦</span>
+                추천 금융 상품
+              </div>
+              <button
+                type="button"
+                class="finance-toggle-button"
+                :aria-expanded="isLoanOpen"
+                aria-label="맞춤 금융 상품 펼치기"
+                @click.stop="isLoanOpen = !isLoanOpen"
+              >
+                <svg class="finance-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path :d="isLoanOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" />
+                </svg>
+              </button>
             </div>
-            <div
-              v-else-if="loanList.length === 0"
-              class="text-gray-400 text-sm text-center py-8"
-            >
-              추천 가능한 대출 상품이 없습니다.
-            </div>
-            <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
-              <div v-for="item in loanList" :key="item.productName" class="loan-item">
-                <span class="loan-bank-tag">{{ item.companyName }}</span>
-                <p class="loan-item__name">{{ item.productName }}</p>
-                <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+
+            <div v-show="isLoanOpen">
+              <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
+                상품을 찾고 있어요...
+              </div>
+              <div v-else-if="loanList.length === 0" class="text-gray-400 text-sm text-center py-8">
+                추천 가능한 대출 상품이 없습니다.
+              </div>
+              <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
+                <div v-for="item in loanList" :key="item.productName" class="loan-item">
+                  <span class="loan-bank-tag">{{ item.companyName }}</span>
+                  <p class="loan-item__name">{{ item.productName }}</p>
+                  <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+                </div>
               </div>
             </div>
           </section>
@@ -470,9 +487,9 @@ const detailImageUrl = computed(() => {
 }
 
 .detail-community-section {
-  width: calc(100% + 48px);
-  margin: 0 -24px;
-  padding: 14px 24px 16px;
+  width: calc(100% + 24px);
+  margin: 0 -12px;
+  padding: 14px 12px 16px;
   border-top: 1px solid #e2e8f0;
   background: #f5f7fb;
 }
@@ -506,6 +523,228 @@ const detailImageUrl = computed(() => {
   border-top: 0 !important;
 }
 
+.safety-report-card {
+  padding: 0 14px;
+  padding-top: 0;
+}
+
+.safety-report-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.safety-score-chart {
+  position: relative;
+  display: grid;
+  width: 78px;
+  height: 78px;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.safety-score-chart__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform: rotate(-90deg);
+}
+
+.safety-score-chart__track,
+.safety-score-chart__progress {
+  fill: none;
+  stroke-width: 6;
+}
+
+.safety-score-chart__track {
+  stroke: #e6ebf3;
+}
+
+.safety-score-chart__progress {
+  stroke-linecap: round;
+}
+
+.safety-score-chart__cap {
+  pointer-events: none;
+}
+
+.safety-score-chart__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 4%);
+}
+
+.safety-score-chart__inner strong {
+  color: var(--score-color);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.safety-score-chart__inner span {
+  margin-top: 3px;
+  color: #94a3b8;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.safety-grade-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--score-color) 34%, white);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--score-color) 11%, white);
+  color: var(--score-color);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.safety-grade-tag i {
+  font-size: 10px;
+}
+
+.safety-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.safety-metric-card {
+  display: flex;
+  min-width: 0;
+  min-height: 76px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.safety-metric-card i {
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.safety-metric-card span {
+  color: #8b95a7;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.safety-metric-card strong {
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.safety-metric-card--cctv {
+  border-color: #dce5ff;
+  background: #f1f5ff;
+}
+
+.safety-metric-card--cctv i {
+  color: #4f64ff;
+}
+
+.safety-metric-card--light {
+  border-color: #f7e4bd;
+  background: #fffaed;
+}
+
+.safety-metric-card--light i {
+  color: #e69a1d;
+}
+
+.safety-metric-card--police {
+  border-color: #ccecdc;
+  background: #effaf4;
+}
+
+.safety-metric-card--police i {
+  color: #22a06b;
+}
+
+.safety-report-card.is-safe {
+  border-color: #c9eadb;
+}
+
+.safety-report-card.is-caution {
+  border-color: #f5dfb7;
+}
+
+.safety-report-card.is-warning {
+  border-color: #f4cccc;
+}
+
+.finance-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.finance-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.finance-section-title > span:last-child {
+  line-height: 1.2;
+}
+
+.finance-section-title > span:first-child {
+  font-size: 16px;
+}
+
+.finance-toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #222;
+  cursor: pointer;
+}
+
+.finance-toggle-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+}
+
 .loan-scroll-list {
   max-height: 210px;
   padding: 2px;
@@ -517,7 +756,10 @@ const detailImageUrl = computed(() => {
   border: 1px solid #e3e9f5;
   border-radius: 14px;
   background: #f7f9fe;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .loan-item:hover {
@@ -540,7 +782,7 @@ const detailImageUrl = computed(() => {
 
 .loan-item__name {
   margin: 5px 0 0;
-  color: #1f2b3a;
+  color: #1e293b;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
