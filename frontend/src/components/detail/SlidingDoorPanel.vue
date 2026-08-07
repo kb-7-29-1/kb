@@ -3,8 +3,10 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { formatPropertyPriceDetail } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
+import SafetyModal from '@/components/detail/SafetyModal.vue';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import api from '@/api/api.js';
+import safetyService from '@/api/safetyService.js';
 
 const authStore = useAuthStore();
 
@@ -17,6 +19,9 @@ const age = computed(() => {
 const loanList = ref([]);
 const loanListLoading = ref(false);
 const isLoanOpen = ref(false);
+const isSafetyModalOpen = ref(false);
+const safetyDetails = ref(null);
+const isSafetyDetailsLoading = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -31,6 +36,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  destination: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['close', 'toggle-bookmark']);
@@ -40,6 +49,9 @@ const detailSessionKey = ref(0);
 
 const resetDetailView = async () => {
   isLoanOpen.value = false;
+  isSafetyModalOpen.value = false;
+  safetyDetails.value = null;
+  isSafetyDetailsLoading.value = false;
   detailSessionKey.value += 1;
   await nextTick();
   detailScrollRef.value?.scrollTo({ top: 0 });
@@ -143,6 +155,29 @@ const fetchLoanList = async () => {
     loanList.value = [];
   } finally {
     loanListLoading.value = false;
+  }
+};
+
+const openSafetyModal = async () => {
+  isSafetyModalOpen.value = true;
+  safetyDetails.value = null;
+  if (!props.property || !props.destination?.lat || !props.destination?.lng) return;
+
+  isSafetyDetailsLoading.value = true;
+  try {
+    safetyDetails.value = await safetyService.getSafetyDetails({
+      propertyId: props.property.propertyId,
+      propertyName: props.property.title || props.property.address,
+      destinationId: props.destination.id || null,
+      destinationName: props.destination.name,
+      destinationAddress: props.destination.address,
+      destinationLatitude: props.destination.lat,
+      destinationLongitude: props.destination.lng,
+    });
+  } catch (error) {
+    console.error('SAFETY DETAIL CALCULATION ERROR:', error);
+  } finally {
+    isSafetyDetailsLoading.value = false;
   }
 };
 
@@ -334,16 +369,30 @@ const detailImageUrl = computed(() => {
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
           <section class="border-t border-slate-200 pt-4">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
-              <span aria-hidden="true">💡</span>
-              귀갓길 안전 점수
-            </h3>
+
+            <!-- 타이틀과 버튼을 양옆으로 배치 (flex justify-between) -->
+            <div class="mb-3 flex items-start justify-between">
+              <h3 class="flex items-center gap-1.5 text-[15px] font-bold text-slate-800 mt-1">
+                <span aria-hidden="true">💡</span>
+                귀갓길 안전 점수
+              </h3>
+
+              <!-- image_56c273.png 스타일의 모달 오픈 버튼 -->
+              <button
+                  type="button"
+                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-[12px] leading-tight text-slate-500 transition-colors hover:bg-slate-50"
+                  @click="openSafetyModal"
+              >
+                <span class="block">안전 점수는 어떻게 산출되나요?</span>
+              </button>
+            </div>
+
             <div
-              class="safety-report-card"
-              :class="`is-${safetyReport.tone}`"
-              :style="{
-                '--score-color': safetyReport.color,
-              }"
+                class="safety-report-card"
+                :class="`is-${safetyReport.tone}`"
+                :style="{
+      '--score-color': safetyReport.color,
+    }"
             >
               <div class="safety-report-summary">
                 <div class="safety-score-chart">
@@ -466,6 +515,15 @@ const detailImageUrl = computed(() => {
         </div>
       </div>
     </aside>
+
+    <SafetyModal
+      v-if="isSafetyModalOpen"
+      :property="property"
+      :safety-breakdown="safetyDetails?.selectedRoute?.breakdown"
+      :safety-route="safetyDetails?.selectedRoute"
+      :is-calculating="isSafetyDetailsLoading"
+      @close="isSafetyModalOpen = false"
+    />
   </div>
 </template>
 
