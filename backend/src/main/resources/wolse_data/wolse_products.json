@@ -1,0 +1,32 @@
+[
+  {
+    "type": "청년",
+    "companyName": "주택도시기금 (KB국민은행 등 수탁은행 취급)",
+    "productName": "청년전용 보증부 월세대출",
+    "rateInfo": "보증금 연 1.30% / 월세금 연 0%(20만원까지)~1.00%(20만원 초과)",
+    "target": "만 19~34세 청년, 무주택 세대주 (보증금 6,500만원·월세 70만원 이하)",
+    "monthlyLimitAmount": 50,
+    "totalLimitText": "보증금 최대 4500만원, 월세 최대 1200만원이내",
+    "applyMethod": "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
+  },
+  {
+    "type": "시니어",
+    "companyName": "국민연금공단",
+    "productName": "노후긴급자금대부",
+    "rateInfo": "연 2.92% (변동금리), 연 5.84% (연체이자율)",
+    "target": "만 60세 이상 국민연금수급자 (노령·분할·유족·장애1~3급)",
+    "monthlyLimitAmount": null,
+    "totalLimitText": "최대 1,000만원 (연간 연금수령액 2배 이내)",
+    "applyMethod": "국민연금공단 지사 또는 상담센터 방문"
+  },
+  {
+    "type": "일반",
+    "companyName": "주택도시기금 (KB국민은행 등 수탁은행 취급)",
+    "productName": "주거안정월세대출",
+    "rateInfo": "연 1.30%(우대형) ~ 1.80%(일반형)",
+    "target": "자세한 자격요건은 주택도시기금 기금 e 든든에서 확인해주세요",
+    "monthlyLimitAmount": 60,
+    "totalLimitText": "최대 1,440만원 한도(매월 60만원 이내, 최장 10년)",
+    "applyMethod": "기금e든든(enhuf.molit.go.kr) 또는 KB국민은행 등 방문"
+  }
+]
