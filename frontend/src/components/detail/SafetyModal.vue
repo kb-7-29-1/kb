@@ -10,10 +10,10 @@
       </header>
 
       <!-- 총점 영역 -->
-      <section class="score-section">
+      <section class="score-section" :style="{ backgroundColor: safetyScoreTheme.background }">
         <div class="score-headline">
-          <span class="score-number">{{ safetyScore === null ? '-' : `${safetyScore}점` }}</span>
-          <span class="score-status"> · {{ safetyGrade }}</span>
+          <span class="score-number" :style="{ color: safetyScoreTheme.color }">{{ safetyScore === null ? '-' : `${safetyScore}점` }}</span>
+          <span class="score-status" :style="{ color: safetyScoreTheme.color }"> · {{ safetyGrade }}</span>
         </div>
         <p class="score-description">기관과 안전 데이터를 종합한 점수예요.</p>
       </section>
@@ -37,7 +37,7 @@
           <!-- CCTV -->
           <li class="factor-item">
             <div class="icon-wrap bg-purple purple-text">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 19 2 12 11 5 11 19"></polygon><path d="M22 12h-4l-3-3v6l3-3z"></path></svg>
+              <i class="fa-solid fa-video" aria-hidden="true"></i>
             </div>
             <div class="info-content">
               <div class="info-title">CCTV 분포</div>
@@ -51,7 +51,7 @@
           <!-- 가로등 -->
           <li class="factor-item">
             <div class="icon-wrap bg-yellow yellow-text">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18c-2 0-3-1-3-3V9c0-1.66 1.34-3 3-3s3 1.34 3 3v6c0 2-1 3-3 3z"></path><path d="M9 2v4"></path><path d="M9 18v4"></path><path d="M6 22h6"></path></svg>
+              <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
             </div>
             <div class="info-content">
               <div class="info-title">가로등 분포</div>
@@ -65,7 +65,7 @@
           <!-- 치안시설 -->
           <li class="factor-item">
             <div class="icon-wrap bg-green green-text">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><circle cx="12" cy="11" r="3"></circle></svg>
+              <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
             </div>
             <div class="info-content">
               <div class="info-title">치안시설 접근성</div>
@@ -131,6 +131,13 @@ const safetyGrade = computed(() => {
   if (safetyScore.value >= 80) return '안심';
   if (safetyScore.value >= 60) return '보통';
   return '주의 필요';
+});
+
+const safetyScoreTheme = computed(() => {
+  if (safetyScore.value === null) return { color: '#64748b', background: '#f1f5f9' };
+  if (safetyScore.value >= 80) return { color: '#22a06b', background: '#ecfdf3' };
+  if (safetyScore.value >= 60) return { color: '#e69a1d', background: '#fff7e8' };
+  return { color: '#e25858', background: '#fff1f2' };
 });
 
 const cctvCount = computed(() => props.property?.cctvCount ?? 0);
@@ -277,6 +284,13 @@ const hasPoliceStation = computed(() => Boolean(props.property?.hasPoliceStation
   justify-content: center;
   align-items: center;
   flex-shrink: 0;
+}
+
+.icon-wrap .fa-solid {
+  font-family: "Font Awesome 7 Free" !important;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .small-icon {
