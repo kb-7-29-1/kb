@@ -33,10 +33,6 @@ public class PropertyServiceImpl implements PropertyService {
         } catch (Exception e) {
             log.error("DB property search error: {}", e.getMessage(), e);
         }
-        return Collections.emptyList();
-        } catch (Exception exception) {
-            exception.printStackTrace();
-        }
 
         /*
          * 목적지별 안전점수는 property_safety의 실제 property_id가 필요합니다.
@@ -51,34 +47,26 @@ public class PropertyServiceImpl implements PropertyService {
         Double centerLng = cond != null ? cond.getLng() : null;
         return publicDataApiService.getGwangjinMonthlyProperties(
                 centerLat,
-                centerLng
-        );
+                centerLng);
     }
 
     @Override
-    @Cacheable(
-            value = "propertyDetail",
-            key = "#propertyId + '_' + "
-                    + "(#destinationId != null ? #destinationId : 0) + '_' + "
-                    + "(#userId != null ? #userId : 0)"
-    )
+    @Cacheable(value = "propertyDetail", key = "#propertyId + '_' + "
+            + "(#destinationId != null ? #destinationId : 0) + '_' + "
+            + "(#userId != null ? #userId : 0)")
     public PropertyDetailDTO getPropertyDetail(
             Long propertyId,
             Integer destinationId,
-            Long userId
-    ) {
+            Long userId) {
         PropertyDetailDTO detail = propertyMapper.selectPropertyDetail(
                 propertyId,
                 destinationId,
-                userId
-        );
+                userId);
         if (detail != null) {
             detail.setImageUrls(
-                    propertyMapper.selectPropertyImageUrls(propertyId)
-            );
+                    propertyMapper.selectPropertyImageUrls(propertyId));
             detail.setTags(
-                    propertyMapper.selectPropertyTags(propertyId)
-            );
+                    propertyMapper.selectPropertyTags(propertyId));
         }
         return detail;
     }
