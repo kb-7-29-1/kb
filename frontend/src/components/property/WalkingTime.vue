@@ -130,13 +130,13 @@ const getProgressWidth = (walkingTime) => {
   align-items: center;
   gap: 6px;
 
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #1e293b;
 }
 
 .title-icon {
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .toggle-button {

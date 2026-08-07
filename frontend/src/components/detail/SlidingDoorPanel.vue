@@ -16,7 +16,7 @@ const age = computed(() => {
 
 const loanList = ref([]);
 const loanListLoading = ref(false);
-const isLoanOpen = ref(true);
+const isLoanOpen = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -38,17 +38,18 @@ const emit = defineEmits(['close', 'toggle-bookmark']);
 const detailScrollRef = ref(null);
 const detailSessionKey = ref(0);
 
+const resetDetailView = async () => {
+  isLoanOpen.value = false;
+  detailSessionKey.value += 1;
+  await nextTick();
+  detailScrollRef.value?.scrollTo({ top: 0 });
+};
+
 watch(
   () => props.isOpen,
-  async (isOpen, wasOpen) => {
+  (isOpen, wasOpen) => {
     if (!isOpen || wasOpen) return;
-
-    detailSessionKey.value += 1;
-    await nextTick();
-
-    if (detailScrollRef.value) {
-      detailScrollRef.value.scrollTop = 0;
-    }
+    resetDetailView();
   },
 );
 
@@ -119,7 +120,15 @@ const fetchLoanList = async () => {
   }
 };
 
-watch(() => props.property?.propertyId, fetchLoanList, { immediate: true });
+watch(
+  () => props.property?.propertyId,
+  (propertyId) => {
+    if (!propertyId) return;
+    resetDetailView();
+    fetchLoanList();
+  },
+  { immediate: true },
+);
 
 const SAMPLE_PROPERTY_IMAGES = [
   'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
@@ -150,12 +159,12 @@ const detailImageUrl = computed(() => {
 
     <!-- 420px Slide-Over Panel (슬림형 가로폭 조정) -->
     <aside
-      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
+      class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] overflow-x-hidden bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
       :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
     >
       <!-- 패널 상단 헤더 -->
       <div
-        class="min-h-[68px] px-5 pt-4 pb-2.5 flex items-center justify-between gap-3 bg-white shrink-0"
+        class="min-h-[68px] px-6 pt-4 pb-2.5 flex items-center justify-between gap-3 bg-white shrink-0"
       >
         <div v-if="property" class="min-w-0">
           <div class="mb-1.5 flex items-center gap-1.5">
@@ -221,12 +230,12 @@ const detailImageUrl = computed(() => {
       <div
         v-if="property"
         ref="detailScrollRef"
-        class="property-detail-scroll min-h-0 flex-1 overflow-y-auto"
+        class="property-detail-scroll min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
       >
-        <div class="flex min-h-full flex-col gap-4 p-3 py-0">
+        <div class="flex min-h-full flex-col gap-4 p-4 py-0">
           <!-- 매물 갤러리/대표 사진 -->
           <div
-            class="relative h-64 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
+            class="relative h-60 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
           >
             <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
             <!-- 하드코딩된 사진 개수 뱃지 주석 처리 -->
@@ -239,26 +248,6 @@ const detailImageUrl = computed(() => {
 
           <!-- 가격 및 타이틀 -->
           <div>
-            <div class="hidden items-center gap-2 mb-1.5">
-              <span
-                class="px-2.5 py-1 rounded-md text-xs font-bold bg-blue-50 text-blue-600 border border-blue-200"
-              >
-                {{ property.buildingType === 3 ? '오피스텔' : '빌라/연립' }}
-              </span>
-              <span
-                class="px-2.5 py-1 rounded-md text-xs font-bold border"
-                :class="safetyScoreClass"
-              >
-                안전지수 {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
-              </span>
-              <span
-                v-if="property.dealCount && property.dealCount > 1"
-                class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200"
-              >
-                🏢 동일 건물 실거래 {{ property.dealCount }}건
-              </span>
-            </div>
-
             <h1
               class="mb-1 text-[21px] font-extrabold tracking-tight text-slate-800 sm:text-[22px]"
             >
@@ -270,14 +259,14 @@ const detailImageUrl = computed(() => {
           </div>
 
           <!-- 건물 안전 정보 -->
-          <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[16px] font-bold text-slate-800">
+          <section class="border-t border-slate-200 pt-3">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">🏢</span>
               건물 안전 정보
             </h3>
             <div class="grid grid-cols-2 gap-3">
               <div
-                class="flex min-h-[104px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[124px]"
+                class="flex min-h-[110px] flex-col items-center justify-center rounded-xl border px-4 py-3 text-center md:min-h-[110px]"
                 :class="
                   property.isIllegalBuilding
                     ? 'border-rose-200 bg-rose-50'
@@ -318,8 +307,8 @@ const detailImageUrl = computed(() => {
           </section>
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
-          <section class="border-t border-slate-200 pt-5">
-            <h3 class="mb-3 flex items-center gap-1.5 text-[16px] font-bold text-slate-800">
+          <section class="border-t border-slate-200 pt-3">
+            <h3 class="mb-3 flex items-center gap-1.5 text-[15px] font-bold text-slate-800">
               <span aria-hidden="true">💡</span>
               귀갓길 안전 점수
             </h3>
@@ -443,9 +432,9 @@ const detailImageUrl = computed(() => {
 }
 
 .detail-community-section {
-  width: calc(100% + 48px);
-  margin: 0 -24px;
-  padding: 14px 24px 16px;
+  width: calc(100% + 24px);
+  margin: 0 -12px;
+  padding: 14px 12px 16px;
   border-top: 1px solid #e2e8f0;
   background: #f5f7fb;
 }
@@ -492,7 +481,7 @@ const detailImageUrl = computed(() => {
   align-items: center;
   gap: 6px;
   color: #1e293b;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
 }
 
