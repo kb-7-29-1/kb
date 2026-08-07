@@ -27,7 +27,9 @@ const props = defineProps({
 
 const minSafetyScore = ref(40);
 const depositOptions = DEPOSIT_OPTIONS;
-const depositIndex = ref(depositOptions.length - 1);
+const depositMinIndex = ref(0);
+const depositMaxIndex = ref(depositOptions.length - 1);
+const minRentStart = ref(RENT_MIN);
 const maxRent = ref(120);
 const selectedLoanId = ref('NONE');
 const transportMode = ref('walk');
@@ -94,9 +96,20 @@ const rangeStyle = (value, min, max, color = '#3d55f6') => {
   };
 };
 
-const maxDeposit = computed(() => depositOptions[depositIndex.value]);
-const depositLabel = computed(() => formatDepositAmount(maxDeposit.value));
-const rentLabel = computed(() => `${maxRent.value}만원`);
+const dualRangeStyle = (minVal, maxVal, min, max, color = '#3d55f6') => {
+  const minPercent = ((minVal - min) / (max - min)) * 100;
+  const maxPercent = ((maxVal - min) / (max - min)) * 100;
+  return {
+    background: `linear-gradient(to right, #e5e7eb 0%, #e5e7eb ${minPercent}%, ${color} ${minPercent}%, ${color} ${maxPercent}%, #e5e7eb ${maxPercent}%, #e5e7eb 100%)`,
+  };
+};
+
+const minDeposit = computed(() => depositOptions[depositMinIndex.value]);
+const maxDeposit = computed(() => depositOptions[depositMaxIndex.value]);
+const depositRangeLabel = computed(
+  () => `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
+);
+const rentRangeLabel = computed(() => `${minRentStart.value}만원 ~ ${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
   () =>
@@ -151,6 +164,27 @@ const scheduleSearch = (value) => {
   }, 300);
 };
 
+const onDepositMinInput = () => {
+  if (depositMinIndex.value > depositMaxIndex.value) {
+    depositMinIndex.value = depositMaxIndex.value;
+  }
+};
+const onDepositMaxInput = () => {
+  if (depositMaxIndex.value < depositMinIndex.value) {
+    depositMaxIndex.value = depositMinIndex.value;
+  }
+};
+const onRentMinInput = () => {
+  if (minRentStart.value > maxRent.value) {
+    minRentStart.value = maxRent.value;
+  }
+};
+const onRentMaxInput = () => {
+  if (maxRent.value < minRentStart.value) {
+    maxRent.value = minRentStart.value;
+  }
+};
+
 watch(
   [() => props.onboarding, () => props.appliedFilters],
   ([onboarding, appliedFilters]) => {
@@ -159,9 +193,13 @@ watch(
 
     selectedDestination.value = appliedFilters?.destination ?? null;
 
-    const savedDepositIndex = depositOptions.indexOf(Number(filters.budgetDeposit));
-    if (savedDepositIndex >= 0) depositIndex.value = savedDepositIndex;
+    const savedMinIndex = depositOptions.indexOf(Number(filters.budgetDepositMin));
+    if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
 
+    const savedMaxIndex = depositOptions.indexOf(Number(filters.budgetDeposit));
+    if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
+
+    minRentStart.value = Number(filters.budgetRentMin ?? RENT_MIN);
     maxRent.value = Number(filters.budgetRent);
     minSafetyScore.value = Number(filters.minSafetyScore);
     transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
@@ -180,9 +218,14 @@ const resetFilters = () => {
 
   if (!onboarding) return;
 
-  const savedDepositIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
-  if (savedDepositIndex >= 0) depositIndex.value = savedDepositIndex;
+  const savedMinIndex = depositOptions.indexOf(Number(onboarding.budgetDepositMin));
+  if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
+  else depositMinIndex.value = 0;
 
+  const savedMaxIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
+  if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
+
+  minRentStart.value = Number(onboarding.budgetRentMin ?? RENT_MIN);
   maxRent.value = Number(onboarding.budgetRent);
   minSafetyScore.value = Number(onboarding.minSafetyScore);
   transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
@@ -195,7 +238,9 @@ const getFilters = () => ({
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
+  budgetDepositMin: minDeposit.value,
   budgetDeposit: maxDeposit.value,
+  budgetRentMin: minRentStart.value,
   budgetRent: maxRent.value,
   minSafetyScore: minSafetyScore.value,
   selectedLoanId: selectedLoanId.value,
@@ -285,17 +330,33 @@ onBeforeUnmount(() => {
     <div class="filter-section">
       <div class="section-heading">
         <p>
-          보증금 <strong>{{ depositLabel }}</strong> 이하
+          보증금 <strong>{{ depositRangeLabel }}</strong>
         </p>
       </div>
-      <input
-        v-model.number="depositIndex"
-        type="range"
-        min="0"
-        :max="depositOptions.length - 1"
-        step="1"
-        :style="rangeStyle(depositIndex, 0, depositOptions.length - 1)"
-      />
+      <div class="dual-range-track">
+        <div
+          class="dual-range-track__fill"
+          :style="dualRangeStyle(depositMinIndex, depositMaxIndex, 0, depositOptions.length - 1)"
+        ></div>
+        <input
+          v-model.number="depositMinIndex"
+          type="range"
+          min="0"
+          :max="depositOptions.length - 1"
+          step="1"
+          class="range-min"
+          @input="onDepositMinInput"
+        />
+        <input
+          v-model.number="depositMaxIndex"
+          type="range"
+          min="0"
+          :max="depositOptions.length - 1"
+          step="1"
+          class="range-max"
+          @input="onDepositMaxInput"
+        />
+      </div>
       <div class="range-labels">
         <span>{{ DEPOSIT_MIN_LABEL }}</span
         ><span>{{ DEPOSIT_MAX_LABEL }}</span>
@@ -305,17 +366,33 @@ onBeforeUnmount(() => {
     <div class="filter-section">
       <div class="section-heading">
         <p>
-          월세 <strong>{{ rentLabel }}</strong> 이하
+          월세 <strong>{{ rentRangeLabel }}</strong>
         </p>
       </div>
-      <input
-        v-model.number="maxRent"
-        type="range"
-        :min="RENT_MIN"
-        :max="RENT_MAX"
-        :step="RENT_STEP"
-        :style="rangeStyle(maxRent, RENT_MIN, RENT_MAX)"
-      />
+      <div class="dual-range-track">
+        <div
+          class="dual-range-track__fill"
+          :style="dualRangeStyle(minRentStart, maxRent, RENT_MIN, RENT_MAX)"
+        ></div>
+        <input
+          v-model.number="minRentStart"
+          type="range"
+          :min="RENT_MIN"
+          :max="RENT_MAX"
+          :step="RENT_STEP"
+          class="range-min"
+          @input="onRentMinInput"
+        />
+        <input
+          v-model.number="maxRent"
+          type="range"
+          :min="RENT_MIN"
+          :max="RENT_MAX"
+          :step="RENT_STEP"
+          class="range-max"
+          @input="onRentMaxInput"
+        />
+      </div>
       <div class="range-labels">
         <span>{{ RENT_MIN_LABEL }}</span
         ><span>{{ RENT_MAX_LABEL }}</span>
@@ -583,6 +660,49 @@ input[type='range']::-moz-range-thumb {
   margin-top: 8px;
   color: #a1a8b5;
   font-size: 10px;
+}
+
+.dual-range-track {
+  position: relative;
+  height: 17px; /* 썸 클릭 영역 확보용, 시각적 두께 아님 */
+}
+
+.dual-range-track__fill {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px; /* 기존 단일 슬라이더와 동일한 두께 */
+  border-radius: 999px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.dual-range-track input[type='range'] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 17px;
+  margin: 0;
+  background: transparent; /* 트랙 배경은 __fill이 담당하므로 투명 처리 */
+  pointer-events: none;
+}
+
+.dual-range-track input[type='range']::-webkit-slider-thumb {
+  pointer-events: auto;
+}
+
+.dual-range-track input[type='range']::-moz-range-thumb {
+  pointer-events: auto;
+}
+
+.dual-range-track .range-max {
+  z-index: 2;
+}
+
+.dual-range-track .range-min {
+  z-index: 1;
 }
 
 .transport-options {
