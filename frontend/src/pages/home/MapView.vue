@@ -471,6 +471,25 @@ const visibleProperties = computed(() =>
     : amenityFilteredProperties.value,
 );
 
+const clearSelectedProperty = () => {
+  selectedProperty.value = null;
+  selectedPropertyDetailAmenities.value = [];
+  isPanelOpen.value = false;
+};
+
+watch(
+  [visibleProperties, selectedProperty, isMapAnalysisLoading],
+  ([nextProperties, currentProperty, isLoading]) => {
+    if (!currentProperty || isLoading) return;
+
+    const isStillVisible = nextProperties.some(
+      (property) => Number(property.propertyId) === Number(currentProperty.propertyId),
+    );
+
+    if (!isStillVisible) clearSelectedProperty();
+  },
+);
+
 const shouldHideAmenityPins = computed(
   () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
 );
