@@ -5,22 +5,39 @@
 
 <mapper namespace="com.salgosipo.safety.mapper.SafetyMapper">
 
+    <sql id="propertySafetyColumns">
+        property_id AS propertyId,
+        destination_id AS destinationId,
+        safety_score AS safetyScore,
+        cctv_count AS cctvCount,
+        street_lamp_count AS streetLampCount,
+        has_police_station AS hasPoliceStation,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+    </sql>
+
     <!-- property_id + destination_id 조합의 기존 계산 결과 조회 -->
     <select id="selectPropertySafety"
             resultType="com.salgosipo.safety.domain.PropertySafetyVO">
         SELECT
-            property_id AS propertyId,
-            destination_id AS destinationId,
-            safety_score AS safetyScore,
-            cctv_count AS cctvCount,
-            street_lamp_count AS streetLampCount,
-            has_police_station AS hasPoliceStation,
-            created_at AS createdAt,
-            updated_at AS updatedAt
+            <include refid="propertySafetyColumns"/>
         FROM property_safety
         WHERE property_id = #{propertyId}
           AND destination_id = #{destinationId}
         LIMIT 1
+    </select>
+
+    <!-- 메인 화면에 표시할 여러 매물의 캐시를 한 번에 조회 -->
+    <select id="selectPropertySafetyBatch"
+            resultType="com.salgosipo.safety.domain.PropertySafetyVO">
+        SELECT
+            <include refid="propertySafetyColumns"/>
+        FROM property_safety
+        WHERE destination_id = #{destinationId}
+          AND property_id IN
+        <foreach collection="propertyIds" item="propertyId" open="(" separator="," close=")">
+            #{propertyId}
+        </foreach>
     </select>
 
     <!-- 안전경로 출발점으로 사용할 실제 매물 좌표 -->
@@ -35,6 +52,22 @@
         WHERE property_id = #{propertyId}
           AND del_yn = 'N'
         LIMIT 1
+    </select>
+
+    <!-- 캐시가 없는 여러 매물의 좌표를 한 번에 조회 -->
+    <select id="selectPropertyCoordinates"
+            resultType="com.salgosipo.safety.domain.SafetyPropertyCoordinateVO">
+        SELECT
+            property_id AS propertyId,
+            address AS address,
+            property_latitude AS latitude,
+            property_longitude AS longitude
+        FROM properties
+        WHERE del_yn = 'N'
+          AND property_id IN
+        <foreach collection="propertyIds" item="propertyId" open="(" separator="," close=")">
+            #{propertyId}
+        </foreach>
     </select>
 
     <!-- destinationId가 전달된 경우 DB 좌표를 사용 -->
