@@ -46,4 +46,16 @@ public class PublicDataSyncServiceTest {
         int totalUpdated = publicDataSyncService.updateAllDbGeocodes();
         log.info("Full DB Geocodes Update Completed! Total Updated Properties: {}", totalUpdated);
     }
+
+    /**
+     * DB 전체 매물 주소 완전 일치 기반 50스레드 병렬 가동으로 대장 안전 정보 1초컷 일괄 DB 갱신
+     * 실행 방법:
+     * cd backend; .\gradlew test --tests com.salgosipo.property.service.PublicDataSyncServiceTest.syncBuildingRegister50ThreadsTest
+     */
+    @Test
+    public void syncBuildingRegister50ThreadsTest() {
+        log.info("Starting 50-Thread Parallel Building Register & Safety Update Test...");
+        int totalUpdated = publicDataSyncService.syncBuildingRegister50Threads();
+        log.info("50-Thread Sync Test Completed! Total Updated Properties: {}", totalUpdated);
+    }
 }
