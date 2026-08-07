@@ -6,6 +6,8 @@ import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
+
+import RouteFeedbackCard from '@/components/map/RouteFeedbackCard.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
 import AmenityDetailFilterPanel from '@/components/map/AmenityDetailFilterPanel.vue';
 import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
@@ -1279,7 +1281,7 @@ const {
       class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1"
     >
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
-      <div class="absolute top-4 left-4 z-30 pointer-events-none">
+      <div class="absolute top-4 left-4 z-30 flex flex-col items-start gap-3 pointer-events-none">
         <MapQuickFilterBar
           v-model="filterState"
           :total-count="visibleProperties.length"
@@ -1288,6 +1290,11 @@ const {
           @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
           @reset="handleResetFilters"
+        />
+        <RouteFeedbackCard
+          v-if="isPanelOpen && selectedProperty"
+          :key="selectedProperty.propertyId"
+          class="pointer-events-auto"
         />
       </div>
 
