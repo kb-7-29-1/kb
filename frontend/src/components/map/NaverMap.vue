@@ -106,7 +106,7 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
 
   return `
     <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
-      <div class="relative z-10 flex w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
+      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
         <span class="shrink-0 text-violet-600">${icon}</span>
         <span class="shrink-0">${amenity.amenityName || ''}</span>
         ${detailBadge}
