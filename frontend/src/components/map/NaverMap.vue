@@ -63,6 +63,11 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  // 백엔드가 TMAP/DB 캐시에서 반환한 선택 매물의 안전 경로
+  safetyRoute: {
+    type: Object,
+    default: null,
+  },
 });
 
 const emit = defineEmits(['select-property', 'change-destination']);
@@ -121,6 +126,75 @@ const activePropertyMarkersMap = new Map();
 let activeDestMarker = null;
 const destinationMarkers = new Set();
 let pendingRenderFrame = null;
+let safetyRoutePolyline = null;
+let lastSafetyRouteKey = '';
+
+const clearSafetyRoutePolyline = () => {
+  if (safetyRoutePolyline) {
+    safetyRoutePolyline.setMap(null);
+    safetyRoutePolyline = null;
+  }
+  lastSafetyRouteKey = '';
+};
+
+const renderSafetyRoute = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  const rawPoints = props.safetyRoute?.routePoints;
+  if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
+    clearSafetyRoutePolyline();
+    return;
+  }
+
+  const points = rawPoints
+    .map((point) => ({
+      lat: Number(point.latitude),
+      lng: Number(point.longitude),
+    }))
+    .filter(
+      (point) =>
+        Number.isFinite(point.lat) &&
+        Number.isFinite(point.lng) &&
+        point.lat >= -90 &&
+        point.lat <= 90 &&
+        point.lng >= -180 &&
+        point.lng <= 180,
+    );
+
+  if (points.length < 2) {
+    clearSafetyRoutePolyline();
+    return;
+  }
+
+  const first = points[0];
+  const last = points[points.length - 1];
+  const routeKey = `${props.safetyRoute?.routeId || 'route'}_${points.length}_${first.lat}_${first.lng}_${last.lat}_${last.lng}`;
+  if (safetyRoutePolyline && routeKey === lastSafetyRouteKey) return;
+
+  if (safetyRoutePolyline) {
+    safetyRoutePolyline.setMap(null);
+  }
+
+  const path = points.map(
+    (point) => new window.naver.maps.LatLng(point.lat, point.lng),
+  );
+
+  safetyRoutePolyline = new window.naver.maps.Polyline({
+    map: mapInstance.value,
+    path,
+    strokeColor: '#4058f5',
+    strokeWeight: 7,
+    strokeOpacity: 0.92,
+    strokeStyle: 'solid',
+    zIndex: 18,
+  });
+  lastSafetyRouteKey = routeKey;
+
+  // 매물 클릭 직후 전체 TMAP 경로가 한 화면에 들어오도록 카메라를 맞춥니다.
+  const bounds = new window.naver.maps.LatLngBounds(path[0], path[0]);
+  path.slice(1).forEach((latLng) => bounds.extend(latLng));
+  mapInstance.value.fitBounds(bounds);
+};
 
 const clearDestinationMarkers = () => {
   destinationMarkers.forEach((marker) => marker.setMap(null));
@@ -390,6 +464,7 @@ const initMap = () => {
 
       renderMarkers();
       renderAmenityMarkers();
+      renderSafetyRoute();
       setupResizeObserver();
       checkDistanceToDestination();
     } catch (e) {
@@ -521,6 +596,12 @@ watch(
   { deep: true },
 );
 
+watch(
+  () => props.safetyRoute,
+  () => renderSafetyRoute(),
+  { deep: true },
+);
+
 // 도보/대중교통 이동시간 최대 원 범위에 맞추어 지도 줌/카메라 범위 자동 조율
 const fitToIsochroneRadius = () => {
   if (
@@ -610,6 +691,7 @@ onUnmounted(() => {
   activePropertyMarkersMap.clear();
   clearDestinationMarkers();
   clearAmenityMarkers();
+  clearSafetyRoutePolyline();
   clearPendingDestinationOverlay();
   if (resizeObserver) {
     resizeObserver.disconnect();

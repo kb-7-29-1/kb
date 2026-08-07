@@ -90,6 +90,14 @@ const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 const selectedPropertyDetailAmenities = ref([]);
 
+// 선택 매물의 TMAP 안전 경로 상태
+// selectedSafetyRoute.routePoints를 NaverMap에 전달해 실제 폴리라인을 그립니다.
+const selectedSafetyRoute = ref(null);
+const selectedSafetyRouteMeta = ref(null);
+const isSafetyRouteLoading = ref(false);
+const safetyRouteError = ref('');
+let safetyRouteRequestSequence = 0;
+
 // 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
@@ -382,6 +390,17 @@ const clearAmenitiesForDestinationChange = () => {
   selectedPropertyDetailAmenities.value = [];
   filterState.value.selectedAmenities = [];
   isAmenityDetailFilterOpen.value = false;
+
+  // 목적지가 바뀌면 같은 매물이라도 캐시 키와 실제 TMAP 경로가 달라지므로
+  // 이전 목적지의 선택/경로를 즉시 제거합니다.
+  safetyRouteRequestSequence += 1;
+  selectedProperty.value = null;
+  selectedSafetyRoute.value = null;
+  selectedSafetyRouteMeta.value = null;
+  safetyRouteError.value = '';
+  isSafetyRouteLoading.value = false;
+  isPanelOpen.value = false;
+
   emit('apply-amenity-filters', []);
 };
 
@@ -778,8 +797,14 @@ const visibleProperties = computed(() =>
 );
 
 const clearSelectedProperty = () => {
+  // 진행 중인 이전 매물 경로 요청의 응답이 늦게 도착해도 화면에 반영되지 않게 무효화합니다.
+  safetyRouteRequestSequence += 1;
   selectedProperty.value = null;
   selectedPropertyDetailAmenities.value = [];
+  selectedSafetyRoute.value = null;
+  selectedSafetyRouteMeta.value = null;
+  safetyRouteError.value = '';
+  isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
 };
 
@@ -801,10 +826,96 @@ const shouldHideAmenityPins = computed(
   () => activeAmenityFilters.value.length > 0 && amenityFilterLoading.value,
 );
 
+const syncSafetySummaryToProperty = (propertyId, response) => {
+  const safetySummary = {
+    safetyScore: response?.safetyScore ?? null,
+    safetyGrade: response?.safetyGrade ?? null,
+    cctvCount: response?.cctvCount ?? 0,
+    streetLampCount: response?.streetLampCount ?? 0,
+    streetlightCount: response?.streetLampCount ?? 0,
+    hasPoliceStation: response?.hasPoliceStation ?? false,
+    safetyStatus: response?.cacheHit ? 'CACHED' : 'CALCULATED',
+    safetyMessage: response?.message ?? '',
+  };
+
+  properties.value = properties.value.map((item) =>
+    Number(item.propertyId) === Number(propertyId)
+      ? { ...item, ...safetySummary }
+      : item,
+  );
+
+  if (Number(selectedProperty.value?.propertyId) === Number(propertyId)) {
+    selectedProperty.value = {
+      ...selectedProperty.value,
+      ...safetySummary,
+    };
+  }
+};
+
+/**
+ * 매물 클릭 -> DB 캐시 조회 -> 캐시 미스일 때만 TMAP 계산 -> 경로 반환.
+ * 백엔드가 cacheHit 여부를 결정하므로 프론트는 항상 같은 API만 호출하면 됩니다.
+ */
+const loadSafetyRouteForProperty = async (property) => {
+  const requestId = ++safetyRouteRequestSequence;
+  selectedSafetyRoute.value = null;
+  selectedSafetyRouteMeta.value = null;
+  safetyRouteError.value = '';
+  isSafetyRouteLoading.value = true;
+
+  const destination = destinationConfig.value;
+
+  try {
+    const response = await safetyService.getSafetyRoute({
+      propertyId: Number(property.propertyId),
+      propertyName: property.address || property.propertyName || '선택 매물',
+      destinationId:
+        Number(appliedFilterState.value.destinationId || destination.id) || null,
+      destinationName: destination.name,
+      destinationAddress: destination.address,
+      destinationLatitude: Number(destination.lat),
+      destinationLongitude: Number(destination.lng),
+    });
+
+    if (
+      requestId !== safetyRouteRequestSequence ||
+      Number(selectedProperty.value?.propertyId) !== Number(property.propertyId)
+    ) {
+      return;
+    }
+
+    const route = response?.selectedRoute;
+    if (!Array.isArray(route?.routePoints) || route.routePoints.length < 2) {
+      throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
+    }
+
+    selectedSafetyRoute.value = route;
+    selectedSafetyRouteMeta.value = response;
+    syncSafetySummaryToProperty(property.propertyId, response);
+  } catch (error) {
+    if (requestId !== safetyRouteRequestSequence) return;
+
+    selectedSafetyRoute.value = null;
+    selectedSafetyRouteMeta.value = null;
+    safetyRouteError.value =
+      error?.response?.data?.message ||
+      error?.message ||
+      '안전 경로를 불러오지 못했습니다.';
+    console.error('SELECTED PROPERTY SAFETY ROUTE LOAD ERROR:', error);
+  } finally {
+    if (requestId === safetyRouteRequestSequence) {
+      isSafetyRouteLoading.value = false;
+    }
+  }
+};
+
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
 const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
+
+  // 경로 조회와 상세 편의시설 조회는 서로 독립이므로 동시에 시작합니다.
+  void loadSafetyRouteForProperty(property);
 
   if (!activeAmenityFilters.value.length) {
     selectedPropertyDetailAmenities.value = [];
@@ -1291,6 +1402,23 @@ const {
         />
       </div>
 
+      <div
+        v-if="selectedProperty && (isSafetyRouteLoading || selectedSafetyRouteMeta || safetyRouteError)"
+        class="pointer-events-none absolute right-16 top-4 z-30 max-w-[260px] rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-[11px] font-bold shadow-lg backdrop-blur"
+      >
+        <span v-if="isSafetyRouteLoading" class="text-[#4058f5]">
+          <i class="fa-solid fa-spinner mr-1 animate-spin" aria-hidden="true"></i>
+          TMAP 안전 경로 확인 중
+        </span>
+        <span v-else-if="safetyRouteError" class="text-rose-600">
+          {{ safetyRouteError }}
+        </span>
+        <span v-else class="text-slate-700">
+          안전 {{ selectedSafetyRouteMeta?.safetyScore ?? '--' }}점 ·
+          {{ selectedSafetyRouteMeta?.cacheHit ? 'DB 저장 경로' : 'TMAP 신규 계산' }}
+        </span>
+      </div>
+
       <NaverMap
         :properties="visibleProperties"
         :selected-property="selectedProperty"
@@ -1299,6 +1427,7 @@ const {
         :applied-filter="appliedFilterState"
         :live-filter="filterState"
         :is-preview-mode="isPreviewingIsochrone"
+        :safety-route="selectedSafetyRoute"
         @select-property="handleSelectProperty"
         @change-destination="handleChangeDestination"
       />

@@ -26,8 +26,8 @@ public class SafetyController {
     }
 
     /**
-     * 동일한 propertyId + destinationId가 property_safety에 있으면 캐시를 반환합니다.
-     * 없으면 TMAP 대로 우선 경로 한 건만 계산해 최초 1회 저장합니다.
+     * 동일한 propertyId + destinationId의 안전점수와 경로가 모두 DB에 있으면 캐시를 반환합니다.
+     * 둘 중 하나라도 없으면 TMAP 대로 우선 경로 한 건을 계산해 점수와 경로를 함께 저장합니다.
      */
     @PostMapping({"/score", "/routes/recommend"})
     public ResponseEntity<SafetyRouteResponseDTO> getOrCalculateSafety(
