@@ -85,6 +85,9 @@
                 AND p.property_latitude BETWEEN (#{cond.lat} - (#{cond.radius} / 111.0)) AND (#{cond.lat} + (#{cond.radius} / 111.0))
                 AND p.property_longitude BETWEEN (#{cond.lng} - (#{cond.radius} / 88.0)) AND (#{cond.lng} + (#{cond.radius} / 88.0))
                 AND (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) &lt;= #{cond.radius}
+                <if test="cond.minRadius != null and cond.minRadius > 0">
+                    AND (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) &gt;= #{cond.minRadius}
+                </if>
             </if>
         </if>
         <choose>
@@ -100,14 +103,10 @@
             <when test="cond != null and cond.sort == 'AREA_DESC'">
                 ORDER BY p.area DESC
             </when>
-            <when test="cond != null and cond.lat != null and cond.lng != null">
-                ORDER BY (6371 * acos(cos(radians(#{cond.lat})) * cos(radians(p.property_latitude)) * cos(radians(p.property_longitude) - radians(#{cond.lng})) + sin(radians(#{cond.lat})) * sin(radians(p.property_latitude)))) ASC
-            </when>
             <otherwise>
                 ORDER BY p.property_id DESC
             </otherwise>
         </choose>
-        LIMIT 500
     </select>
 
     <!-- 매물 상세 조회: 요청한 destinationId 안전점수만 조인 -->

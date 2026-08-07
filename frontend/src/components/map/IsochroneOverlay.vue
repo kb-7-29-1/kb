@@ -108,10 +108,7 @@ const updateIsochroneOverlays = () => {
   // 탭(도보 ↔ 대중교통)이 변경된 경우 이전 모드의 실선 원은 지도에서 완벽 제거한다.
   // ==========================================
   const isModeChanged =
-    props.isPreviewMode &&
-    lf &&
-    af &&
-    lf.transportMode !== af.transportMode;
+    props.isPreviewMode && lf && af && lf.transportMode !== af.transportMode;
 
   let outerBoundaryMeters = 900;
 
@@ -161,7 +158,10 @@ const updateIsochroneOverlays = () => {
       const travelTime = af.travelTime || 15;
       const flexTime = af.flexTime != null ? af.flexTime : 10;
       const transitMaxRadius = Math.max(500, travelTime * 180);
-      const minTime = Math.max(0, travelTime - flexTime);
+      const minTime =
+        af.minTravelTime != null && af.minTravelTime > 0
+          ? af.minTravelTime
+          : (af.flexTime != null ? af.flexTime : Math.round(travelTime * 0.5));
       const transitBaseRadius = Math.max(200, minTime * 180);
 
       outerBoundaryMeters = transitMaxRadius;
@@ -191,8 +191,7 @@ const updateIsochroneOverlays = () => {
       circlesList.value.push(outerCircle);
       circlesList.value.push(innerCircle);
 
-      const outerLatOffset =
-        (transitMaxRadius / earthRadius) * (180 / Math.PI);
+      const outerLatOffset = (transitMaxRadius / earthRadius) * (180 / Math.PI);
       const outerTopPos = new window.naver.maps.LatLng(
         destLat + outerLatOffset,
         destLng,
