@@ -1,11 +1,14 @@
 package com.salgosipo.safety.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salgosipo.safety.client.SafetyRouteClient;
 import com.salgosipo.safety.domain.PedestrianRoute;
 import com.salgosipo.safety.domain.PropertySafetyVO;
 import com.salgosipo.safety.domain.SafetyDestinationVO;
 import com.salgosipo.safety.domain.SafetyFacilityVO;
 import com.salgosipo.safety.domain.SafetyPropertyCoordinateVO;
+import com.salgosipo.safety.domain.SafetyRouteCacheVO;
 import com.salgosipo.safety.dto.RoutePointDTO;
 import com.salgosipo.safety.dto.SafetyBatchItemDTO;
 import com.salgosipo.safety.dto.SafetyBatchRequestDTO;
@@ -13,6 +16,7 @@ import com.salgosipo.safety.dto.SafetyBatchResponseDTO;
 import com.salgosipo.safety.dto.SafetyRouteCandidateDTO;
 import com.salgosipo.safety.dto.SafetyRouteRequestDTO;
 import com.salgosipo.safety.dto.SafetyRouteResponseDTO;
+import com.salgosipo.safety.dto.SafetyScoreBreakdownDTO;
 import com.salgosipo.safety.mapper.SafetyMapper;
 import com.salgosipo.safety.repository.SafetyFacilityRepository;
 import org.apache.logging.log4j.LogManager;
@@ -45,6 +49,7 @@ public class SafetyServiceImpl implements SafetyService {
     private final SafetyRouteClient safetyRouteClient;
     private final SafetyFacilityRepository safetyFacilityRepository;
     private final SafetyScoreCalculator safetyScoreCalculator;
+    private final ObjectMapper objectMapper;
 
     @Autowired
     public SafetyServiceImpl(
@@ -73,6 +78,7 @@ public class SafetyServiceImpl implements SafetyService {
         this.safetyRouteClient = safetyRouteClient;
         this.safetyFacilityRepository = safetyFacilityRepository;
         this.safetyScoreCalculator = safetyScoreCalculator;
+        this.objectMapper = new ObjectMapper();
     }
 
     @Override
@@ -97,9 +103,16 @@ public class SafetyServiceImpl implements SafetyService {
                 request.getPropertyId(),
                 destination.getDestinationId()
         );
+        SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(
+                request.getPropertyId(),
+                destination.getDestinationId()
+        );
 
-        if (cached != null) {
-            return createCachedResponse(cached);
+        // 점수와 실제 경로 좌표가 둘 다 있어야 완전한 캐시 hit입니다.
+        // 기존 DB에 점수만 있고 경로가 없는 경우에는 최초 클릭 시 TMAP을 1회 호출해
+        // 경로까지 보강한 뒤 다음 요청부터 완전한 DB 캐시를 사용합니다.
+        if (cached != null && cachedRoute != null) {
+            return createCachedResponse(cached, cachedRoute);
         }
 
         CalculationResult calculation = calculateAndPersist(
@@ -114,7 +127,7 @@ public class SafetyServiceImpl implements SafetyService {
     /**
      * 외부 TMAP 호출 전체를 하나의 DB 트랜잭션으로 묶지 않습니다.
      * 매물이 많아도 DB 커넥션을 장시간 점유하지 않고, 계산이 끝난 조합부터
-     * insertPropertySafetyIfAbsent를 통해 개별 캐시로 확정합니다.
+     * 계산이 끝난 조합부터 DB 캐시로 확정합니다.
      */
     @Override
     public SafetyRouteResponseDTO calculateSafetyDetails(SafetyRouteRequestDTO request) {
@@ -351,7 +364,22 @@ public class SafetyServiceImpl implements SafetyService {
                 selectedRoute.getBreakdown().getHasPoliceStation()
         );
 
-        int insertedRows = safetyMapper.insertPropertySafetyIfAbsent(calculated);
+        // 경로와 안전점수는 반드시 같은 TMAP 결과를 기준으로 저장합니다.
+        // 예전 property_safety 데이터만 존재하던 조합이라도 첫 클릭에서 최신 경로와
+        // 점수를 한 번 맞춰 두면 이후에는 TMAP 호출 없이 그대로 재사용할 수 있습니다.
+        safetyMapper.upsertPropertySafety(calculated);
+
+        SafetyRouteCacheVO routeCache = new SafetyRouteCacheVO();
+        routeCache.setPropertyId(property.getPropertyId());
+        routeCache.setDestinationId(destination.getDestinationId());
+        routeCache.setRouteId(selectedRoute.getRouteId());
+        routeCache.setSearchOption(selectedRoute.getSearchOption());
+        routeCache.setRouteType(selectedRoute.getRouteType());
+        routeCache.setDistanceMeters(selectedRoute.getDistanceMeters());
+        routeCache.setTotalTimeSeconds(selectedRoute.getTotalTimeSeconds());
+        routeCache.setRoutePointsJson(serializeRoutePoints(selectedRoute.getRoutePoints()));
+        safetyMapper.upsertSafetyRouteCache(routeCache);
+
         PropertySafetyVO stored = safetyMapper.selectPropertySafety(
                 property.getPropertyId(),
                 destination.getDestinationId()
@@ -363,7 +391,7 @@ public class SafetyServiceImpl implements SafetyService {
             );
         }
 
-        return new CalculationResult(stored, insertedRows, selectedRoute);
+        return new CalculationResult(stored, selectedRoute);
     }
 
     private SafetyRouteResponseDTO createCalculatedResponse(
@@ -374,12 +402,9 @@ public class SafetyServiceImpl implements SafetyService {
         response.setPropertyId(stored.getPropertyId());
         response.setDestinationId(stored.getDestinationId());
         response.setCacheHit(false);
-        response.setPersisted(calculation.insertedRows() > 0);
+        response.setPersisted(true);
         response.setMessage(
-                calculation.insertedRows() > 0
-                        ? "DB에 기존 값이 없어 TMAP 대로 우선 경로 한 건을 계산하고 "
-                        + "property_safety에 저장했습니다."
-                        : "동시 요청이 먼저 저장한 property_safety 값을 반환합니다."
+                "TMAP 대로 우선 보행 경로를 계산하고 안전점수와 경로 좌표를 DB에 저장했습니다."
         );
         applySummary(response, stored);
         response.setSelectedRoute(calculation.selectedRoute());
@@ -388,21 +413,77 @@ public class SafetyServiceImpl implements SafetyService {
     }
 
     private SafetyRouteResponseDTO createCachedResponse(
-            PropertySafetyVO cached
+            PropertySafetyVO cached,
+            SafetyRouteCacheVO cachedRoute
     ) {
+        SafetyRouteCandidateDTO selectedRoute = createRouteCandidateFromCache(
+                cached,
+                cachedRoute
+        );
+
         SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
         response.setPropertyId(cached.getPropertyId());
         response.setDestinationId(cached.getDestinationId());
         response.setCacheHit(true);
         response.setPersisted(true);
         response.setMessage(
-                "property_safety에 저장된 값을 반환했습니다. "
-                        + "TMAP API는 호출하지 않았습니다."
+                "DB에 저장된 안전점수와 경로를 반환했습니다. TMAP API는 호출하지 않았습니다."
         );
         applySummary(response, cached);
-        response.setSelectedRoute(null);
-        response.setCandidateRoutes(Collections.emptyList());
+        response.setSelectedRoute(selectedRoute);
+        response.setCandidateRoutes(List.of(selectedRoute));
         return response;
+    }
+
+    private SafetyRouteCandidateDTO createRouteCandidateFromCache(
+            PropertySafetyVO safety,
+            SafetyRouteCacheVO routeCache
+    ) {
+        SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
+        breakdown.setCctvCount(safety.getCctvCount());
+        breakdown.setStreetLightCount(safety.getStreetLampCount());
+        breakdown.setHasPoliceStation(safety.getHasPoliceStation());
+
+        SafetyRouteCandidateDTO route = new SafetyRouteCandidateDTO();
+        route.setRouteId(routeCache.getRouteId());
+        route.setSearchOption(routeCache.getSearchOption());
+        route.setRouteType(routeCache.getRouteType());
+        route.setSelected(true);
+        route.setSafetyScore(safety.getSafetyScore());
+        route.setSafetyGrade(toGrade(safety.getSafetyScore()));
+        route.setDistanceMeters(routeCache.getDistanceMeters());
+        route.setTotalTimeSeconds(routeCache.getTotalTimeSeconds());
+        route.setBreakdown(breakdown);
+        route.setRoutePoints(deserializeRoutePoints(routeCache.getRoutePointsJson()));
+        return route;
+    }
+
+    private String serializeRoutePoints(List<RoutePointDTO> routePoints) {
+        try {
+            return objectMapper.writeValueAsString(routePoints);
+        } catch (Exception exception) {
+            throw new IllegalStateException("경로 좌표를 DB 저장 형식으로 변환하지 못했습니다.", exception);
+        }
+    }
+
+    private List<RoutePointDTO> deserializeRoutePoints(String routePointsJson) {
+        if (routePointsJson == null || routePointsJson.isBlank()) {
+            throw new IllegalStateException("DB에 저장된 경로 좌표가 비어 있습니다.");
+        }
+        try {
+            List<RoutePointDTO> points = objectMapper.readValue(
+                    routePointsJson,
+                    new TypeReference<List<RoutePointDTO>>() { }
+            );
+            if (points == null || points.size() < 2) {
+                throw new IllegalStateException("DB 경로 좌표가 2개 미만입니다.");
+            }
+            return points;
+        } catch (IllegalStateException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalStateException("DB에 저장된 경로 좌표를 읽지 못했습니다.", exception);
+        }
     }
 
     private void applySummary(
@@ -643,7 +724,6 @@ public class SafetyServiceImpl implements SafetyService {
 
     private record CalculationResult(
             PropertySafetyVO stored,
-            int insertedRows,
             SafetyRouteCandidateDTO selectedRoute
     ) {
     }

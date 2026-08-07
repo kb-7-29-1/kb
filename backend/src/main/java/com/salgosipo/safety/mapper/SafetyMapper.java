@@ -3,6 +3,7 @@ package com.salgosipo.safety.mapper;
 import com.salgosipo.safety.domain.PropertySafetyVO;
 import com.salgosipo.safety.domain.SafetyDestinationVO;
 import com.salgosipo.safety.domain.SafetyPropertyCoordinateVO;
+import com.salgosipo.safety.domain.SafetyRouteCacheVO;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -33,5 +34,12 @@ public interface SafetyMapper {
 
     int upsertDestination(SafetyDestinationVO destination);
 
-    int insertPropertySafetyIfAbsent(PropertySafetyVO propertySafety);
+    int upsertPropertySafety(PropertySafetyVO propertySafety);
+
+    SafetyRouteCacheVO selectSafetyRouteCache(
+            @Param("propertyId") Long propertyId,
+            @Param("destinationId") Integer destinationId
+    );
+
+    int upsertSafetyRouteCache(SafetyRouteCacheVO routeCache);
 }

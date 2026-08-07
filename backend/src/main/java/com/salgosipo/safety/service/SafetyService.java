@@ -8,8 +8,8 @@ import com.salgosipo.safety.dto.SafetyRouteResponseDTO;
 public interface SafetyService {
 
     /**
-     * property_id + destination_id 캐시가 있으면 즉시 반환하고,
-     * 없으면 TMAP 대로 우선 경로 한 건을 평가해 최초 1회 저장합니다.
+     * property_id + destination_id의 점수/경로 캐시가 모두 있으면 즉시 반환하고,
+     * 없으면 TMAP 대로 우선 경로 한 건을 평가해 점수와 경로를 함께 저장합니다.
      */
     SafetyRouteResponseDTO getOrCalculateSafety(SafetyRouteRequestDTO request);
 
