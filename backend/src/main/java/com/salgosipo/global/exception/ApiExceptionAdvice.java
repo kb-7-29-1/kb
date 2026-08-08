@@ -1,5 +1,6 @@
 package com.salgosipo.global.exception;
 
+import com.salgosipo.comment.exception.CommentNotFoundException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
@@ -24,6 +25,14 @@ public class ApiExceptionAdvice {
 
     }
     // 그 외 서버 내부 오류
+    @ExceptionHandler(CommentNotFoundException.class)
+    protected ResponseEntity<String> handleCommentNotFoundException(CommentNotFoundException e) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .header("Content-Type", "text/plain;charset=UTF-8")
+                .body(e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<String> handleException(Exception e) {
         return ResponseEntity
