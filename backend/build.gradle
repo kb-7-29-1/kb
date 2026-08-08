@@ -114,6 +114,7 @@ gretty {
     httpPort = 8080
     contextPath = '/'
     servletContainer = 'tomcat9'
+    jvmArgs = ['-Dfile.encoding=UTF-8']
 }
 
 test {

@@ -197,6 +197,17 @@ const goMyPage = () => {
   padding-bottom: 10px;
 }
 
+@media (max-width: 768px) {
+  .home-page {
+    --app-header-height: calc(env(safe-area-inset-top, 0px) + 50px);
+  }
+
+  .app-header {
+    height: var(--app-header-height);
+    padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+  }
+}
+
 .logo {
   display: inline-flex;
   align-items: center;
