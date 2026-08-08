@@ -56,6 +56,18 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
+  baseCount: {
+    type: Number,
+    default: 0,
+  },
+  activeAmenityFilters: {
+    type: Array,
+    default: () => [],
+  },
+  isLoading: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits([
@@ -671,6 +683,89 @@ const safetyAccentClass = computed(() => {
     return 'bg-amber-50 text-amber-700 border-amber-300 font-extrabold';
   }
   return 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200';
+});
+
+// 매물 개수 변경 시 1초간 바운스 & 하이라이트 효과 트리거
+const isCountBouncing = ref(false);
+let countBounceTimer = null;
+
+watch(
+  () => props.totalCount,
+  (newVal, oldVal) => {
+    if (newVal !== oldVal) {
+      isCountBouncing.value = true;
+      if (countBounceTimer) clearTimeout(countBounceTimer);
+      countBounceTimer = setTimeout(() => {
+        isCountBouncing.value = false;
+      }, 1000);
+    }
+  },
+);
+
+const AMENITY_INFO_MAP = {
+  1: { icon: '🏪', name: '편의점', action: '삼김 사러 가는 중...' },
+  2: { icon: '☕', name: '카페', action: '커피 마시는 중...' },
+  3: { icon: '🧺', name: '코인세탁소', action: '뽀송뽀송 빨래 중...' },
+  4: { icon: '🍔', name: '패스트푸드', action: '버거 냠냠 먹는 중...' },
+  5: { icon: '🛒', name: '다이소', action: '다이소 털러 가는 중...' },
+  6: { icon: '💄', name: '올리브영', action: '올영 세일 구경 중...' },
+  7: { icon: '🏢', name: '대형마트', action: '카트 끌고 장보는 중...' },
+};
+
+const activeAmenityIcons = computed(() => {
+  const list =
+    props.activeAmenityFilters && props.activeAmenityFilters.length
+      ? props.activeAmenityFilters
+      : appliedQuickFilters.value?.selectedAmenities || [];
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      const type = typeof item === 'object' ? item.amenityType : item;
+      return AMENITY_INFO_MAP[type];
+    })
+    .filter(Boolean);
+});
+
+const lastClickedType = ref(null);
+
+watch(
+  () => props.activeAmenityFilters,
+  (newFilters, oldFilters) => {
+    if (!newFilters || !newFilters.length) {
+      lastClickedType.value = null;
+      return;
+    }
+    const newTypes = newFilters.map((item) =>
+      typeof item === 'object' ? item.amenityType : item,
+    );
+    const oldTypes = (oldFilters || []).map((item) =>
+      typeof item === 'object' ? item.amenityType : item,
+    );
+
+    // 가장 최근에 클릭하여 추가된 편의시설 유형 감지
+    const addedType = newTypes.find((t) => !oldTypes.includes(t));
+    if (addedType) {
+      lastClickedType.value = addedType;
+    } else if (newTypes.length > 0) {
+      lastClickedType.value = newTypes[newTypes.length - 1];
+    }
+  },
+  { deep: true, immediate: true },
+);
+
+const amenityLoadingText = computed(() => {
+  if (lastClickedType.value && AMENITY_INFO_MAP[lastClickedType.value]) {
+    const item = AMENITY_INFO_MAP[lastClickedType.value];
+    return `${item.icon} ${item.action}`;
+  }
+
+  const list = activeAmenityIcons.value;
+  if (list.length > 0) {
+    const item = list[list.length - 1];
+    return `${item.icon} ${item.action}`;
+  }
+
+  return '🔍 주변 매물 탐색 중...';
 });
 </script>
 
@@ -1456,9 +1551,52 @@ const safetyAccentClass = computed(() => {
     </div>
 
     <!-- ======================================================== -->
+    <!-- 1-2. PC 전용 2열 (퀵바 바로 아래): 슬림 매물 카운트 + 편의시설 조건 태그 (Slim Capsule) -->
+    <!-- ======================================================== -->
+    <div class="mt-1.5 hidden xl:flex flex-wrap items-center gap-1.5 z-20 pointer-events-auto">
+      <div
+        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold transition-all border shadow-md select-none backdrop-blur-md"
+        :class="[
+          props.isLoading
+            ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
+            : isCountBouncing
+              ? 'bg-blue-600 text-white border-blue-600 scale-105 ring-4 ring-blue-200 animate-shake-horizontal'
+              : activeAmenityIcons.length
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-100'
+                : 'bg-white/95 text-slate-700 border-slate-200/90',
+        ]"
+      >
+        <template v-if="props.isLoading">
+          <i class="fa-solid fa-spinner animate-spin text-[10px]" aria-hidden="true"></i>
+          <span>{{ amenityLoadingText }}</span>
+        </template>
+        <template v-else>
+          <span>🏠</span>
+          <span v-if="props.baseCount && props.baseCount !== props.totalCount">매물 {{ props.totalCount }}/{{ props.baseCount }}개</span>
+          <span v-else>매물 {{ props.totalCount }}개</span>
+
+          <!-- 선택된 편의시설 조건 아이콘들 실시간 표기 -->
+          <template v-if="activeAmenityIcons.length">
+            <span class="opacity-40 text-[10px]">|</span>
+            <span class="flex items-center gap-1">
+              <span
+                v-for="(item, idx) in activeAmenityIcons"
+                :key="idx"
+                class="text-xs"
+                :title="item.name"
+              >{{ item.icon }}</span>
+            </span>
+            <span class="text-[10px] font-black underline underline-offset-2">필터 적용됨</span>
+          </template>
+        </template>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
     <!-- 2. 모바일 전용 퀵 플로팅 버튼 (HomePage.vue 원형 필터 버튼) -->
     <!-- ======================================================== -->
     <div class="flex xl:hidden items-center gap-1.5 z-30">
+      <!-- 1) 모바일 필터 열기 버튼 -->
       <button
         type="button"
         class="filter-floating-button-circle"
@@ -1498,7 +1636,7 @@ const safetyAccentClass = computed(() => {
         </svg>
       </button>
 
-      <!-- 모바일 이소크론 영역 ON/OFF 빠른 버튼 -->
+      <!-- 2) 모바일 이소크론 영역 ON/OFF 빠른 버튼 -->
       <button
         type="button"
         class="filter-floating-button-capsule"
@@ -1511,6 +1649,40 @@ const safetyAccentClass = computed(() => {
       >
         <span>⭕ 영역 {{ filters.showIsochrone ? 'ON' : 'OFF' }}</span>
       </button>
+
+      <!-- 3) 모바일 매물 개수 뱃지 (영역 ON 우측 위치) -->
+      <div
+        class="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all border shadow-sm select-none backdrop-blur-md"
+        :class="[
+          props.isLoading
+            ? 'bg-blue-600 text-white border-blue-600'
+            : isCountBouncing
+              ? 'bg-blue-600 text-white border-blue-600 scale-105 shadow-lg ring-4 ring-blue-200 animate-shake-horizontal'
+              : activeAmenityIcons.length
+                ? 'bg-indigo-600 text-white border-indigo-500'
+                : 'bg-white/90 text-blue-700 border-slate-200',
+        ]"
+      >
+        <template v-if="props.isLoading">
+          <i class="fa-solid fa-spinner animate-spin text-[10px]" aria-hidden="true"></i>
+          <span>{{ amenityLoadingText }}</span>
+        </template>
+        <template v-else>
+          <span>🏠</span>
+          <span v-if="props.baseCount && props.baseCount !== props.totalCount">{{ props.totalCount }}/{{ props.baseCount }}개</span>
+          <span v-else>{{ props.totalCount }}개</span>
+          <template v-if="activeAmenityIcons.length">
+            <span class="opacity-40 text-[10px]">|</span>
+            <span class="flex items-center gap-0.5">
+              <span
+                v-for="(item, idx) in activeAmenityIcons"
+                :key="idx"
+                class="text-[11px]"
+              >{{ item.icon }}</span>
+            </span>
+          </template>
+        </template>
+      </div>
     </div>
 
     <!-- ======================================================== -->
@@ -1681,5 +1853,18 @@ const safetyAccentClass = computed(() => {
     transform 0.15s ease,
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+}
+
+/* 좌우 스무스 가벼운 흔들림 애니메이션 */
+@keyframes shakeHorizontal {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+}
+
+.animate-shake-horizontal {
+  animation: shakeHorizontal 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
 }
 </style>

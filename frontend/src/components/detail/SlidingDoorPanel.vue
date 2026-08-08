@@ -28,6 +28,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isInline: {
+    type: Boolean,
+    default: false,
+  },
   property: {
     type: Object,
     default: null,
@@ -239,17 +243,23 @@ const detailImageUrl = computed(() => {
 
 <template>
   <div>
-    <!-- Backdrop Overlay (패널 열렸을 때 오버레이) -->
+    <!-- Backdrop Overlay (패널 열렸을 때 오버레이 - PC 전용) -->
     <div
-      v-if="isOpen"
-      class="property-detail-backdrop fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
+      v-if="isOpen && !isInline"
+      class="property-detail-backdrop hidden xl:block fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
       @click="emit('close')"
     ></div>
 
-    <!-- 420px Slide-Over Panel (슬림형 가로폭 조정) -->
-    <aside
-        class="property-detail-panel fixed top-0 right-0 bottom-0 w-full sm:w-[420px] overflow-x-hidden bg-white z-50 shadow-2xl border-l border-slate-200 flex flex-col transition-transform duration-300 ease-in-out"
-      :class="[isOpen ? 'translate-x-0' : 'translate-x-full']"
+    <!-- 420px Slide-Over Panel (PC 고정 / 모바일 인라인 지원) -->
+    <component
+      :is="isInline ? 'div' : 'aside'"
+      class="property-detail-panel bg-white overflow-x-hidden flex flex-col transition-transform duration-300 ease-in-out"
+      :class="[
+        isInline
+          ? 'w-full h-full'
+          : 'hidden xl:flex fixed top-0 right-0 bottom-0 w-full sm:w-[420px] z-50 shadow-2xl border-l border-slate-200',
+        !isInline && (isOpen ? 'translate-x-0' : 'translate-x-full'),
+      ]"
     >
       <!-- 패널 상단 헤더 -->
       <div
@@ -570,7 +580,7 @@ const detailImageUrl = computed(() => {
           </section>
         </div>
       </div>
-    </aside>
+    </component>
 
     <SafetyModal
       v-if="isSafetyModalOpen"

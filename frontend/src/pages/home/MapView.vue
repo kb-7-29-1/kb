@@ -119,7 +119,9 @@ const showFilterAnalysisLoading = () => {
   clearTimeout(filterAnalysisTimer);
   filterAnalysisTimer = setTimeout(() => {
     isFilterAnalysisLoading.value = false;
-  }, 450);
+  }, 0);
+  // 450ms -> 0ms
+  // 이미 filterAnalysis 과정에서 로딩 지연있어서 2중 발생
 };
 
 const isMapAnalysisLoading = computed(
@@ -219,7 +221,8 @@ const fetchPropertiesFromBackend = async () => {
     properties.value = candidates;
     isPropertyLoading.value = false;
 
-    const targetCandidates = candidates.length > 500 ? candidates.slice(0, 500) : candidates;
+    const targetCandidates =
+      candidates.length > 500 ? candidates.slice(0, 500) : candidates;
     const propertyIds = targetCandidates
       .map((property) => Number(property.propertyId))
       .filter((propertyId) => Number.isFinite(propertyId) && propertyId > 0);
@@ -297,7 +300,8 @@ const syncFiltersToUrlQuery = (filters) => {
     maxRent: filters.maxRent != null ? filters.maxRent : undefined,
     mode: filters.transportMode || undefined,
     travelTime: filters.travelTime != null ? filters.travelTime : undefined,
-    minTravelTime: filters.minTravelTime != null ? filters.minTravelTime : undefined,
+    minTravelTime:
+      filters.minTravelTime != null ? filters.minTravelTime : undefined,
     minSafety:
       filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
   };
@@ -317,7 +321,8 @@ const parseUrlQueryToFilters = () => {
   if (q.maxRent != null) filterState.value.maxRent = Number(q.maxRent);
   if (q.mode) filterState.value.transportMode = String(q.mode);
   if (q.travelTime != null) filterState.value.travelTime = Number(q.travelTime);
-  if (q.minTravelTime != null) filterState.value.minTravelTime = Number(q.minTravelTime);
+  if (q.minTravelTime != null)
+    filterState.value.minTravelTime = Number(q.minTravelTime);
   if (q.minSafety != null)
     filterState.value.minSafetyScore = Number(q.minSafety);
   return true;
@@ -728,12 +733,19 @@ const baseFilteredProperties = computed(() => {
     } else {
       // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius: minTime) 바깥 ~ 외접원(transitMaxRadius: travelTime) 안쪽 사이 도넛 영역 매물만 노출
       const travelTime = currentFilters.travelTime || 15;
-      const flexTime = currentFilters.flexTime != null ? currentFilters.flexTime : 10;
+      const flexTime =
+        currentFilters.flexTime != null ? currentFilters.flexTime : 10;
 
       let minTime = 5;
-      if (currentFilters.minTravelTime != null && currentFilters.minTravelTime > 0) {
+      if (
+        currentFilters.minTravelTime != null &&
+        currentFilters.minTravelTime > 0
+      ) {
         minTime = currentFilters.minTravelTime;
-      } else if (currentFilters.flexTime != null && currentFilters.flexTime > 0) {
+      } else if (
+        currentFilters.flexTime != null &&
+        currentFilters.flexTime > 0
+      ) {
         minTime = currentFilters.flexTime;
       }
 
@@ -799,6 +811,8 @@ const visibleProperties = computed(() =>
     : amenityFilteredProperties.value,
 );
 
+const mobileSidebarTab = ref('list'); // 'list' | 'detail'
+
 const clearSelectedProperty = () => {
   // 진행 중인 이전 매물 경로 요청의 응답이 늦게 도착해도 화면에 반영되지 않게 무효화합니다.
   safetyRouteRequestSequence += 1;
@@ -809,6 +823,7 @@ const clearSelectedProperty = () => {
   safetyRouteError.value = '';
   isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
+  mobileSidebarTab.value = 'list';
 };
 
 watch(
@@ -873,7 +888,8 @@ const loadSafetyRouteForProperty = async (property) => {
       propertyId: Number(property.propertyId),
       propertyName: property.address || property.propertyName || '선택 매물',
       destinationId:
-        Number(appliedFilterState.value.destinationId || destination.id) || null,
+        Number(appliedFilterState.value.destinationId || destination.id) ||
+        null,
       destinationName: destination.name,
       destinationAddress: destination.address,
       destinationLatitude: Number(destination.lat),
@@ -916,6 +932,10 @@ const loadSafetyRouteForProperty = async (property) => {
 const handleSelectProperty = async (property) => {
   selectedProperty.value = property;
   isPanelOpen.value = true;
+  mobileSidebarTab.value = 'detail';
+  if (mobilePanelHeight.value === 'COLLAPSED') {
+    mobilePanelHeight.value = 'HALF';
+  }
 
   // 경로 조회와 상세 편의시설 조회는 서로 독립이므로 동시에 시작합니다.
   void loadSafetyRouteForProperty(property);
@@ -1117,7 +1137,6 @@ const resetAmenityDetailFilters = () => {
   amenityDetailFilters.value = [];
   handleApplyAmenities([]);
 };
-
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
     amenityDetailFilters.value.map((item) => ({
@@ -1187,163 +1206,215 @@ const {
         <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
       </div>
 
-      <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
-      <div
-        class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3"
-      >
-        <div class="flex items-center justify-between xl:hidden">
-          <span
-            v-if="isMapAnalysisLoading"
-            class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
-          >
-            <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
-            안전 분석 중
-          </span>
-          <span
-            v-else
-            class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
-          >
-            총 {{ visibleProperties.length }}개 매물
-          </span>
-        </div>
-
-        <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
-        <OnboardingSummary
-          class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
-          :destination="filterState.destination"
-          :transport-mode="filterState.transportMode"
-          :travel-time="filterState.travelTime"
-          :max-deposit="filterState.maxDeposit"
-          :max-rent="filterState.maxRent"
-          :min-safety-score="filterState.minSafetyScore"
-          :show-close="false"
-        />
-
-        <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
-        <section
-          class="relative hidden border-b border-slate-200 py-3 xl:block"
+      <!-- 모바일 전용 탭 스위처 ([📋 매물 목록] | [🏠 선택 매물 상세]) -->
+      <div class="flex xl:hidden items-center border-b border-slate-200 px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none">
+        <button
+          type="button"
+          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          :class="[
+            mobileSidebarTab === 'list'
+              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              : 'text-slate-500 hover:text-slate-800',
+          ]"
+          @click="mobileSidebarTab = 'list'"
         >
-          <div class="flex w-full items-center justify-between mb-1">
-            <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
+          <span>📋</span>
+          <span>매물 목록 ({{ visibleProperties.length }})</span>
+        </button>
+        <button
+          type="button"
+          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          :class="[
+            mobileSidebarTab === 'detail'
+              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              : selectedProperty
+                ? 'text-slate-700 hover:text-slate-900'
+                : 'text-slate-300 cursor-not-allowed',
+          ]"
+          :disabled="!selectedProperty"
+          @click="selectedProperty && (mobileSidebarTab = 'detail')"
+        >
+          <span>🏠</span>
+          <span>상세 정보</span>
+          <span v-if="selectedProperty" class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+        </button>
+      </div>
 
-            <button
-              type="button"
-              class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
-              @click="openAmenityDetailFilter()"
+      <!-- 모바일 [상세 정보] 탭 열림 시: Inline SlidingDoorPanel 노출 -->
+      <div
+        v-if="mobileSidebarTab === 'detail' && selectedProperty"
+        class="flex-1 overflow-y-auto xl:hidden"
+      >
+        <SlidingDoorPanel
+          :is-open="true"
+          :is-inline="true"
+          :property="selectedProperty"
+          :amenities="selectedPropertyAmenities"
+          :destination="destinationConfig"
+          @close="mobileSidebarTab = 'list'"
+          @toggle-bookmark="handleToggleBookmark"
+        />
+      </div>
+
+      <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 기존 사이드바 리스트 노출 -->
+      <template v-else>
+        <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
+        <div
+          class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3"
+        >
+          <div class="flex items-center justify-between xl:hidden">
+            <span
+              v-if="isMapAnalysisLoading"
+              class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
             >
-              <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
-              <span>상세 필터</span>
-              <i
-                class="fa-solid fa-chevron-right text-[9px]"
-                aria-hidden="true"
-              ></i>
-            </button>
+              <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
+              안전 분석 중
+            </span>
+            <span
+              v-else
+              class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
+            >
+              총 {{ visibleProperties.length }}개 매물
+            </span>
           </div>
 
-          <AmenityFilter
-            ref="amenityFilterRef"
-            class="desktop-amenity-filter"
-            :applied-filters="activeAmenityFilters"
-            :show-walking-time="false"
-            @apply="handleApplyAmenities"
-            @selection-change="handleAmenitySelectionChange"
+          <!-- PC: 온보딩에서 설정한 탐색 조건 요약 -->
+          <OnboardingSummary
+            class="desktop-sidebar-summary hidden xl:block summary--sidebar border-b border-slate-200 pb-3"
+            :destination="filterState.destination"
+            :transport-mode="filterState.transportMode"
+            :travel-time="filterState.travelTime"
+            :max-deposit="filterState.maxDeposit"
+            :max-rent="filterState.maxRent"
+            :min-safety-score="filterState.minSafetyScore"
+            :show-close="false"
           />
 
-          <p class="mt-2 text-[12px] leading-5 text-slate-500">
-            <span class="notice-icon" aria-hidden="true">⚠</span>
-            선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
-          </p>
-
-          <AmenityDetailFilterPanel
-            v-if="isAmenityDetailFilterOpen"
-            :amenities="amenityDetailFilters"
-            @apply="applyAmenityDetailFilters"
-            @close="isAmenityDetailFilterOpen = false"
-            @reset="resetAmenityDetailFilters"
-            @update-time-limit="updateAmenityDetailTimeLimit"
-          />
-        </section>
-
-        <!-- 5종 정렬 선택 탭 -->
-        <!-- 모바일: 가로 스크롤 정렬 버튼 -->
-        <div
-          class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden"
-        >
-          <button
-            v-for="opt in sortOptions"
-            :key="opt.key"
-            type="button"
-            class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-            :class="[
-              currentSort === opt.key
-                ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
-            ]"
-            @click="currentSort = opt.key"
+          <!-- 항상 노출되는 편의시설 필터와 상세 설정 -->
+          <section
+            class="relative hidden border-b border-slate-200 py-3 xl:block"
           >
-            <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
-            {{ opt.label }}
-          </button>
-        </div>
+            <div class="flex w-full items-center justify-between mb-1">
+              <h2 class="text-[16px] font-bold text-[#1e293b]">편의시설 필터</h2>
 
-        <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
-        <section class="hidden space-y-2 pt-3 xl:block">
-          <p
-            v-if="isMapAnalysisLoading"
-            class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+              <button
+                type="button"
+                class="flex h-8 shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-bold text-[#3e55df] shadow-sm transition-all hover:border-[#b9c5ff] hover:bg-[#f5f7ff] active:scale-[0.98]"
+                @click="openAmenityDetailFilter()"
+              >
+                <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
+                <span>상세 필터</span>
+                <i
+                  class="fa-solid fa-chevron-right text-[9px]"
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </div>
+
+            <AmenityFilter
+              ref="amenityFilterRef"
+              class="desktop-amenity-filter"
+              :applied-filters="activeAmenityFilters"
+              :show-walking-time="false"
+              @apply="handleApplyAmenities"
+              @selection-change="handleAmenitySelectionChange"
+            />
+
+            <p class="mt-2 text-[12px] leading-5 text-slate-500">
+              <span class="notice-icon" aria-hidden="true">⚠</span>
+              선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
+            </p>
+
+            <AmenityDetailFilterPanel
+              v-if="isAmenityDetailFilterOpen"
+              :amenities="amenityDetailFilters"
+              @apply="applyAmenityDetailFilters"
+              @close="isAmenityDetailFilterOpen = false"
+              @reset="resetAmenityDetailFilters"
+              @update-time-limit="updateAmenityDetailTimeLimit"
+            />
+          </section>
+
+          <!-- 5종 정렬 선택 탭 -->
+          <!-- 모바일: 가로 스크롤 정렬 버튼 -->
+          <div
+            class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden"
           >
-            <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
-            안전 분석 중
-          </p>
-          <p v-else class="m-0 text-[13px] font-bold text-slate-500">
-            총 {{ visibleProperties.length }}개 매물
-          </p>
-          <div class="flex flex-wrap items-center gap-1.5 pb-1">
             <button
-              v-for="opt in isDesktopSortExpanded
-                ? sortOptions
-                : sortOptions.slice(0, 3)"
+              v-for="opt in sortOptions"
               :key="opt.key"
               type="button"
               class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-              :class="
+              :class="[
                 currentSort === opt.key
                   ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                  : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-              "
+                  : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
+              ]"
               @click="currentSort = opt.key"
             >
-              <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
+              <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
               {{ opt.label }}
             </button>
-            <button
-              type="button"
-              class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
-              :class="
-                isDesktopSortExpanded ||
-                sortOptions.slice(3).some((opt) => opt.key === currentSort)
-                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                  : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-              "
-              :aria-label="
-                isDesktopSortExpanded
-                  ? '정렬 옵션 접기'
-                  : '추가 정렬 옵션 펼치기'
-              "
-              @click="isDesktopSortExpanded = !isDesktopSortExpanded"
-            >
-              <i
-                :class="
-                  isDesktopSortExpanded
-                    ? 'fa-solid fa-chevron-up'
-                    : 'fa-solid fa-ellipsis'
-                "
-                aria-hidden="true"
-              ></i>
-            </button>
           </div>
-        </section>
-      </div>
+
+          <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
+          <section class="hidden space-y-2 pt-3 xl:block">
+            <p
+              v-if="isMapAnalysisLoading"
+              class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
+            >
+              <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
+              안전 분석 중
+            </p>
+            <p v-else class="m-0 text-[13px] font-bold text-slate-500">
+              총 {{ visibleProperties.length }}개 매물
+            </p>
+            <div class="flex flex-wrap items-center gap-1.5 pb-1">
+              <button
+                v-for="opt in isDesktopSortExpanded
+                  ? sortOptions
+                  : sortOptions.slice(0, 3)"
+                :key="opt.key"
+                type="button"
+                class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
+                :class="
+                  currentSort === opt.key
+                    ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                "
+                @click="currentSort = opt.key"
+              >
+                <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
+                {{ opt.label }}
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
+                :class="
+                  isDesktopSortExpanded ||
+                  sortOptions.slice(3).some((opt) => opt.key === currentSort)
+                    ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
+                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                "
+                :aria-label="
+                  isDesktopSortExpanded
+                    ? '정렬 옵션 접기'
+                    : '추가 정렬 옵션 펼치기'
+                "
+                @click="isDesktopSortExpanded = !isDesktopSortExpanded"
+              >
+                <i
+                  :class="
+                    isDesktopSortExpanded
+                      ? 'fa-solid fa-chevron-up'
+                      : 'fa-solid fa-ellipsis'
+                  "
+                  aria-hidden="true"
+                ></i>
+              </button>
+            </div>
+          </section>
+        </div>
 
       <!-- 사이드바 매물 카드리스트 (스크롤) -->
       <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
@@ -1393,6 +1464,7 @@ const {
           매물을 조회하고 있어요.
         </div>
       </div>
+      </template>
     </aside>
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
@@ -1400,16 +1472,22 @@ const {
       class="absolute inset-0 z-10 xl:relative xl:inset-auto xl:h-full xl:flex-1"
     >
       <!-- 🗺️ 지도 상단 부유형(Floating) 퀵버튼 바 (요소 크기 맞춤 w-fit) -->
-      <div class="absolute top-4 left-4 z-30 flex flex-col items-start gap-3 pointer-events-none">
+      <div
+        class="absolute top-4 left-4 z-30 flex flex-col items-start gap-3 pointer-events-none"
+      >
         <MapQuickFilterBar
           v-model="filterState"
           :total-count="visibleProperties.length"
+          :base-count="baseFilteredProperties.length"
+          :active-amenity-filters="activeAmenityFilters"
+          :is-loading="isMapAnalysisLoading"
           class="pointer-events-auto"
           @open-filter="emit('open-filter')"
           @popover-change="handlePopoverChange"
           @apply="handleApplyFilters"
           @reset="handleResetFilters"
         />
+        <!-- 🚗 선택한 매물의 이동 경로 피드백 카드 (상세 패널 열림 및 매물 선택 시 노출) -->
         <RouteFeedbackCard
           v-if="isPanelOpen && selectedProperty"
           :key="selectedProperty.propertyId"
@@ -1418,11 +1496,17 @@ const {
       </div>
 
       <div
-        v-if="selectedProperty && (isSafetyRouteLoading || selectedSafetyRouteMeta || safetyRouteError)"
+        v-if="
+          selectedProperty &&
+          (isSafetyRouteLoading || selectedSafetyRouteMeta || safetyRouteError)
+        "
         class="pointer-events-none absolute right-16 top-4 z-30 max-w-[260px] rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-[11px] font-bold shadow-lg backdrop-blur"
       >
         <span v-if="isSafetyRouteLoading" class="text-[#4058f5]">
-          <i class="fa-solid fa-spinner mr-1 animate-spin" aria-hidden="true"></i>
+          <i
+            class="fa-solid fa-spinner mr-1 animate-spin"
+            aria-hidden="true"
+          ></i>
           TMAP 안전 경로 확인 중
         </span>
         <span v-else-if="safetyRouteError" class="text-rose-600">
@@ -1430,7 +1514,11 @@ const {
         </span>
         <span v-else class="text-slate-700">
           안전 {{ selectedSafetyRouteMeta?.safetyScore ?? '--' }}점 ·
-          {{ selectedSafetyRouteMeta?.cacheHit ? 'DB 저장 경로' : 'TMAP 신규 계산' }}
+          {{
+            selectedSafetyRouteMeta?.cacheHit
+              ? 'DB 저장 경로'
+              : 'TMAP 신규 계산'
+          }}
         </span>
       </div>
 
