@@ -57,12 +57,6 @@ const handleApply = async () => {
   const selectedAmenities = amenityFilterRef.value?.getFilters?.();
   const amenities = Array.isArray(selectedAmenities) ? selectedAmenities : [];
 
-  if (activeTab.value === 'amenity') {
-    emit('apply-amenities', amenities);
-    emit('close');
-    return;
-  }
-
   const filters = onboardingFilterRef.value ? onboardingFilterRef.value.getFilters() : {};
   const { selectedDestination, ...onboardingFilters } = filters;
 
@@ -72,6 +66,7 @@ const handleApply = async () => {
     }
 
     emit('apply-onboarding', onboardingFilters);
+    emit('apply-amenities', amenities);
     emit('close');
   } catch (error) {
     applyError.value = '목적지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
