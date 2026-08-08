@@ -5,6 +5,8 @@ import com.salgosipo.bookmark.mapper.BookmarkMapper;
 import com.salgosipo.user.mapper.UserMapper;
 import com.salgosipo.user.domain.UserVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,10 @@ public class BookmarkService {
     private final UserMapper userMapper;
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "propertyList", allEntries = true),
+        @CacheEvict(value = "propertyDetail", allEntries = true)
+    })
     public void addBookmark(String loginId, Long propertyId){
         Long userId = getUserId(loginId);
         if(bookmarkMapper.countByUserIdAndPropertyId(userId, propertyId)>0){
@@ -28,6 +34,10 @@ public class BookmarkService {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "propertyList", allEntries = true),
+        @CacheEvict(value = "propertyDetail", allEntries = true)
+    })
     public void removeBookmark(String loginId, Long propertyId){
         Long userId = getUserId(loginId);
         bookmarkMapper.removeBookmark(userId,propertyId);
