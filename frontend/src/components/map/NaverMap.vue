@@ -9,6 +9,7 @@ import {
   renderPropertyPinHTML,
   renderDestinationPinHTML,
 } from '@/utils/mapClustering';
+import { isTouchEvent, isMousePointer } from '@/utils/deviceUtils';
 
 const props = defineProps({
   properties: {
@@ -454,11 +455,28 @@ const initMap = () => {
         checkDistanceToDestination();
       });
 
-      // 지도 우클릭 (Right Click) 시 역지오코딩 & 목적지 확인 카드 팝업
+      // PC 마우스 우클릭 (Right Click) 시 역지오코딩 & 목적지 확인 카드 팝업 (PC 마우스 전용)
       window.naver.maps.Event.addListener(mapInstance.value, 'rightclick', (e) => {
+        if (!isMousePointer(e)) return;
         handleMapRightClick(e);
       });
+
+      // 모바일 손가락 터치 롱프레스 (~500ms 꾹 누르기 & 햅틱 진동 피드백 - 모바일 터치 전용)
+      window.naver.maps.Event.addListener(mapInstance.value, 'mousedown', (e) => {
+        handleLongPressStart(e);
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'mousemove', (e) => {
+        handleLongPressMove(e);
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'mouseup', () => {
+        handleLongPressEnd();
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'dragstart', () => {
+        handleLongPressEnd();
+      });
+
       window.naver.maps.Event.addListener(mapInstance.value, 'click', () => {
+        handleLongPressEnd();
         clearPendingDestinationOverlay();
       });
 
@@ -475,8 +493,105 @@ const initMap = () => {
 
 let pendingDestMarker = null;
 let pendingDestInfoWindow = null;
+let longPressVisualMarker = null;
+let touchTimer = null;
+let touchStartCoord = null;
+let touchStartPixel = null;
+
+// 모바일 햅틱 진동 피드백 유틸 (디바이스 지원 시 40ms 미세 진동)
+const triggerHapticFeedback = () => {
+  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      navigator.vibrate([40]);
+    } catch (err) {
+      // 햅틱 미지원 디바이스 예외 무시
+    }
+  }
+};
+
+const clearLongPressVisual = () => {
+  if (longPressVisualMarker) {
+    longPressVisualMarker.setMap(null);
+    longPressVisualMarker = null;
+  }
+};
+
+const showLongPressVisual = (coord) => {
+  clearLongPressVisual();
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  const latLng = new window.naver.maps.LatLng(coord.lat(), coord.lng());
+
+  longPressVisualMarker = new window.naver.maps.Marker({
+    position: latLng,
+    map: mapInstance.value,
+    icon: {
+      content: `
+        <div class="relative flex items-center justify-center pointer-events-none" style="transform: translate(-50%, -50%); width: 64px; height: 64px;">
+          <!-- 1. 외곽 팽창 네온 아우라 리플 -->
+          <div class="absolute inset-0 rounded-full border-2 border-blue-400/80 animate-ping opacity-60"></div>
+          <!-- 2. 500ms 진행률 SVG 프로그레스 링 -->
+          <svg class="absolute inset-0 w-full h-full transform -rotate-90 drop-shadow-md" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="26" stroke="#93c5fd" stroke-width="4" fill="none" opacity="0.35"/>
+            <circle cx="32" cy="32" r="26" stroke="#2563eb" stroke-width="4" fill="none"
+              stroke-dasharray="163.36" stroke-dashoffset="163.36"
+              style="animation: fillLongPressRing 500ms linear forwards; stroke-linecap: round;"/>
+          </svg>
+          <!-- 3. 중앙 네온 블루 코어 닷 -->
+          <div class="h-4 w-4 rounded-full bg-blue-600 border-2 border-white shadow-xl animate-pulse"></div>
+        </div>
+      `,
+      anchor: new window.naver.maps.Point(32, 32),
+    },
+    zIndex: 300,
+  });
+};
+
+const handleLongPressStart = (e) => {
+  clearTimeout(touchTimer);
+  clearLongPressVisual();
+  if (!e || !e.coord) return;
+
+  // PC(마우스) 환경의 클릭인 경우 모바일 전용 롱프레스 동작을 즉시 차단
+  if (!isTouchEvent(e)) return;
+
+  touchStartCoord = e.coord;
+  const point = e.offset || e.pointerEvent || {};
+  touchStartPixel = { x: point.clientX || 0, y: point.clientY || 0 };
+
+  // 시각적 500ms SVG 링 렌더링
+  showLongPressVisual(touchStartCoord);
+
+  touchTimer = setTimeout(() => {
+    // 500ms 꾹 누르기 달성 시 시각 효과 제거 -> 손끝 햅틱 진동 -> 목적지 지정 팝업 출력
+    clearLongPressVisual();
+    triggerHapticFeedback();
+    handleMapRightClick({ coord: touchStartCoord });
+  }, 500);
+};
+
+const handleLongPressMove = (e) => {
+  if (!touchTimer) return;
+  const point = e.offset || e.pointerEvent || {};
+  const currentX = point.clientX || 0;
+  const currentY = point.clientY || 0;
+  const dx = currentX - (touchStartPixel?.x || 0);
+  const dy = currentY - (touchStartPixel?.y || 0);
+
+  // 10px 이상 지도 스크롤/드래그 시 롱프레스 및 시각 애니메이션 취소
+  if (Math.sqrt(dx * dx + dy * dy) > 10) {
+    handleLongPressEnd();
+  }
+};
+
+const handleLongPressEnd = () => {
+  clearTimeout(touchTimer);
+  touchTimer = null;
+  clearLongPressVisual();
+};
 
 const clearPendingDestinationOverlay = () => {
+  handleLongPressEnd();
   if (pendingDestInfoWindow) {
     pendingDestInfoWindow.close();
     pendingDestInfoWindow = null;
@@ -783,6 +898,15 @@ const moveMapToDestination = () => {
 </template>
 
 <style scoped>
+@keyframes fillLongPressRing {
+  0% {
+    stroke-dashoffset: 163.36;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
 .slide-fade-enter-active,
 .slide-fade-leave-active {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
