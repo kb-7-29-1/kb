@@ -10,6 +10,7 @@ import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
 import RouteFeedbackCard from '@/components/map/RouteFeedbackCard.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
 import AmenityDetailFilterPanel from '@/components/map/AmenityDetailFilterPanel.vue';
+import PropertySortBar from '@/components/map/PropertySortBar.vue';
 import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
@@ -42,30 +43,6 @@ const props = defineProps({
 
 // 5종 정렬 필터 옵션
 const currentSort = ref('RECOMMENDED');
-const isDesktopSortExpanded = ref(false);
-const sortOptions = [
-  { key: 'RECOMMENDED', label: '추천순', icon: 'fa-solid fa-thumbs-up' },
-  {
-    key: 'PRICE_ASC',
-    label: '가격 낮은순',
-    icon: 'fa-solid fa-arrow-down-wide-short',
-  },
-  {
-    key: 'PRICE_DESC',
-    label: '가격 높은순',
-    icon: 'fa-solid fa-arrow-up-wide-short',
-  },
-  {
-    key: 'SAFETY_DESC',
-    label: '안전점수 높은순',
-    icon: 'fa-solid fa-shield-halved',
-  },
-  {
-    key: 'AREA_DESC',
-    label: '면적 넓은순',
-    icon: 'fa-solid fa-up-right-and-down-left-from-center',
-  },
-];
 
 // 온보딩 디폴트 연동 퀵 필터 상태 Composable
 const { filterState, loadOnboardingDefaultFilters } = useOnboardingFilter();
@@ -760,18 +737,18 @@ const baseFilteredProperties = computed(() => {
     return true;
   });
 
-  // 5종 정렬 적용
-  if (currentSort.value === 'PRICE_ASC') {
-    return list.sort(
-      (a, b) =>
-        a.deposit + a.monthlyRent * 100 - (b.deposit + b.monthlyRent * 100),
-    );
+  // 정렬 적용
+  if (currentSort.value === 'DEPOSIT_ASC') {
+    return list.sort((a, b) => (a.deposit || 0) - (b.deposit || 0));
   }
-  if (currentSort.value === 'PRICE_DESC') {
-    return list.sort(
-      (a, b) =>
-        b.deposit + b.monthlyRent * 100 - (a.deposit + a.monthlyRent * 100),
-    );
+  if (currentSort.value === 'DEPOSIT_DESC') {
+    return list.sort((a, b) => (b.deposit || 0) - (a.deposit || 0));
+  }
+  if (currentSort.value === 'RENT_ASC') {
+    return list.sort((a, b) => (a.monthlyRent || 0) - (b.monthlyRent || 0));
+  }
+  if (currentSort.value === 'RENT_DESC') {
+    return list.sort((a, b) => (b.monthlyRent || 0) - (a.monthlyRent || 0));
   }
   if (currentSort.value === 'SAFETY_DESC') {
     return list.sort((a, b) => (b.safetyScore || 0) - (a.safetyScore || 0));
@@ -1342,85 +1319,12 @@ const {
             />
           </section>
 
-          <!-- 5종 정렬 선택 탭 -->
-          <!-- 모바일: 가로 스크롤 정렬 버튼 -->
-          <div
-            class="mobile-sort-options flex items-center gap-1.5 overflow-x-auto pb-1 xl:hidden"
-          >
-            <button
-              v-for="opt in sortOptions"
-              :key="opt.key"
-              type="button"
-              class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-              :class="[
-                currentSort === opt.key
-                  ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                  : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50',
-              ]"
-              @click="currentSort = opt.key"
-            >
-              <i :class="[opt.icon, 'text-[10px]']" aria-hidden="true"></i>
-              {{ opt.label }}
-            </button>
-          </div>
-
-          <!-- PC: 너비 안에서 펼쳐지는 정렬 버튼 -->
-          <section class="hidden space-y-2 pt-3 xl:block">
-            <p
-              v-if="isMapAnalysisLoading"
-              class="m-0 flex items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
-            >
-              <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
-              안전 분석 중
-            </p>
-            <p v-else class="m-0 text-[13px] font-bold text-slate-500">
-              총 {{ visibleProperties.length }}개 매물
-            </p>
-            <div class="flex flex-wrap items-center gap-1.5 pb-1">
-              <button
-                v-for="opt in isDesktopSortExpanded
-                  ? sortOptions
-                  : sortOptions.slice(0, 3)"
-                :key="opt.key"
-                type="button"
-                class="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-all"
-                :class="
-                  currentSort === opt.key
-                    ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
-                "
-                @click="currentSort = opt.key"
-              >
-                <i :class="[opt.icon, 'mr-1 text-[10px]']" aria-hidden="true"></i>
-                {{ opt.label }}
-              </button>
-              <button
-                type="button"
-                class="inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs transition-colors"
-                :class="
-                  isDesktopSortExpanded ||
-                  sortOptions.slice(3).some((opt) => opt.key === currentSort)
-                    ? 'border-[#4058f5] bg-[#eef1ff] text-[#4058f5]'
-                    : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
-                "
-                :aria-label="
-                  isDesktopSortExpanded
-                    ? '정렬 옵션 접기'
-                    : '추가 정렬 옵션 펼치기'
-                "
-                @click="isDesktopSortExpanded = !isDesktopSortExpanded"
-              >
-                <i
-                  :class="
-                    isDesktopSortExpanded
-                      ? 'fa-solid fa-chevron-up'
-                      : 'fa-solid fa-ellipsis'
-                  "
-                  aria-hidden="true"
-                ></i>
-              </button>
-            </div>
-          </section>
+          <!-- 5종 정렬 선택 탭 (컴포넌트 분리 완료) -->
+          <PropertySortBar
+            v-model="currentSort"
+            :total-count="visibleProperties.length"
+            :is-loading="isMapAnalysisLoading"
+          />
         </div>
 
         <!-- 사이드바 매물 카드리스트 (스크롤) -->
