@@ -12,15 +12,6 @@
         <span class="icon">{{ item.icon }}</span>
         <span class="name">{{ item.name }}</span>
       </button>
-
-      <button
-        type="button"
-        class="amenity-btn reset-btn"
-        @click="$emit('reset')"
-      >
-        <span class="icon">🔄</span>
-        <span class="name">초기화</span>
-      </button>
     </div>
   </section>
 </template>
@@ -33,7 +24,7 @@ defineProps({
   },
 });
 
-defineEmits(['toggle', 'reset']);
+defineEmits(['toggle']);
 </script>
 
 <style scoped>
