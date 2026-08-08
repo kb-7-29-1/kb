@@ -1258,7 +1258,7 @@ const {
 
       <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 사이드바 리스트 노출 (PC에서는 상시 flex 노출) -->
       <div
-        class="flex-1 min-h-0 flex flex-col overflow-hidden"
+        class="flex-1 min-h-0 flex flex-col overflow-hidden xl:overflow-visible"
         :class="[
           mobileSidebarTab === 'detail' && selectedProperty
             ? 'hidden xl:flex'

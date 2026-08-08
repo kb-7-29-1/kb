@@ -13,7 +13,7 @@ defineEmits(['apply', 'close', 'reset', 'update-time-limit']);
 
 <template>
   <div
-    class="absolute left-0 top-full z-40 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xl xl:left-full xl:top-0 xl:ml-5 xl:mt-0 xl:w-80"
+    class="absolute left-0 top-full z-50 mt-2 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-xl xl:left-full xl:top-0 xl:ml-5 xl:mt-0 xl:w-80"
   >
     <div class="mb-0 flex items-center justify-between border-b border-slate-200 pb-3">
       <h3 class="text-sm font-black text-slate-800">상세 필터</h3>
