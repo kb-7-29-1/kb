@@ -1256,11 +1256,18 @@ const {
         />
       </div>
 
-      <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 기존 사이드바 리스트 노출 -->
-      <template v-else>
+      <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 사이드바 리스트 노출 (PC에서는 상시 flex 노출) -->
+      <div
+        class="flex-1 min-h-0 flex flex-col overflow-hidden"
+        :class="[
+          mobileSidebarTab === 'detail' && selectedProperty
+            ? 'hidden xl:flex'
+            : 'flex',
+        ]"
+      >
         <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
         <div
-          class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3"
+          class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3 shrink-0"
         >
           <div class="flex items-center justify-between xl:hidden">
             <span
@@ -1416,55 +1423,55 @@ const {
           </section>
         </div>
 
-      <!-- 사이드바 매물 카드리스트 (스크롤) -->
-      <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
-        <template v-if="isPropertyLoading">
-          <div
-            v-for="index in 3"
-            :key="index"
-            class="property-card-skeleton animate-pulse"
-          >
-            <div class="property-card-skeleton__image"></div>
-            <div class="property-card-skeleton__content">
-              <span class="property-card-skeleton__tag"></span>
-              <span class="property-card-skeleton__title"></span>
-              <span class="property-card-skeleton__text"></span>
+        <!-- 사이드바 매물 카드리스트 (스크롤) -->
+        <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
+          <template v-if="isPropertyLoading">
+            <div
+              v-for="index in 3"
+              :key="index"
+              class="property-card-skeleton animate-pulse"
+            >
+              <div class="property-card-skeleton__image"></div>
+              <div class="property-card-skeleton__content">
+                <span class="property-card-skeleton__tag"></span>
+                <span class="property-card-skeleton__title"></span>
+                <span class="property-card-skeleton__text"></span>
+              </div>
             </div>
+          </template>
+          <template v-else-if="visibleProperties.length > 0">
+            <PropertyCard
+              v-for="prop in visibleProperties"
+              :key="prop.propertyId"
+              :property="prop"
+              :is-selected="
+                selectedProperty &&
+                selectedProperty.propertyId === prop.propertyId
+              "
+              @select="handleSelectProperty"
+              @toggle-bookmark="handleToggleBookmark"
+            />
+          </template>
+          <div
+            v-else-if="!amenityFilterLoading"
+            class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
+          >
+            <span class="text-3xl mb-2">🏠</span>
+            <p class="text-sm font-bold text-slate-600">
+              조건에 맞는 매물이 없습니다.
+            </p>
+            <p class="text-xs text-slate-400 mt-1">
+              필터 조건을 변경하거나 검색어를 재설정해 보세요.
+            </p>
           </div>
-        </template>
-        <template v-else-if="visibleProperties.length > 0">
-          <PropertyCard
-            v-for="prop in visibleProperties"
-            :key="prop.propertyId"
-            :property="prop"
-            :is-selected="
-              selectedProperty &&
-              selectedProperty.propertyId === prop.propertyId
-            "
-            @select="handleSelectProperty"
-            @toggle-bookmark="handleToggleBookmark"
-          />
-        </template>
-        <div
-          v-else-if="!amenityFilterLoading"
-          class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400"
-        >
-          <span class="text-3xl mb-2">🏠</span>
-          <p class="text-sm font-bold text-slate-600">
-            조건에 맞는 매물이 없습니다.
-          </p>
-          <p class="text-xs text-slate-400 mt-1">
-            필터 조건을 변경하거나 검색어를 재설정해 보세요.
-          </p>
-        </div>
-        <div
-          v-else
-          class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
-        >
-          매물을 조회하고 있어요.
+          <div
+            v-else
+            class="h-full flex items-center justify-center p-6 text-center text-sm font-medium text-slate-500"
+          >
+            매물을 조회하고 있어요.
+          </div>
         </div>
       </div>
-      </template>
     </aside>
 
     <!-- 2. 중앙 메인 지도 캔버스 (Full-bleed) -->
