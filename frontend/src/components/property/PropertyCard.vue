@@ -10,6 +10,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isBookmarkPending: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['select', 'toggle-bookmark']);
@@ -159,8 +163,9 @@ const cardThumbnailUrl = computed(() => {
     <!-- 찜 버튼 -->
     <button
       type="button"
-      class="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 transition-transform hover:scale-110 md:right-3 md:top-3"
+      class="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 transition-transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed md:right-3 md:top-3"
       :aria-label="property.isBookmarked ? '관심 매물 해제' : '관심 매물 등록'"
+      :disabled="isBookmarkPending"
       @click.stop="emit('toggle-bookmark', property.propertyId)"
     >
       <svg

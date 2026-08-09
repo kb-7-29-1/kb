@@ -3,6 +3,7 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import { reportFatalError } from './utils/globalError.js';
 
 import App from './App.vue';
 import router from './router';
@@ -10,4 +11,9 @@ import router from './router';
 const app = createApp(App);
 app.use(createPinia());
 app.use(router);
+app.config.errorHandler = (err, instance, info) => {
+    reportFatalError(err, `Vue errorHandler (${info})`);
+};
+window.addEventListener('unhandledrejection', (e) => reportFatalError(e.reason, 'unhandledrejection'));
+window.addEventListener('error', (e) => reportFatalError(e.error || e.message, 'window.onerror'));
 app.mount('#app');
