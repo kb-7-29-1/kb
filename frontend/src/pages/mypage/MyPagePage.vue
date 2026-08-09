@@ -114,10 +114,14 @@ const handleChangePassword = async () => {
     return;
   }
   try {
-    await changePassword({
+    const response = await changePassword({
       currentPassword: passwordForm.value.currentPassword,
       newPassword: passwordForm.value.newPassword,
     });
+    if (response.data && response.data.success === false) {
+      passwordError.value = response.data.message || '현재 비밀번호가 일치하지 않습니다.';
+      return;
+    }
     alert('비밀번호가 변경되었습니다.');
     closePasswordModal();
   } catch (error) {
@@ -150,7 +154,11 @@ const closeWithdrawModal = () => {
 const handleWithdraw = async () => {
   withdrawError.value = '';
   try {
-    await withdraw(withdrawPassword.value);
+    const response = await withdraw(withdrawPassword.value);
+    if (response.data && response.data.success === false) {
+      withdrawError.value = response.data.message || '비밀번호가 일치하지 않습니다.';
+      return;
+    }
     authStore.logout();
     router.push({ name: 'login' });
   } catch (error) {

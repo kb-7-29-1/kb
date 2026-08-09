@@ -90,7 +90,7 @@ const handleSignup = async () => {
   }
 
   try {
-    await signup({
+    const response = await signup({
       loginId: form.value.loginId,
       password: form.value.password,
       name: form.value.name,
@@ -98,6 +98,10 @@ const handleSignup = async () => {
       birthDate: form.value.birthDate,
       gender: form.value.gender,
     });
+    if (response.data && response.data.success === false) {
+      errorMessage.value = response.data.message || '회원가입 중 오류가 발생했습니다.';
+      return;
+    }
     alert('회원가입이 완료되었습니다.');
     router.push({ name: 'login' });
   } catch (error) {

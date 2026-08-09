@@ -1033,11 +1033,15 @@ const handleToggleBookmark = async (id) => {
   if (!item) return;
 
   try {
-    if (item.isBookmarked) {
-      await api.delete(`/bookmark/${id}`);
-    } else {
-      await api.post('/bookmark', { propertyId: id });
+    const response = item.isBookmarked
+      ? await api.delete(`/bookmark/${id}`)
+      : await api.post('/bookmark', { propertyId: id });
+
+    if (response.data && response.data.success === false) {
+      console.error('BOOKMARK TOGGLE ERROR: ', response.data.message);
+      return;
     }
+
     item.isBookmarked = !item.isBookmarked;
 
     if (Number(selectedProperty.value?.propertyId) === Number(id)) {
