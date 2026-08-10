@@ -511,9 +511,20 @@ const syncFiltersToUrlQuery = (filters) => {
   router.replace({ query }).catch(() => {});
 };
 
-const parseUrlQueryToFilters = () => {
+const parseUrlQueryToFilters = ({ includeDestination = true } = {}) => {
   const q = route.query;
   if (!q || (!q.destLat && !q.tradeType && !q.maxDeposit && !q.dest && !q.destName)) return false;
+
+  const databaseDestination = includeDestination
+    ? null
+    : {
+        destination: filterState.value.destination,
+        destinationName: filterState.value.destinationName,
+        destinationAddress: filterState.value.destinationAddress,
+        destinationLat: filterState.value.destinationLat,
+        destinationLng: filterState.value.destinationLng,
+        destinationId: filterState.value.destinationId,
+      };
 
   const destNameVal = q.destName || q.dest;
   if (destNameVal) {
@@ -546,6 +557,11 @@ const parseUrlQueryToFilters = () => {
   if (q.travelTime != null) filterState.value.travelTime = Number(q.travelTime);
   if (q.minTravelTime != null) filterState.value.minTravelTime = Number(q.minTravelTime);
   if (q.minSafety != null) filterState.value.minSafetyScore = Number(q.minSafety);
+
+  if (databaseDestination) {
+    Object.assign(filterState.value, databaseDestination);
+  }
+
   return true;
 };
 
@@ -579,13 +595,12 @@ const loadQuickFilterFromCache = () => {
 };
 
 onMounted(async () => {
-  // URL에 커스텀 목적지 좌표가 있으면 DB 온보딩 목적지 이름으로 덮어쓰지 않음
-  const hasCustomDestInUrl = !!(route.query?.destLat || route.query?.dest || route.query?.destName);
-  await loadOnboardingDefaultFilters({ resetDestination: !hasCustomDestInUrl });
+  // 목적지 좌표는 DB 온보딩 값을 기준으로 불러온다.
+  await loadOnboardingDefaultFilters({ resetDestination: true });
 
-  const hasUrlQuery = parseUrlQueryToFilters();
+  const hasUrlQuery = parseUrlQueryToFilters({ includeDestination: false });
   if (hasUrlQuery) {
-    parseUrlQueryToFilters();
+    parseUrlQueryToFilters({ includeDestination: false });
   }
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
@@ -795,9 +810,12 @@ onUnmounted(() => {
 // 네이버 Geocoder API를 활용한 실시간 동적 주소/장소 좌표(lat, lng) 자동 변환
 watch(
   () => [filterState.value.destination, filterState.value.destinationAddress],
-  ([newDest, newAddr], oldVal) => {
+  ([newDest, newAddr]) => {
     if (!newDest && !newAddr) return;
-    const [oldDest, oldAddr] = oldVal || [];
+
+    const currentLatitude = Number(filterState.value.destinationLat);
+    const currentLongitude = Number(filterState.value.destinationLng);
+    if (Number.isFinite(currentLatitude) && Number.isFinite(currentLongitude)) return;
 
     // 목적지 텍스트가 변경되었을 경우, 이전 송파구 좌표 등에 고정되지 않도록 즉시 최신 주소/장소 Geocoding을 실행
     const searchQuery = newAddr || newDest;
