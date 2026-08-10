@@ -70,8 +70,8 @@ const props = defineProps({
 watch(
   () => props.amenities,
   (amenities) => {
-    console.log('WalkingTime 받은 amenities:', amenities);
-    console.table(amenities);
+    // console.log('WalkingTime 받은 amenities:', amenities);
+    // console.table(amenities);
   },
   { immediate: true, deep: true },
 );
