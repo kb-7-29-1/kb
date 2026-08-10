@@ -39,6 +39,7 @@ const loadOnboardingSummary = async () => {
 onMounted(loadOnboardingSummary);
 
 const handleReset = async () => {
+  // 공통 초기화는 온보딩과 편의시설 조건을 모두 기본값으로 되돌린다.
   emit('reset');
 
   await loadOnboardingSummary();
