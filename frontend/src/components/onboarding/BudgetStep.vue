@@ -356,6 +356,8 @@ input[type='range']::-moz-range-thumb {
   gap: 12px;
   margin-top: 30px;
   padding: 16px;
+  max-height: 260px;
+  overflow-y: auto;
   border: 1px solid #dbeafe;
   border-radius: 14px;
   background: #eff6ff;
@@ -466,5 +468,41 @@ input[type='range']::-moz-range-thumb {
   margin-top: 6px;
   color: #94a3b8;
   font-size: 10px;
+}
+
+@media (max-width: 480px) {
+  .loan-panel {
+    max-height: 220px;
+    padding: 14px;
+    gap: 10px;
+  }
+
+  .loan-copy strong {
+    font-size: 12px;
+  }
+
+  .loan-copy small {
+    font-size: 10px;
+  }
+
+  .recommendation-result {
+    padding: 10px;
+  }
+
+  .recommendation-result p {
+    font-size: 10px;
+  }
+
+  .recommendation-result > strong {
+    font-size: 13px;
+  }
+
+  .recommendation-result > strong small {
+    font-size: 10px;
+  }
+
+  .recommendation-result .target-info {
+    font-size: 9px;
+  }
 }
 </style>
