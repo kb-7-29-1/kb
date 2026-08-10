@@ -9,39 +9,61 @@ export function usePropertyComments() {
   const loadError = ref('');
   const isSubmitting = ref(false);
   const submitError = ref('');
+  let loadSequence = 0;
 
   const load = async (propertyId) => {
     if (!propertyId) return;
 
+    const requestSequence = ++loadSequence;
     isLoading.value = true;
     loadError.value = '';
+    comments.value = [];
+    tags.value = [];
+    commentCount.value = 0;
     try {
+      const commentsPromise = commentService.getComments(propertyId);
+      const tagsPromise = commentService.getTags(propertyId);
+
+      // 댓글은 태그 응답을 기다리지 않고 먼저 화면에 표시한다.
+      commentsPromise.then((result) => {
+        if (requestSequence !== loadSequence) return;
+        comments.value = Array.isArray(result) ? result : [];
+        commentCount.value = comments.value.length;
+        isLoading.value = false;
+      }).catch(() => {});
+
       const [commentsResult, tagsResult] = await Promise.allSettled([
-        commentService.getComments(propertyId),
-        commentService.getTags(propertyId),
+        commentsPromise,
+        tagsPromise,
       ]);
 
       if (commentsResult.status === 'rejected') {
         throw commentsResult.reason;
       }
 
-      comments.value = Array.isArray(commentsResult.value) ? commentsResult.value : [];
-      tags.value = tagsResult.status === 'fulfilled' && Array.isArray(tagsResult.value)
-        ? tagsResult.value
-        : [];
+      if (requestSequence !== loadSequence) return;
+
+      tags.value =
+        tagsResult.status === 'fulfilled' && Array.isArray(tagsResult.value)
+          ? tagsResult.value
+          : [];
 
       if (tagsResult.status === 'rejected') {
         console.error('COMMENT TAG LOAD ERROR:', tagsResult.reason);
       }
       commentCount.value = comments.value.length;
     } catch (error) {
+      if (requestSequence !== loadSequence) return;
+
       comments.value = [];
       tags.value = [];
       commentCount.value = 0;
       loadError.value = '댓글을 불러오지 못했습니다.';
       console.error('COMMENT LIST LOAD ERROR:', error);
     } finally {
-      isLoading.value = false;
+      if (requestSequence === loadSequence) {
+        isLoading.value = false;
+      }
     }
   };
 
