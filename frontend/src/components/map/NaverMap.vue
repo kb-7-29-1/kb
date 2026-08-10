@@ -795,6 +795,30 @@ watch(
 );
 
 watch(
+  () => [props.destination?.id, props.destination?.lat, props.destination?.lng],
+  ([destinationId, latitude, longitude]) => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    console.info('[Map] destination marker coordinate', {
+      destinationId,
+      latitude: lat,
+      longitude: lng,
+    });
+
+    if (activeDestMarker && window.naver?.maps) {
+      activeDestMarker.setPosition(new window.naver.maps.LatLng(lat, lng));
+      activeDestMarker._key = `${lat}_${lng}_${props.destination.name || ''}`;
+    }
+
+    renderMarkers();
+  },
+  { immediate: true },
+);
+
+watch(
   () => props.selectedProperty?.propertyId,
   (currentPropertyId, previousPropertyId) => {
     if (currentPropertyId === previousPropertyId || expandedAmenityMarkerKeys.value.size === 0)

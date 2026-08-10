@@ -570,6 +570,8 @@ public class SafetyServiceImpl implements SafetyService {
                     stored.getLongitude().doubleValue(),
                     "목적지"
             );
+            log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
+                    stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
             return stored;
         }
 
@@ -584,6 +586,8 @@ public class SafetyServiceImpl implements SafetyService {
         destination.setLongitude(toDatabaseCoordinate(destinationLongitude));
         destination.setName(defaultName(destinationName, "선택 목적지"));
         destination.setAddress(destinationAddress);
+        log.warn("[Safety] destinationId is missing. Reusing or creating destination by name only: name={}, lat={}, lng={}",
+                destination.getName(), destination.getLatitude(), destination.getLongitude());
         safetyMapper.upsertDestination(destination);
 
         if (destination.getDestinationId() == null

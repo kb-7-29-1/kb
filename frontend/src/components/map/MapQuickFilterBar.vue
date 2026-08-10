@@ -7,8 +7,7 @@ import {
   onMounted,
   onBeforeUnmount,
 } from 'vue';
-import Slider from '@vueform/slider';
-import '@vueform/slider/themes/default.css';
+import VueSlider from 'vue-3-slider-component';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import {
   getRecentDestinations,
@@ -530,6 +529,9 @@ watch(
   },
   { immediate: true },
 );
+
+// 🧪 vue-slider-component 무제한 교차 테스트용 상태 값
+const testVueSliderRange = ref([0, 200]);
 
 // @vueform/slider 드래그 중 즉시 라벨 & 필터 상태 실시간 갱신 (60fps 스무스 드래그)
 const handleDepositSliderUpdate = (val) => {
@@ -1256,7 +1258,7 @@ const amenityLoadingText = computed(() => {
             </button>
           </div>
 
-          <!-- 전세금/보증금 슬라이더 (@vueform/slider 라이브러리) -->
+          <!-- 전세금/보증금 슬라이더 (vue-3-slider-component - 자유 무제한 교차) -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>{{
@@ -1269,16 +1271,19 @@ const amenityLoadingText = computed(() => {
               }}</span>
             </div>
             <div class="py-2">
-              <Slider
+              <VueSlider
                 v-model="depositRange"
                 :min="0"
                 :max="DEPOSIT_OPTIONS.length - 1"
                 :step="1"
-                :lazy="false"
-                :push="true"
-                :tooltips="false"
-                @update="handleDepositSliderUpdate"
-                @change="updateFilters"
+                :height="8"
+                :order="false"
+                :enable-cross="true"
+                :tooltip="'none'"
+                :process-style="{ backgroundColor: '#2563eb', borderRadius: '9999px' }"
+                :rail-style="{ backgroundColor: '#e2e8f0', borderRadius: '9999px' }"
+                @drag-end="updateFilters"
+                @change="handleDepositSliderUpdate"
               />
             </div>
             <div
@@ -1289,7 +1294,7 @@ const amenityLoadingText = computed(() => {
             </div>
           </div>
 
-          <!-- 월세 슬라이더 (@vueform/slider 라이브러리) -->
+          <!-- 월세 슬라이더 (vue-3-slider-component - 자유 무제한 교차) -->
           <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>월세 금액 범위</span>
@@ -1298,16 +1303,19 @@ const amenityLoadingText = computed(() => {
               }}</span>
             </div>
             <div class="py-2">
-              <Slider
+              <VueSlider
                 v-model="rentRange"
                 :min="RENT_MIN"
                 :max="RENT_MAX"
                 :step="RENT_STEP"
-                :lazy="false"
-                :push="true"
-                :tooltips="false"
-                @update="handleRentSliderUpdate"
-                @change="updateFilters"
+                :height="8"
+                :order="false"
+                :enable-cross="true"
+                :tooltip="'none'"
+                :process-style="{ backgroundColor: '#2563eb', borderRadius: '9999px' }"
+                :rail-style="{ backgroundColor: '#e2e8f0', borderRadius: '9999px' }"
+                @drag-end="updateFilters"
+                @change="handleRentSliderUpdate"
               />
             </div>
             <div
