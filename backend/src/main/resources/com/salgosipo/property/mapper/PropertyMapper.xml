@@ -81,10 +81,14 @@
                 AND p.property_latitude BETWEEN #{cond.swLat} AND #{cond.neLat}
                 AND p.property_longitude BETWEEN #{cond.swLng} AND #{cond.neLng}
             </if>
-            <!-- 중심점 및 반경 기반 위치 검색 (초고속 B-Tree 사각형 바운딩 박스 인덱스 필터링만 수행) -->
+            <!-- 중심점 및 반경 기반 위치 검색 (B-Tree 사각형 1차 거름 + ST_Distance_Sphere 공간 정밀 거름) -->
             <if test="cond.lat != null and cond.lng != null and cond.radius != null">
                 AND p.property_latitude BETWEEN (#{cond.lat} - (#{cond.radius} / 111.0)) AND (#{cond.lat} + (#{cond.radius} / 111.0))
                 AND p.property_longitude BETWEEN (#{cond.lng} - (#{cond.radius} / 88.0)) AND (#{cond.lng} + (#{cond.radius} / 88.0))
+                AND ST_Distance_Sphere(
+                    POINT(p.property_longitude, p.property_latitude),
+                    POINT(#{cond.lng}, #{cond.lat})
+                ) &lt;= (#{cond.radius} * 1000)
             </if>
         </if>
         <choose>
@@ -104,6 +108,54 @@
                 ORDER BY p.property_id DESC
             </otherwise>
         </choose>
+        <if test="cond != null and cond.size != null and cond.size > 0">
+            LIMIT #{cond.size}
+            <if test="cond.offset != null">
+                OFFSET #{cond.offset}
+            </if>
+        </if>
+    </select>
+
+    <!-- 조건 검색 전체 매물 개수 집계 -->
+    <select id="selectPropertyListCount" resultType="long">
+        SELECT COUNT(*)
+        FROM properties p
+        WHERE p.del_yn = 'N'
+        <if test="cond != null">
+            <if test="cond.keyword != null and cond.keyword != ''">
+                AND p.address LIKE CONCAT('%', #{cond.keyword}, '%')
+            </if>
+            <if test="cond.buildingType != null">
+                AND p.building_type = #{cond.buildingType}
+            </if>
+            <if test="cond.roomType != null">
+                AND p.room_type = #{cond.roomType}
+            </if>
+            <if test="cond.minDeposit != null">
+                AND p.deposit >= #{cond.minDeposit}
+            </if>
+            <if test="cond.maxDeposit != null">
+                AND p.deposit &lt;= #{cond.maxDeposit}
+            </if>
+            <if test="cond.minMonthlyRent != null">
+                AND p.monthly_rent >= #{cond.minMonthlyRent}
+            </if>
+            <if test="cond.maxMonthlyRent != null">
+                AND p.monthly_rent &lt;= #{cond.maxMonthlyRent}
+            </if>
+            <if test="cond.swLat != null and cond.swLng != null and cond.neLat != null and cond.neLng != null">
+                AND p.property_latitude BETWEEN #{cond.swLat} AND #{cond.neLat}
+                AND p.property_longitude BETWEEN #{cond.swLng} AND #{cond.neLng}
+            </if>
+            <if test="cond.lat != null and cond.lng != null and cond.radius != null">
+                AND p.property_latitude BETWEEN (#{cond.lat} - (#{cond.radius} / 111.0)) AND (#{cond.lat} + (#{cond.radius} / 111.0))
+                AND p.property_longitude BETWEEN (#{cond.lng} - (#{cond.radius} / 88.0)) AND (#{cond.lng} + (#{cond.radius} / 88.0))
+                AND ST_Distance_Sphere(
+                    POINT(p.property_longitude, p.property_latitude),
+                    POINT(#{cond.lng}, #{cond.lat})
+                ) &lt;= (#{cond.radius} * 1000)
+            </if>
+        </if>
     </select>
 
     <!-- 매물 상세 조회: 요청한 destinationId 안전점수만 조인 -->
