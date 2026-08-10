@@ -838,7 +838,7 @@ const amenityLoadingText = computed(() => {
           </label>
 
           <!-- 🕒 최근 검색 목적지 기록 (유저 ID 결합, 세로 미니멀 리스트, 최대 10개) -->
-          <div v-if="recentDestinations.length > 0" class="mt-3">
+          <div v-if="recentDestinations?.length > 0" class="mt-3">
             <div
               class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5 px-0.5"
             >
@@ -1506,15 +1506,15 @@ const amenityLoadingText = computed(() => {
     <!-- ======================================================== -->
     <div class="mt-1.5 hidden xl:flex flex-wrap items-center gap-1.5 z-20 pointer-events-auto">
       <div
-        class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold transition-all border shadow-md select-none backdrop-blur-md"
+        class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all select-none backdrop-blur-md"
         :class="[
           props.isLoading
-            ? 'bg-blue-600 text-white border-blue-600 shadow-blue-200'
+            ? 'bg-[#eef1ff] text-[#4058f5] border-[#cbd6ff]'
             : isCountBouncing
-              ? 'bg-blue-600 text-white border-blue-600 scale-105 ring-4 ring-blue-200 animate-shake-horizontal'
+              ? 'bg-[#f5f7ff] text-[#4058f5] border-[#9eafff] scale-[1.03]'
               : activeAmenityIcons.length
-                ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-100'
-                : 'bg-white/95 text-slate-700 border-slate-200/90',
+                ? 'bg-[#f5f7ff] text-[#4058f5] border-[#cbd6ff]'
+                : 'bg-white/95 text-slate-600 border-slate-200/90',
         ]"
       >
         <template v-if="props.isLoading">
@@ -1523,10 +1523,24 @@ const amenityLoadingText = computed(() => {
         </template>
         <template v-else>
           <span>🏠</span>
-          <span v-if="props.baseCount && props.baseCount !== props.totalCount"
-            >매물 {{ props.totalCount }}/{{ props.baseCount }}개</span
-          >
-          <span v-else>매물 {{ props.totalCount }}개</span>
+          <!-- 분모 분수 표기는 임시 비노출 처리하여 깔끔하게 단일 수량만 표기 -->
+          <span>{{ props.totalCount }}개</span>
+          <!-- 선택된 편의시설 조건 아이콘들 실시간 표기 -->
+          <!-- <template v-if="activeAmenityIcons.length">
+            <span class="opacity-40 text-[10px]">|</span>
+            <span class="flex items-center gap-1">
+              <span
+                v-for="(item, idx) in activeAmenityIcons"
+                :key="idx"
+                class="text-xs"
+                :title="item.name"
+                >{{ item.icon }}</span
+              >
+            </span>
+            <span class="text-[10px] font-black underline underline-offset-2"
+              >필터 적용됨</span
+            >
+          </template> -->
         </template>
       </div>
     </div>
@@ -1571,12 +1585,12 @@ const amenityLoadingText = computed(() => {
 
       <!-- 3) 모바일 매물 개수 뱃지 (영역 ON 우측 위치) -->
       <div
-        class="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black transition-all border shadow-sm select-none backdrop-blur-md"
+        class="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[11px] font-bold transition-all border select-none backdrop-blur-md"
         :class="[
           props.isLoading
             ? 'bg-blue-600 text-white border-blue-600'
             : isCountBouncing
-              ? 'bg-blue-600 text-white border-blue-600 scale-105 shadow-lg ring-4 ring-blue-200 animate-shake-horizontal'
+              ? 'bg-blue-600 text-white border-blue-600 scale-[1.03]'
               : activeAmenityIcons.length
                 ? 'bg-indigo-600 text-white border-indigo-500'
                 : 'bg-white/90 text-blue-700 border-slate-200',

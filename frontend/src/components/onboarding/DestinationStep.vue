@@ -102,26 +102,36 @@ const selectDestination = (destination) => {
 const scheduleSearch = (value) => {
   clearTimeout(searchTimer);
   searchError.value = '';
-  const requestId = ++searchRequestId;
 
-  const searchKeyword = value.trim();
-  if (searchKeyword.length < 2 || selectedDestination.value?.destName === value) {
+  const searchKeyword = (value || '').trim();
+  if (
+    selectedDestination.value &&
+    selectedDestination.value.destName !== value
+  ) {
+    selectedDestination.value = null;
+  }
+
+  if (
+    searchKeyword.length < 2 ||
+    selectedDestination.value?.destName === value
+  ) {
     destinations.value = [];
     isSearching.value = false;
     return;
   }
 
-  selectedDestination.value = null;
+  const requestId = ++searchRequestId;
   isSearching.value = true;
   searchTimer = setTimeout(async () => {
     try {
       const results = await onboardingApi.searchDestinations(searchKeyword);
       if (requestId !== searchRequestId) return;
-      destinations.value = results;
+      destinations.value = Array.isArray(results) ? results : [];
     } catch (error) {
       if (requestId !== searchRequestId) return;
       destinations.value = [];
-      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      searchError.value =
+        '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('DESTINATION SEARCH ERROR: ', error);
     } finally {
       if (requestId === searchRequestId) isSearching.value = false;
@@ -130,6 +140,25 @@ const scheduleSearch = (value) => {
 };
 
 watch(selectedPurpose, (value) => emit('update:purpose', value));
+
+// 마이페이지 온보딩 수정 진입 시 입력창에 기존 목적지 값을 채우도록
+watch(
+  () => props.selectedDestination,
+  (destination) => {
+    selectedDestination.value = destination ?? null;
+    keyword.value = destination?.destName ?? '';
+    destinations.value = [];
+    searchError.value = '';
+  },
+  { deep: true },
+);
+
+watch(
+  () => props.purpose,
+  (purpose) => {
+    selectedPurpose.value = purpose ?? 'school';
+  },
+);
 
 onBeforeUnmount(() => {
   clearTimeout(searchTimer);
@@ -157,13 +186,17 @@ onBeforeUnmount(() => {
           :class="{ active: selectedPurpose === purpose.id }"
           @click="selectedPurpose = purpose.id"
         >
-          <span class="purpose-icon" aria-hidden="true">{{ purpose.icon }}</span>
+          <span class="purpose-icon" aria-hidden="true">{{
+            purpose.icon
+          }}</span>
           {{ purpose.label }}
         </button>
       </div>
 
       <div class="search-field">
-        <label class="search-label" for="destination">학교/직장 이름 또는 주소</label>
+        <label class="search-label" for="destination"
+          >학교/직장 이름 또는 주소</label
+        >
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input
@@ -189,9 +222,15 @@ onBeforeUnmount(() => {
         </div>
 
         <p v-if="isSearching" class="search-message">검색 중이에요.</p>
-        <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
+        <p v-else-if="searchError" class="search-message error">
+          {{ searchError }}
+        </p>
         <p
-          v-else-if="keyword.trim().length >= 2 && !selectedDestination && !destinations.length"
+          v-else-if="
+            keyword.trim().length >= 2 &&
+            !selectedDestination &&
+            !destinations.length
+          "
           class="search-message"
         >
           검색 결과가 없어요.
@@ -199,8 +238,14 @@ onBeforeUnmount(() => {
 
         <div class="search-feedback">
           <ul v-if="destinations.length" class="suggestion-list">
-            <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
-              <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
+            <li
+              v-for="item in destinations"
+              :key="`${item.destName}-${item.destAddress}`"
+            >
+              <button
+                type="button"
+                @pointerdown.capture.prevent="selectDestination(item)"
+              >
                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
                 <span>
                   <strong>{{ item.destName }}</strong>
@@ -409,6 +454,8 @@ input::placeholder {
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   list-style: none;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
 }
 .suggestion-list::-webkit-scrollbar {
   width: 4px;

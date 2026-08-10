@@ -71,7 +71,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['select-property', 'change-destination']);
+const emit = defineEmits(['select-property', 'change-destination', 'bounds-change']);
 
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
@@ -528,6 +528,27 @@ const initMap = () => {
       window.naver.maps.Event.addListener(mapInstance.value, 'idle', () => {
         renderMarkers();
         checkDistanceToDestination();
+        if (mapInstance.value) {
+          const bounds = mapInstance.value.getBounds();
+          const center = mapInstance.value.getCenter();
+          if (bounds && center) {
+            const sw = bounds.getSW();
+            const ne = bounds.getNE();
+            emit('bounds-change', {
+              swLat: sw.lat(),
+              swLng: sw.lng(),
+              neLat: ne.lat(),
+              neLng: ne.lng(),
+              centerLat: center.lat(),
+              centerLng: center.lng(),
+            });
+          }
+        }
+      });
+      window.naver.maps.Event.addListener(mapInstance.value, 'zoom_changed', () => {
+        if (mapInstance.value) {
+          zoomLevel.value = mapInstance.value.getZoom();
+        }
       });
       window.naver.maps.Event.addListener(mapInstance.value, 'center_changed', () => {
         checkDistanceToDestination();
@@ -743,6 +764,7 @@ const handleMapRightClick = async (e) => {
     cardContainer.querySelector('.btn-confirm').addEventListener('click', () => {
       emit('change-destination', {
         name: placeName,
+        address: geoResult.roadAddress || geoResult.jibunAddress || placeName,
         lat,
         lng,
       });
@@ -770,6 +792,30 @@ watch(
     checkDistanceToDestination();
   },
   { deep: true },
+);
+
+watch(
+  () => [props.destination?.id, props.destination?.lat, props.destination?.lng],
+  ([destinationId, latitude, longitude]) => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    console.info('[Map] destination marker coordinate', {
+      destinationId,
+      latitude: lat,
+      longitude: lng,
+    });
+
+    if (activeDestMarker && window.naver?.maps) {
+      activeDestMarker.setPosition(new window.naver.maps.LatLng(lat, lng));
+      activeDestMarker._key = `${lat}_${lng}_${props.destination.name || ''}`;
+    }
+
+    renderMarkers();
+  },
+  { immediate: true },
 );
 
 watch(
@@ -857,9 +903,9 @@ const fitToIsochroneRadius = () => {
   }
 };
 
-// 실시간 프리뷰 점선 원 및 목적지 변경 시 줌 자동 조율
+// 목적지 변경 시 줌 자동 조율 (매물 추가 로드 시에는 현재 사용자의 줌 레벨을 유지)
 watch(
-  [() => props.destination, () => props.liveFilter, () => props.appliedFilter],
+  () => props.destination,
   () => {
     fitToIsochroneRadius();
   },

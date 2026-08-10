@@ -9,7 +9,11 @@ const emit = defineEmits(['open-property']);
 const fetchBookmarks = async () => {
   try {
     const response = await api.get('/bookmark');
-    bookmarks.value = response.data;
+    // 화면에 처음 들어왔을 때의 목록만 서버 기준으로 구성
+    bookmarks.value = (response.data || []).map((bookmark) => ({
+      ...bookmark,
+      isBookmarked: true,
+    }));
   } catch (error) {
     console.error('BOOKMARK GET ERROR: ', error);
   } finally {
@@ -17,9 +21,23 @@ const fetchBookmarks = async () => {
   }
 };
 
-const removeBookmark = async (propertyId) => {
-  await api.delete(`/bookmark/${propertyId}`);
-  await fetchBookmarks();
+const toggleBookmark = async (item) => {
+  const propertyId = item.propertyId;
+  const wasBookmarked = item.isBookmarked !== false;
+
+  try {
+    if (wasBookmarked) {
+      await api.delete(`/bookmark/${propertyId}`);
+    } else {
+      await api.post('/bookmark', { propertyId });
+    }
+
+    // 해제해도 목록은 유지하고, 하트 상태만 바꿈
+    // 페이지 재진입/새로고침 시 목록 재조회
+    item.isBookmarked = !wasBookmarked;
+  } catch (error) {
+    console.error('BOOKMARK TOGGLE ERROR: ', error);
+  }
 };
 
 const openPropertyDetail = (property) => {
@@ -83,10 +101,15 @@ onMounted(fetchBookmarks);
           <button
             type="button"
             class="bookmark-remove-button"
-            aria-label="관심 매물에서 삭제"
-            @click.stop="removeBookmark(item.propertyId)"
+            :class="{ 'bookmark-remove-button--active': item.isBookmarked !== false }"
+            :aria-label="item.isBookmarked !== false ? '관심 매물 해제' : '관심 매물 등록'"
+            @click.stop="toggleBookmark(item)"
           >
-            <i class="fa-solid fa-heart" aria-hidden="true"></i>
+            <i
+              class="fa-heart"
+              :class="item.isBookmarked !== false ? 'fa-solid' : 'fa-regular'"
+              aria-hidden="true"
+            ></i>
           </button>
         </div>
       </div>
@@ -203,6 +226,7 @@ onMounted(fetchBookmarks);
     transform 0.15s ease;
 }
 
+/* 모바일 탭 후 hover 상태가 남아 아이콘 테두리가 변하지 않도록 PC 마우스에서만 적용 */
 .bookmark-item:hover {
   border-color: #cbd6ff;
   background: #f0f4ff;
@@ -302,11 +326,30 @@ onMounted(fetchBookmarks);
   width: 24px;
   height: 24px;
   padding: 0;
-  border: 0;
+  border: 1px solid #cbd5e1;
   border-radius: 50%;
-  background: #fff1f2;
-  color: #dc4b5d;
+  background: transparent;
+  color: #94a3b8;
   font-size: 11px;
   cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
+  .bookmark-remove-button:hover {
+    border-color: #dc4b5d;
+    color: #dc4b5d;
+    transform: scale(1.06);
+  }
+}
+
+.bookmark-remove-button--active {
+  border-color: transparent;
+  background: #fff1f2;
+  color: #dc4b5d;
 }
 </style>

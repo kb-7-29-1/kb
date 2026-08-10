@@ -9,11 +9,13 @@ import com.salgosipo.property.service.PublicDataApiService;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -31,6 +33,9 @@ public class DestinationServiceImpl implements DestinationService {
     private static final String NAVER_LOCAL_SEARCH_URL = "https://openapi.naver.com/v1/search/local.json";
     private static final int DISPLAY_COUNT = 5;
     private static final BigDecimal NAVER_COORDINATE_SCALE = BigDecimal.valueOf(10_000_000L);
+    private static final double EARTH_RADIUS_METERS = 6_371_000D;
+    private static final double DUPLICATE_DISTANCE_METERS = 30D;
+    private static final double METERS_PER_LATITUDE_DEGREE = 111_320D;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -70,8 +75,7 @@ public class DestinationServiceImpl implements DestinationService {
                     requestUri,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
-                    String.class
-            );
+                    String.class);
 
             resultList.addAll(toDestinationList(response.getBody()));
         } catch (Exception e) {
@@ -109,11 +113,49 @@ public class DestinationServiceImpl implements DestinationService {
     public DestinationDTO saveDestination(DestinationDTO destination) {
         validateDestination(destination);
 
-        DestinationVO destinationVO = destination.toVO();
-        destinationMapper.insertDestination(destinationVO);
+        normalizeDestination(destination);
 
-        destination.setDestinationId(destinationVO.getDestinationId());
-        return destination;
+        DestinationVO existingByAddress = findByNameAndAddress(destination);
+        if (existingByAddress != null) {
+            log.info("[Destination] reuse by name and address: id={}, name={}",
+                    existingByAddress.getDestinationId(), existingByAddress.getDestName());
+            return DestinationDTO.fromVO(existingByAddress);
+        }
+
+        DestinationVO existingNearby = findNearbyDestination(destination);
+        if (existingNearby != null) {
+            log.info("[Destination] reuse within {}m: id={}, name={}",
+                    DUPLICATE_DISTANCE_METERS,
+                    existingNearby.getDestinationId(),
+                    existingNearby.getDestName());
+            return DestinationDTO.fromVO(existingNearby);
+        }
+
+        // 같은 이름이 이미 존재하면 기존 행을 재사용
+        DestinationVO existingByName = destinationMapper.findByName(destination.getDestName());
+        if (existingByName != null) {
+            log.info("[Destination] reuse by unique name: {} (id={})",
+                    destination.getDestName(), existingByName.getDestinationId());
+            return DestinationDTO.fromVO(existingByName);
+        }
+
+        DestinationVO destinationVO = destination.toVO();
+        try {
+            destinationMapper.insertDestination(destinationVO);
+        } catch (DuplicateKeyException e) {
+            // 동시에 같은 목적지를 저장한 경우, 이미 생성된 목적지를 반환
+            DestinationVO duplicatedDestination = destinationMapper.findByName(destination.getDestName());
+            if (duplicatedDestination != null) {
+                log.info("[Destination] reuse after concurrent save: id={}, name={}",
+                        duplicatedDestination.getDestinationId(), duplicatedDestination.getDestName());
+                return DestinationDTO.fromVO(duplicatedDestination);
+            }
+            throw e;
+        }
+
+        log.info("[Destination] inserted new destination: id={}, name={}",
+                destinationVO.getDestinationId(), destinationVO.getDestName());
+        return DestinationDTO.fromVO(destinationVO);
     }
 
     private List<DestinationDTO> toDestinationList(String responseBody) {
@@ -154,8 +196,7 @@ public class DestinationServiceImpl implements DestinationService {
         if (!StringUtils.hasText(clientId) || !StringUtils.hasText(clientSecret)) {
             throw new IllegalStateException(
                     "네이버 검색 API 키가 없습니다. 실행 환경 변수 NAVER_SEARCH_CLIENT_ID와 "
-                            + "NAVER_SEARCH_CLIENT_SECRET을 설정하세요."
-            );
+                            + "NAVER_SEARCH_CLIENT_SECRET을 설정하세요.");
         }
     }
 
@@ -166,5 +207,61 @@ public class DestinationServiceImpl implements DestinationService {
                 || !StringUtils.hasText(destination.getDestName())) {
             throw new IllegalArgumentException("목적지 정보가 올바르지 않습니다.");
         }
+    }
+
+    private DestinationVO findByNameAndAddress(DestinationDTO destination) {
+        if (!StringUtils.hasText(destination.getDestAddress())) {
+            return null;
+        }
+
+        return destinationMapper.findByNameAndAddress(
+                destination.getDestName(), destination.getDestAddress());
+    }
+
+    private DestinationVO findNearbyDestination(DestinationDTO destination) {
+        double latitude = destination.getDestLatitude().doubleValue();
+        double longitude = destination.getDestLongitude().doubleValue();
+        double latitudeDelta = DUPLICATE_DISTANCE_METERS / METERS_PER_LATITUDE_DEGREE;
+        double longitudeDelta = DUPLICATE_DISTANCE_METERS
+                / (METERS_PER_LATITUDE_DEGREE * Math.cos(Math.toRadians(latitude)));
+
+        List<DestinationVO> candidates = destinationMapper.findByNameInCoordinateRange(
+                destination.getDestName(),
+                BigDecimal.valueOf(latitude - latitudeDelta),
+                BigDecimal.valueOf(latitude + latitudeDelta),
+                BigDecimal.valueOf(longitude - longitudeDelta),
+                BigDecimal.valueOf(longitude + longitudeDelta));
+
+        return candidates.stream()
+                .filter(candidate -> distanceInMeters(destination, candidate) <= DUPLICATE_DISTANCE_METERS)
+                .min(Comparator.comparingDouble(candidate -> distanceInMeters(destination, candidate)))
+                .orElse(null);
+    }
+
+    private double distanceInMeters(DestinationDTO source, DestinationVO target) {
+        double latitudeDifference = Math.toRadians(target.getDestLatitude().doubleValue()
+                - source.getDestLatitude().doubleValue());
+        double longitudeDifference = Math.toRadians(target.getDestLongitude().doubleValue()
+                - source.getDestLongitude().doubleValue());
+        double sourceLatitude = Math.toRadians(source.getDestLatitude().doubleValue());
+        double targetLatitude = Math.toRadians(target.getDestLatitude().doubleValue());
+
+        double haversine = Math.sin(latitudeDifference / 2) * Math.sin(latitudeDifference / 2)
+                + Math.cos(sourceLatitude) * Math.cos(targetLatitude)
+                * Math.sin(longitudeDifference / 2) * Math.sin(longitudeDifference / 2);
+        return 2 * EARTH_RADIUS_METERS * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    }
+
+    private void normalizeDestination(DestinationDTO destination) {
+        destination.setDestName(normalizeText(destination.getDestName()));
+        destination.setDestAddress(normalizeText(destination.getDestAddress()));
+    }
+
+    private String normalizeText(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+
+        return value.trim().replaceAll("\\s+", " ");
     }
 }

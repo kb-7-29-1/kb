@@ -4,6 +4,37 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.salgosipo.destination.mapper.DestinationMapper">
+    <resultMap id="DestinationResultMap" type="com.salgosipo.destination.domain.DestinationVO">
+        <id property="destinationId" column="destination_id" />
+        <result property="destLatitude" column="dest_latitude" />
+        <result property="destLongitude" column="dest_longitude" />
+        <result property="destName" column="dest_name" />
+        <result property="destAddress" column="dest_address" />
+    </resultMap>
+
+    <select id="findByNameAndAddress" resultMap="DestinationResultMap">
+        SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
+        FROM destinations
+        WHERE dest_name = #{destName}
+          AND dest_address = #{destAddress}
+        LIMIT 1
+    </select>
+
+    <select id="findByNameInCoordinateRange" resultMap="DestinationResultMap">
+        SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
+        FROM destinations
+        WHERE dest_name = #{destName}
+          AND dest_latitude BETWEEN #{minLatitude} AND #{maxLatitude}
+          AND dest_longitude BETWEEN #{minLongitude} AND #{maxLongitude}
+    </select>
+
+    <select id="findByName" resultMap="DestinationResultMap">
+        SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
+        FROM destinations
+        WHERE dest_name = #{destName}
+        LIMIT 1
+    </select>
+
     <insert id="insertDestination"
             parameterType="com.salgosipo.destination.domain.DestinationVO">
         INSERT INTO destinations (
@@ -17,11 +48,6 @@
             #{destName},
             #{destAddress}
         )
-        ON DUPLICATE KEY UPDATE
-            destination_id = LAST_INSERT_ID(destination_id),
-            dest_name = VALUES(dest_name),
-            dest_address = VALUES(dest_address)
-
         <selectKey keyProperty="destinationId" resultType="int" order="AFTER">
             SELECT LAST_INSERT_ID()
         </selectKey>

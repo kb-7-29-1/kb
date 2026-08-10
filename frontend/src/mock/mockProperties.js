@@ -23,7 +23,7 @@ export const mockProperties = [
     streetlightCount: 42,
     hasPoliceStation: true,
     isIllegalBuilding: false,
-    isBookmarked: true,
+    isBookmarked: false,
     tags: ['풀옵션', '역세권', 'CCTV가득'],
   },
   {
@@ -71,7 +71,7 @@ export const mockProperties = [
     streetlightCount: 28,
     hasPoliceStation: true,
     isIllegalBuilding: false,
-    isBookmarked: true,
+    isBookmarked: false,
     tags: ['신축급', '건대입구역', '주차가능'],
   },
   {
