@@ -3,6 +3,7 @@ import AuthPage from '../pages/auth/AuthPage.vue';
 import OnBoardingPage from '../pages/onboarding/OnBoardingPage.vue';
 import MyPagePage from '../pages/mypage/MyPagePage.vue';
 import HomePage from "@/pages/home/HomePage.vue";
+import NotFoundPage from '@/pages/error/NotFoundPage.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -13,6 +14,7 @@ const router = createRouter({
     { path: '/home', name: 'home', component: HomePage, alias: '/map' },
     { path: '/map', name: 'map', component: HomePage },
     { path: '/mypage', name: 'mypage', component: MyPagePage },
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
   ],
 });
 

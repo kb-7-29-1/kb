@@ -1527,21 +1527,6 @@ const amenityLoadingText = computed(() => {
             >매물 {{ props.totalCount }}/{{ props.baseCount }}개</span
           >
           <span v-else>매물 {{ props.totalCount }}개</span>
-
-          <!-- 선택된 편의시설 조건 아이콘들 실시간 표기 -->
-          <template v-if="activeAmenityIcons.length">
-            <span class="opacity-40 text-[10px]">|</span>
-            <span class="flex items-center gap-1">
-              <span
-                v-for="(item, idx) in activeAmenityIcons"
-                :key="idx"
-                class="text-xs"
-                :title="item.name"
-                >{{ item.icon }}</span
-              >
-            </span>
-            <span class="text-[10px] font-black underline underline-offset-2">필터 적용됨</span>
-          </template>
         </template>
       </div>
     </div>
