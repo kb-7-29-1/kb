@@ -1616,7 +1616,7 @@ const amenityLoadingText = computed(() => {
           <!-- 분모 분수 표기는 임시 비노출 처리하여 깔끔하게 단일 수량만 표기 -->
           <span>매물 {{ props.totalCount }}개</span>
           <!-- 선택된 편의시설 조건 아이콘들 실시간 표기 -->
-          <template v-if="activeAmenityIcons.length">
+          <!-- <template v-if="activeAmenityIcons.length">
             <span class="opacity-40 text-[10px]">|</span>
             <span class="flex items-center gap-1">
               <span
@@ -1630,7 +1630,7 @@ const amenityLoadingText = computed(() => {
             <span class="text-[10px] font-black underline underline-offset-2"
               >필터 적용됨</span
             >
-          </template>
+          </template> -->
         </template>
       </div>
     </div>
