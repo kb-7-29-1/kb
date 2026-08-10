@@ -1299,25 +1299,6 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         />
       </div>
 
-      <div
-        v-if="
-          selectedProperty && (isSafetyRouteLoading || selectedSafetyRouteMeta || safetyRouteError)
-        "
-        class="pointer-events-none absolute right-16 top-4 z-30 max-w-[260px] rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-[11px] font-bold shadow-lg backdrop-blur"
-      >
-        <span v-if="isSafetyRouteLoading" class="text-[#4058f5]">
-          <i class="fa-solid fa-spinner mr-1 animate-spin" aria-hidden="true"></i>
-          TMAP 안전 경로 확인 중
-        </span>
-        <span v-else-if="safetyRouteError" class="text-rose-600">
-          {{ safetyRouteError }}
-        </span>
-        <span v-else class="text-slate-700">
-          안전 {{ selectedSafetyRouteMeta?.safetyScore ?? '--' }}점 ·
-          {{ selectedSafetyRouteMeta?.cacheHit ? 'DB 저장 경로' : 'TMAP 신규 계산' }}
-        </span>
-      </div>
-
       <NaverMap
         :properties="visibleProperties"
         :selected-property="selectedProperty"
