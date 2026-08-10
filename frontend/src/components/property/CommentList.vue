@@ -1,5 +1,6 @@
 <script setup>
-import {computed, ref} from 'vue';
+import { computed, ref } from 'vue';
+import TagBadge from './TagBadge.vue';
 
 const props = defineProps({
   property: {
@@ -10,22 +11,18 @@ const props = defineProps({
       address: '',
     }),
   },
-
   comments: {
     type: Array,
     default: () => [],
   },
-
   isLoggedIn: {
     type: Boolean,
     default: false,
   },
-
   isSubmitting: {
     type: Boolean,
     default: false,
   },
-
   tags: {
     type: Array,
     default: () => [],
@@ -89,7 +86,7 @@ const submitEdit = (commentId) => {
   const trimmedContent = editingContent.value.trim();
   if (!trimmedContent) return;
 
-  emit('update-comment', {commentId, content: trimmedContent});
+  emit('update-comment', { commentId, content: trimmedContent });
   cancelEdit();
 };
 </script>
@@ -109,9 +106,7 @@ const submitEdit = (commentId) => {
 
       <div class="property-information">
         <div class="property-title-row">
-          <h2 class="property-name">
-            💬실거주 리포트
-          </h2>
+          <h2 class="property-name">💬실거주 리포트</h2>
         </div>
 
         <p class="property-address">
@@ -120,39 +115,8 @@ const submitEdit = (commentId) => {
       </div>
     </header>
 
-    <!-- 전체 태그 -->
-    <section
-        v-if="tags.length"
-        class="tag-summary"
-    >
-      <h3 class="section-title">
-        🏷️ 전체 빅데이터 추출 태그 ({{ tags.length }}종)
-      </h3>
-
-      <div class="tag-list">
-        <button
-            v-for="tag in tags"
-            :key="tag.tagId || tag.id || tag.tagName"
-            type="button"
-            class="summary-tag"
-            :class="{
-            positive: tag.type === 'POSITIVE',
-            negative: tag.type === 'NEGATIVE',
-          }"
-        >
-          <span>
-            {{ tag.type === 'NEGATIVE' ? '👎' : '👍' }}
-          </span>
-
-          <span>
-            {{ tag.tagName || tag.name }}
-          </span>
-
-          <span>
-            ({{ tag.count || 0 }})
-          </span>
-        </button>
-      </div>
+    <section v-if="tags.length" class="tag-summary">
+      <TagBadge :tags="tags" />
     </section>
 
     <!-- 댓글 목록 -->
@@ -169,7 +133,9 @@ const submitEdit = (commentId) => {
       >
         <div class="comment-header">
           <div class="nickname-wrapper">
-            <strong class="comment-nickname">👤 {{ comment.nickname || '익명 사용자' }}</strong>
+            <strong class="comment-nickname"
+            >👤 {{ comment.nickname || '익명 사용자' }}</strong
+            >
             <span v-if="comment.isMine" class="my-badge">MY</span>
           </div>
           <div class="comment-meta">
@@ -202,7 +168,13 @@ const submitEdit = (commentId) => {
               maxlength="255"
           ></textarea>
           <div class="inline-edit-actions">
-            <button type="button" class="cancel-edit-button" @click="cancelEdit">취소</button>
+            <button
+                type="button"
+                class="cancel-edit-button"
+                @click="cancelEdit"
+            >
+              취소
+            </button>
             <button
                 type="button"
                 class="save-edit-button"
@@ -263,7 +235,6 @@ const submitEdit = (commentId) => {
 }
 
 /* 상단 헤더 */
-
 .report-header {
   position: sticky;
   top: 0;
@@ -310,18 +281,6 @@ const submitEdit = (commentId) => {
   gap: 8px;
 }
 
-.property-icon {
-  display: flex;
-  width: 26px;
-  height: 26px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: rgb(189 183 255 / 16%);
-  color: #d9d4ff;
-  font-size: 12px;
-}
-
 .property-name {
   overflow: hidden;
   margin: 0;
@@ -342,48 +301,80 @@ const submitEdit = (commentId) => {
   white-space: nowrap;
 }
 
-/* 태그 요약 */
-
+/* --- 타이틀이 제거된 태그 섹션 --- */
 .tag-summary {
-  padding: 22px;
-  border-bottom: 1px solid #e5e7eb;
+  /* 불필요한 제목이 빠졌으므로 패딩을 줄여서 공간 낭비 방지 */
+  padding: 16px 22px;
+  border-bottom: 1px solid #f0f2f5;
   background: #fff;
-}
-
-.section-title {
-  margin: 0 0 14px;
-  color: #404757;
-  font-size: 14px;
-  font-weight: 800;
 }
 
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* 모던한 알약(Pill) 디자인 칩 */
 .summary-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 10px;
-  border: 1px solid #b8edcf;
-  border-radius: 6px;
-  background: #f2fff7;
-  color: #238557;
-  font-size: 12px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: default;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tag-icon {
+  font-size: 14px;
+  margin-right: 6px;
+}
+
+.tag-name {
+  margin-right: 6px;
+}
+
+/* 카운트 숫자 뱃지 */
+.tag-count-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
-.summary-tag.negative {
-  border-color: #ffc7ce;
-  background: #fff5f6;
-  color: #dc4355;
+/* 긍정 태그 (세련된 파란색 계열) */
+.summary-tag.positive {
+  background: #f0f5ff;
+  color: #3182f6;
+}
+.summary-tag.positive .tag-count-badge {
+  background: #dbe4ff;
+  color: #1c7ed6;
 }
 
-/* 댓글 작성 폼 */
+/* 부정 태그 (부드러운 빨간색 계열) */
+.summary-tag.negative {
+  background: #fff4f4;
+  color: #f04452;
+}
+.summary-tag.negative .tag-count-badge {
+  background: #ffe3e4;
+  color: #e03131;
+}
 
+/* --- 댓글 목록 및 기타 CSS --- */
 .empty-comment {
   display: flex;
   box-sizing: border-box;
@@ -436,7 +427,6 @@ const submitEdit = (commentId) => {
   white-space: nowrap;
 }
 
-
 .nickname-wrapper {
   display: flex;
   align-items: center;
@@ -449,12 +439,12 @@ const submitEdit = (commentId) => {
   align-items: center;
   justify-content: center;
   padding: 3px 6px;
-  border: 1.5px solid #5B89FF;
+  border: 1.5px solid #5b89ff;
   border-radius: 6px;
-  background: #E8F0FF;
-  color: #12379D;
+  background: #e8f0ff;
+  color: #12379d;
   font-size: 10px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-weight: 900;
   line-height: 1;
 }
@@ -650,8 +640,7 @@ const submitEdit = (commentId) => {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s,
-  opacity 0.2s;
+  transition: background 0.2s, opacity 0.2s;
 }
 
 .submit-button:hover:not(:disabled) {
@@ -668,19 +657,15 @@ const submitEdit = (commentId) => {
     min-height: 92px;
     padding: 17px 18px;
   }
-
   .property-name {
     font-size: 17px;
   }
-
   .tag-summary {
-    padding: 20px 18px;
+    padding: 14px 18px;
   }
-
   .comment-form {
     padding: 14px 18px 18px;
   }
-
   .submit-button {
     width: 68px;
   }
