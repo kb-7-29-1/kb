@@ -29,6 +29,7 @@ import javax.sql.DataSource;
         "com.salgosipo.destination.mapper",
         "com.salgosipo.onboarding.mapper",
         "com.salgosipo.property.mapper",
+        "com.salgosipo.routevote.mapper",
         "com.salgosipo.safety.mapper",
         "com.salgosipo.user.mapper"})
 @ComponentScan(basePackages = {"com.salgosipo.amenity.service",
@@ -39,6 +40,7 @@ import javax.sql.DataSource;
         "com.salgosipo.onboarding.service",
         "com.salgosipo.property.service",
         "com.salgosipo.property.client",
+        "com.salgosipo.routevote.service",
         "com.salgosipo.safety.service",
         "com.salgosipo.user.service",
         "com.salgosipo.loan.service",

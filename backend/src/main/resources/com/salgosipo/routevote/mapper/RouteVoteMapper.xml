@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.salgosipo.routevote.mapper.RouteVoteMapper">
+    <!-- 사용자·매물·목적지 조합이 이미 있으면 투표 종류만 변경 -->
+    <insert id="upsertVote" parameterType="com.salgosipo.routevote.domain.RouteVoteVO">
+        INSERT INTO route_vote (
+            user_id,
+            property_id,
+            destination_id,
+            vote_type,
+            del_yn
+        ) VALUES (
+            #{userId},
+            #{propertyId},
+            #{destinationId},
+            #{voteType},
+            'N'
+        )
+        ON DUPLICATE KEY UPDATE
+            vote_type = VALUES(vote_type),
+            del_yn = 'N',
+            updated_at = CURRENT_TIMESTAMP
+    </insert>
+
+    <!-- 전체 투표 수와 로그인 사용자의 기존 투표를 한 번에 조회 -->
+    <select id="findVoteStats" resultType="com.salgosipo.routevote.dto.RouteVoteDTO">
+        SELECT
+            COALESCE(SUM(CASE WHEN vote_type = 'SAFE' THEN 1 ELSE 0 END), 0) AS safeCount,
+            COALESCE(SUM(CASE WHEN vote_type = 'UNSAFE' THEN 1 ELSE 0 END), 0) AS unsafeCount,
+            COUNT(*) AS totalVotes,
+            MAX(CASE WHEN user_id = #{userId} THEN vote_type END) AS myVote
+        FROM route_vote
+        WHERE property_id = #{propertyId}
+          AND destination_id = #{destinationId}
+          AND del_yn = 'N'
+    </select>
+</mapper>

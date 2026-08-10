@@ -23,6 +23,7 @@ import java.util.List;
         "com.salgosipo.destination.controller",
         "com.salgosipo.onboarding.controller",
         "com.salgosipo.property.controller",
+        "com.salgosipo.routevote.controller",
         "com.salgosipo.safety.controller",
         "com.salgosipo.user.controller",
         "com.salgosipo.loan.controller",
