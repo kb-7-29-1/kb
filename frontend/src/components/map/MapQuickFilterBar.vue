@@ -574,7 +574,7 @@ const handleDepositTrackClick = (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-  const maxIdx = depositOptions.value.length - 1;
+  const maxIdx = depositOptions.length - 1;
   const clickedIdx = Math.round(ratio * maxIdx);
 
   const distA = Math.abs(depositValA.value - clickedIdx);
