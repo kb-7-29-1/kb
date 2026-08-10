@@ -9,8 +9,25 @@
         </button>
       </header>
 
+      <div v-if="isCalculating" class="calculation-loading calculation-loading--full" role="status" aria-live="polite">
+        <span class="calculation-loader" aria-hidden="true"></span>
+        <div>
+          <strong>안전점수를 계산하고 있어요</strong>
+          <span>귀갓길과 주변 안전시설을 분석하는 중입니다.</span>
+        </div>
+      </div>
+
+      <template v-else>
+
       <!-- 총점 영역 -->
       <section class="score-section" :style="{ backgroundColor: safetyScoreTheme.background }">
+        <div v-if="isCalculating" class="calculation-loading" role="status" aria-live="polite">
+          <i class="fa-solid fa-spinner calculation-loading__icon" aria-hidden="true"></i>
+          <div>
+            <strong>안전점수를 계산하고 있어요</strong>
+            <span>귀갓길과 주변 안전시설을 분석하는 중입니다.</span>
+          </div>
+        </div>
         <div class="score-headline">
           <span class="score-number" :style="{ color: safetyScoreTheme.color }">{{ safetyScore === null ? '-' : `${safetyScore}점` }}</span>
           <span class="score-status" :style="{ color: safetyScoreTheme.color }"> · {{ safetyGrade }}</span>
@@ -93,6 +110,7 @@
           <span>공공데이터를 바탕으로 분석하며, 실제 환경이나 체감 안전과 차이가 있을 수 있어요.</span>
         </div>
       </section>
+      </template>
     </div>
   </div>
 </template>
@@ -208,6 +226,10 @@ const hasPoliceStation = computed(() => Boolean(props.property?.hasPoliceStation
 .modal-container {
   width: 100%;
   max-width: 400px;
+  height: min(720px, calc(100vh - 40px));
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
   background-color: #ffffff;
   border-radius: 20px;
   padding: 24px;
@@ -267,6 +289,71 @@ const hasPoliceStation = computed(() => Boolean(props.property?.hasPoliceStation
   font-size: 13px;
   color: #666;
   margin: 0;
+}
+
+.calculation-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #dbe4ff;
+  border-radius: 10px;
+  background: #f5f7ff;
+  color: #4051db;
+}
+
+.calculation-loading--full {
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: #ffffff;
+  text-align: center;
+}
+
+.calculation-loader {
+  display: block;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 4px solid #e6eaff;
+  border-top-color: #4051db;
+  flex: 0 0 auto;
+  animation: safety-modal-spin 0.9s linear infinite;
+}
+
+.calculation-loading strong,
+.calculation-loading span {
+  display: block;
+}
+
+.calculation-loading > div {
+  width: 100%;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.calculation-loading strong {
+  color: #1e293b;
+  font-size: 15px;
+}
+
+.calculation-loading span {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@keyframes safety-modal-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* 귀갓길 정보 */
