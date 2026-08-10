@@ -1,12 +1,17 @@
 package com.salgosipo.global.exception;
 
+import com.salgosipo.global.response.ApiResponse;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
+
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 @Order(2)
@@ -23,6 +28,27 @@ public class ApiExceptionAdvice {
                 .body("요청한 API 주소가 존재하지 않습니다.");
 
     }
+
+    // @Valid 검증 실패 (길이/형식 등) - 업무 로직상 실패이므로 통신은 정상(200), 실패 여부는 바디로 표현
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException e) {
+        String message = e.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage)
+                .collect(Collectors.joining(" "));
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.fail("VALIDATION_ERROR", message));
+    }
+
+    // 업무 로직상 예상되는 실패 (중복, 비밀번호 불일치, 존재하지 않는 리소스 등)
+    // - HTTP 상태코드는 통신 성공을 뜻하는 200 유지, 실패 여부/사유는 바디로 표현
+    @ExceptionHandler(IllegalArgumentException.class)
+    protected ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(ApiResponse.fail("BUSINESS_ERROR", e.getMessage()));
+    }
+
     // 그 외 서버 내부 오류
     @ExceptionHandler(Exception.class)
     protected ResponseEntity<String> handleException(Exception e) {

@@ -83,6 +83,10 @@ dependencies {
     // xml 자동 피싱
     implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
 
+    // Bean Validation (DTO 검증)
+    implementation 'org.hibernate.validator:hibernate-validator:6.2.5.Final'
+    implementation 'org.glassfish:javax.el:3.0.1-b06'
+
     // 보안
     implementation("org.springframework.security:spring-security-web:${springSecurityVersion}")
     implementation("org.springframework.security:spring-security-config:${springSecurityVersion}")
