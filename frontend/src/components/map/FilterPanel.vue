@@ -38,9 +38,13 @@ const loadOnboardingSummary = async () => {
 
 onMounted(loadOnboardingSummary);
 
-const handleReset = () => {
-  // 온보딩은 저장된 원래 값으로 복원하고, 편의시설은 선택을 유지한 채 시간만 초기화한다.
+const handleResetOnboarding = () => {
+  // 온보딩 탭은 온보딩 값만 저장된 원래 값으로 복원한다.
   onboardingFilterRef.value?.resetFilters?.();
+};
+
+const handleResetAmenities = () => {
+  // 편의시설 탭은 선택을 유지하고 시간만 기본값으로 복원한다.
   amenityFilterRef.value?.resetTimeLimits?.();
 };
 
@@ -101,7 +105,16 @@ const handleApply = async () => {
 
       <p v-if="applyError" class="apply-error">{{ applyError }}</p>
 
-      <FilterBottomBar @reset="handleReset" @apply="handleApply" />
+      <FilterBottomBar
+        v-if="activeTab === 'all'"
+        @reset="handleResetOnboarding"
+        @apply="handleApply"
+      />
+      <FilterBottomBar
+        v-else
+        @reset="handleResetAmenities"
+        @apply="handleApply"
+      />
     </div>
   </section>
 </template>
