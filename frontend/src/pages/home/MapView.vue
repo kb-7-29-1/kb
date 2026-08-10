@@ -6,6 +6,7 @@ import NaverMap from '@/components/map/NaverMap.vue';
 import PropertyCard from '@/components/property/PropertyCard.vue';
 import SlidingDoorPanel from '@/components/detail/SlidingDoorPanel.vue';
 import MapQuickFilterBar from '@/components/map/MapQuickFilterBar.vue';
+import LoadMoreButton from '@/components/map/LoadMoreButton.vue';
 
 import RouteFeedbackCard from '@/components/map/RouteFeedbackCard.vue';
 import AmenityFilter from '@/components/map/AmenityFilter.vue';
@@ -85,6 +86,7 @@ let amenityFilterDebounceTimer = null;
 
 // 매물 목록 데이터 (백엔드 DB 연동)
 const properties = ref([]);
+const serverTotalCount = ref(0);
 const isPropertyApiError = ref(false);
 const isPropertyLoading = ref(true);
 const isFilterAnalysisLoading = ref(false);
@@ -101,12 +103,26 @@ const showFilterAnalysisLoading = () => {
   // 이미 filterAnalysis 과정에서 로딩 지연있어서 2중 발생
 };
 
+let analysisLoadingTimeoutTimer = null;
+
 const isMapAnalysisLoading = computed(
   () =>
     isPropertyLoading.value ||
     amenityFilterLoading.value ||
     isFilterAnalysisLoading.value,
 );
+
+watch(isMapAnalysisLoading, (isLoading) => {
+  clearTimeout(analysisLoadingTimeoutTimer);
+  if (isLoading) {
+    analysisLoadingTimeoutTimer = setTimeout(() => {
+      // 5초 경과 시 로딩 오버레이 중단 및 현재까지 수집된 매물만 표시
+      isPropertyLoading.value = false;
+      amenityFilterLoading.value = false;
+      isFilterAnalysisLoading.value = false;
+    }, 5000);
+  }
+});
 
 // 데이터 출처 계산 (DB vs PUBLIC_API)
 const currentDataSource = computed(() => {
@@ -160,6 +176,10 @@ const buildPropertySearchParams = () => {
     destinationId: filters.destinationId || undefined,
     lat: destinationConfig.value.lat,
     lng: destinationConfig.value.lng,
+    swLat: filters.swLat || undefined,
+    swLng: filters.swLng || undefined,
+    neLat: filters.neLat || undefined,
+    neLng: filters.neLng || undefined,
     radius: getSearchRadiusKm(),
     maxDeposit: getEffectiveMaxDeposit(filters),
     userId: authStore.user?.userId || authStore.user?.id || undefined,
@@ -174,14 +194,146 @@ const buildPropertySearchParams = () => {
   return params;
 };
 
+const currentPage = ref(1);
+const isMoreLoading = ref(false);
+const isMapMoved = ref(false);
+const pendingBounds = ref(null);
+const lastFetchedCenter = ref({ lat: null, lng: null });
+
+const handleBoundsChange = (bounds) => {
+  if (!bounds || bounds.centerLat == null || bounds.centerLng == null) return;
+  if (lastFetchedCenter.value.lat != null && lastFetchedCenter.value.lng != null) {
+    const distKm = calculateDistanceKm(
+      lastFetchedCenter.value.lat,
+      lastFetchedCenter.value.lng,
+      bounds.centerLat,
+      bounds.centerLng,
+    );
+    // 중심점에서 800m 이상 크게 이동했을 때만 재검색 모드로 전환
+    if (distKm > 0.8) {
+      isMapMoved.value = true;
+      pendingBounds.value = bounds;
+    }
+  }
+};
+
+const showAllLoadedToast = ref(false);
+let toastTimer = null;
+
+const triggerAllLoadedToast = () => {
+  showAllLoadedToast.value = true;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    showAllLoadedToast.value = false;
+  }, 2500);
+};
+
+const handleLoadMoreClick = () => {
+  if (isMapMoved.value) {
+    handleSearchInThisArea();
+  } else if (properties.value.length >= serverTotalCount.value || serverTotalCount.value <= 200) {
+    triggerAllLoadedToast();
+  } else {
+    loadMoreProperties();
+  }
+};
+
+const handleSearchInThisArea = () => {
+  if (!pendingBounds.value) return;
+  appliedFilterState.value.swLat = pendingBounds.value.swLat;
+  appliedFilterState.value.swLng = pendingBounds.value.swLng;
+  appliedFilterState.value.neLat = pendingBounds.value.neLat;
+  appliedFilterState.value.neLng = pendingBounds.value.neLng;
+  // 목적지 중심 좌표는 고정 유지하여 가상의 원이 이동하는 현상을 차단합니다.
+
+  isMapMoved.value = false;
+  fetchPropertiesFromBackend(true, false);
+};
+
+const loadMoreProperties = async () => {
+  if (isMoreLoading.value || properties.value.length >= serverTotalCount.value) return;
+  isMoreLoading.value = true;
+  try {
+    const nextPage = currentPage.value + 1;
+    const searchParams = {
+      ...buildPropertySearchParams(),
+      page: nextPage,
+      size: 200,
+    };
+    const response = await api.get('/properties', {
+      params: searchParams,
+      timeout: 5000,
+    });
+    const resData = response.data;
+    if (resData?.totalCount) {
+      serverTotalCount.value = Number(resData.totalCount);
+    }
+    const newItems = Array.isArray(resData?.items)
+      ? resData.items
+      : Array.isArray(resData)
+        ? resData
+        : [];
+
+    currentPage.value = nextPage;
+
+    if (newItems.length > 0) {
+      const searchRadiusKm = getSearchRadiusKm();
+      const centerLat = searchParams.lat || destinationConfig.value.lat;
+      const centerLng = searchParams.lng || destinationConfig.value.lng;
+
+      const existingIds = new Set(properties.value.map((p) => Number(p.propertyId)));
+      const filteredNewItems = newItems.filter((item) => {
+        const id = Number(item.propertyId);
+        if (!id || existingIds.has(id)) return false;
+
+        if (
+          item.latitude != null &&
+          item.longitude != null &&
+          centerLat != null &&
+          centerLng != null &&
+          searchRadiusKm > 0
+        ) {
+          const dist = calculateDistanceKm(
+            centerLat,
+            centerLng,
+            Number(item.latitude),
+            Number(item.longitude),
+          );
+          if (dist > searchRadiusKm) return false;
+        }
+
+        existingIds.add(id);
+        return true;
+      });
+
+      if (filteredNewItems.length > 0) {
+        properties.value = [...properties.value, ...filteredNewItems];
+      }
+    }
+
+    // 백엔드 DB의 모든 페이지(797개) 조회가 끝났거나 신규 수신이 없으면
+    // 실제 도보/대중교통 원 내 수집 완료된 개수(303개)로 serverTotalCount를 맞추어 더보기 완결
+    if (nextPage * 200 >= serverTotalCount.value || newItems.length === 0) {
+      serverTotalCount.value = properties.value.length;
+    }
+  } catch (error) {
+    console.error('Failed to load more properties:', error);
+  } finally {
+    isMoreLoading.value = false;
+  }
+};
+
 let fetchPropertiesDebounceTimer = null;
 
 // 검색 조건에 맞는 매물을 조회한 뒤, 화면에 렌더링하기 전에 목적지별 안전점수를 일괄 준비합니다.
-const doFetchPropertiesFromBackend = async () => {
+const doFetchPropertiesFromBackend = async (isAppend = false) => {
   const requestId = ++propertyRequestSequence;
   isPropertyLoading.value = true;
   isPropertyApiError.value = false;
-  properties.value = [];
+  if (!isAppend) {
+    properties.value = [];
+    currentPage.value = 1;
+  }
 
   try {
     const filters = appliedFilterState.value;
@@ -189,13 +341,19 @@ const doFetchPropertiesFromBackend = async () => {
     const searchParams = buildPropertySearchParams();
     const propertyResponse = await api.get('/properties', {
       params: searchParams,
+      timeout: 5000,
     });
 
     if (requestId !== propertyRequestSequence) return;
 
-    const rawCandidates = Array.isArray(propertyResponse.data)
-      ? propertyResponse.data
-      : [];
+    const resData = propertyResponse.data;
+    serverTotalCount.value = Number(resData?.totalCount) || 0;
+
+    const rawCandidates = Array.isArray(resData?.items)
+      ? resData.items
+      : Array.isArray(resData)
+        ? resData
+        : [];
 
     const searchRadiusKm = getSearchRadiusKm();
     // 실제 검색에 사용된 중심 위경도 좌표로 거리를 정밀 산출합니다.
@@ -228,9 +386,26 @@ const doFetchPropertiesFromBackend = async () => {
       return true;
     });
 
-    // 매물 데이터 즉시 지도에 렌더링 및 로딩 스피너 즉시 해제 (0.05초 즉시 반응)
-    properties.value = candidates;
+    // 매물 데이터 즉시 지도에 렌더링 (isAppend 모드에서는 기존 수집 매물을 유지하고 신규 추가만 통합)
+    if (isAppend) {
+      const existingIds = new Set(properties.value.map((p) => Number(p.propertyId)));
+      const uniqueNewItems = candidates.filter((item) => !existingIds.has(Number(item.propertyId)));
+      properties.value = [...properties.value, ...uniqueNewItems];
+    } else {
+      properties.value = candidates;
+    }
+
     isPropertyLoading.value = false;
+    isMapMoved.value = false;
+    if (centerLat != null && centerLng != null) {
+      lastFetchedCenter.value = { lat: Number(centerLat), lng: Number(centerLng) };
+    }
+
+    // 백엔드 DB의 모든 매물 조회가 이미 완료된 경우 (첫 페이지가 200개 미만이거나 단일 요청 완료 시)
+    // 실제 유저 조건에 맞게 수집 완료된 개수(78개 등)로 serverTotalCount를 동기화하여 멈춤 현상 완결
+    if (rawCandidates.length < 200 || serverTotalCount.value <= 200) {
+      serverTotalCount.value = baseFilteredProperties.value.length || properties.value.length;
+    }
 
     const targetCandidates =
       candidates.length > 500 ? candidates.slice(0, 500) : candidates;
@@ -260,12 +435,6 @@ const doFetchPropertiesFromBackend = async () => {
           );
         }
 
-        if (safetyBatch.destinationId) {
-          filterState.value.destinationId = Number(safetyBatch.destinationId);
-          appliedFilterState.value.destinationId = Number(
-            safetyBatch.destinationId,
-          );
-        }
         const safetyByPropertyId = new Map(
           (safetyBatch.items || []).map((item) => [
             Number(item.propertyId),
@@ -273,19 +442,20 @@ const doFetchPropertiesFromBackend = async () => {
           ]),
         );
 
-        properties.value = candidates.map((property) => {
+        properties.value = properties.value.map((property) => {
           const safety = safetyByPropertyId.get(Number(property.propertyId));
+          if (!safety) return property;
 
           return {
             ...property,
-            safetyScore: safety?.safetyScore ?? property.safetyScore ?? null,
-            safetyGrade: safety?.safetyGrade ?? property.safetyGrade ?? null,
-            cctvCount: safety?.cctvCount ?? 0,
-            streetLampCount: safety?.streetLampCount ?? 0,
-            streetlightCount: safety?.streetLampCount ?? 0,
-            hasPoliceStation: safety?.hasPoliceStation ?? false,
-            safetyStatus: safety?.status ?? 'FAILED',
-            safetyMessage: safety?.message ?? '',
+            safetyScore: safety.safetyScore ?? property.safetyScore ?? null,
+            safetyGrade: safety.safetyGrade ?? property.safetyGrade ?? null,
+            cctvCount: safety.cctvCount ?? property.cctvCount ?? 0,
+            streetLampCount: safety.streetLampCount ?? property.streetLampCount ?? 0,
+            streetlightCount: safety.streetLampCount ?? property.streetlightCount ?? 0,
+            hasPoliceStation: safety.hasPoliceStation ?? property.hasPoliceStation ?? false,
+            safetyStatus: safety.status ?? property.safetyStatus ?? 'FAILED',
+            safetyMessage: safety.message ?? property.safetyMessage ?? '',
           };
         });
       })
@@ -298,7 +468,9 @@ const doFetchPropertiesFromBackend = async () => {
     if (requestId !== propertyRequestSequence) return;
 
     console.error('PROPERTY/SAFETY BATCH LOAD ERROR:', error);
-    properties.value = [];
+    if (!isAppend) {
+      properties.value = [];
+    }
     isPropertyApiError.value = true;
   } finally {
     if (requestId === propertyRequestSequence) {
@@ -308,20 +480,20 @@ const doFetchPropertiesFromBackend = async () => {
 };
 
 // 짧은 시간(250ms) 내 연달아 발생하는 중복 API 호출을 단 1회로 통합 실행합니다.
-const fetchPropertiesFromBackend = (immediate = false) => {
+const fetchPropertiesFromBackend = (immediate = false, isAppend = false) => {
   if (fetchPropertiesDebounceTimer) {
     clearTimeout(fetchPropertiesDebounceTimer);
     fetchPropertiesDebounceTimer = null;
   }
 
   if (immediate === true) {
-    return doFetchPropertiesFromBackend();
+    return doFetchPropertiesFromBackend(isAppend);
   }
 
   return new Promise((resolve) => {
     fetchPropertiesDebounceTimer = setTimeout(async () => {
       fetchPropertiesDebounceTimer = null;
-      const res = await doFetchPropertiesFromBackend();
+      const res = await doFetchPropertiesFromBackend(isAppend);
       resolve(res);
     }, 250);
   });
@@ -404,23 +576,15 @@ const loadQuickFilterFromCache = () => {
 };
 
 onMounted(async () => {
-  const hasUrlQuery = parseUrlQueryToFilters();
-  const cachedFilter = loadQuickFilterFromCache();
+  // 온보딩(DB) 조건 최우선 로드
+  await loadOnboardingDefaultFilters({ resetDestination: true });
 
+  const hasUrlQuery = parseUrlQueryToFilters();
   if (hasUrlQuery) {
-    appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
-  } else if (cachedFilter) {
-    filterState.value = JSON.parse(JSON.stringify(cachedFilter));
-    appliedFilterState.value = JSON.parse(JSON.stringify(cachedFilter));
-  } else if (mapStore.hasSavedFilterState) {
-    filterState.value = JSON.parse(JSON.stringify(mapStore.filterState));
-    appliedFilterState.value = JSON.parse(
-      JSON.stringify(mapStore.appliedFilterState),
-    );
-  } else {
-    await loadOnboardingDefaultFilters();
-    appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+    parseUrlQueryToFilters();
   }
+
+  appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend(false, true);
@@ -849,6 +1013,21 @@ const visibleProperties = computed(() =>
     ? []
     : amenityFilteredProperties.value,
 );
+
+// 수집된 마지막 매물의 생성 일자 동적 계산 (더보기 날짜 동적 표시용)
+const lastLoadedDateString = computed(() => {
+  const list = amenityFilteredProperties.value;
+  if (!list.length) return '';
+  const lastProp = list[list.length - 1];
+  const dateStr = lastProp?.createdAt || lastProp?.createdDate;
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}.${month}.${day}`;
+});
 
 const mobileSidebarTab = ref('list'); // 'list' | 'detail'
 
@@ -1490,7 +1669,11 @@ const {
         <MapQuickFilterBar
           v-model="filterState"
           :total-count="visibleProperties.length"
-          :base-count="baseFilteredProperties.length"
+          :base-count="
+            serverTotalCount > 200 && serverTotalCount > baseFilteredProperties.length
+              ? serverTotalCount
+              : baseFilteredProperties.length
+          "
           :active-amenity-filters="activeAmenityFilters"
           :is-loading="isMapAnalysisLoading"
           class="pointer-events-auto"
@@ -1508,7 +1691,7 @@ const {
       </div>
 
       <NaverMap
-        :properties="visibleProperties"
+        :properties="amenityFilteredProperties"
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
         :destination="destinationConfig"
@@ -1518,6 +1701,7 @@ const {
         :safety-route="selectedSafetyRoute"
         @select-property="handleSelectProperty"
         @change-destination="handleChangeDestination"
+        @bounds-change="handleBoundsChange"
       />
 
       <Transition name="analysis-loader">
@@ -1550,19 +1734,31 @@ const {
         </div>
       </Transition>
 
-      <!-- 백엔드 DB 매물 수신 실패 안내 배너 -->
+      <!-- 🗺️ 지도 중앙 하단 부유형 스마트 '매물 더보기 / 이 위치에서 재검색' 캡슐 버튼 (토스트 일체형 픽셀 센터 정렬) -->
+      <LoadMoreButton
+        v-if="!isMapAnalysisLoading && (isMapMoved || visibleProperties.length > 0)"
+        :is-loading="isMoreLoading"
+        :is-map-moved="isMapMoved"
+        :visible-count="visibleProperties.length"
+        :total-count="serverTotalCount"
+        :last-loaded-date="lastLoadedDateString"
+        :show-all-loaded-toast="showAllLoadedToast"
+        @click="handleLoadMoreClick"
+      />
+
+      <!-- 매물 데이터 수신 실패 안내 배너 -->
       <div
         v-if="isPropertyApiError"
-        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-red-600/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-red-500 pointer-events-auto"
+        class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-slate-900/90 text-white px-4 py-2.5 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-2 border border-slate-700 pointer-events-auto"
       >
         <span>⚠️</span>
-        <span>백엔드 매물 데이터를 불러오는 데 실패했습니다.</span>
+        <span>매물 정보를 불러오지 못했어요.</span>
         <button
           type="button"
-          class="underline ml-2 hover:text-red-200"
+          class="underline text-blue-400 hover:text-blue-300 ml-1 font-extrabold"
           @click="fetchPropertiesFromBackend"
         >
-          재시도
+          다시 시도
         </button>
       </div>
     </main>
