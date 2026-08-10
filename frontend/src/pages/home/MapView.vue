@@ -1142,7 +1142,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           :is-bookmark-pending="
             selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)
           "
-          @close="mobileSidebarTab = 'list'"
+          @close="clearSelectedProperty"
           @toggle-bookmark="handleToggleBookmark"
         />
       </div>
@@ -1353,7 +1353,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       :amenities="selectedPropertyAmenities"
       :destination="destinationConfig"
       :is-bookmark-pending="selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)"
-      @close="isPanelOpen = false"
+      @close="clearSelectedProperty"
       @toggle-bookmark="handleToggleBookmark"
     />
   </div>
