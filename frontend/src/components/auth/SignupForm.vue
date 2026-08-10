@@ -25,6 +25,10 @@ const idChecked = ref(false);
 const idCheckMessage = ref('');
 const errorMessage = ref('');
 
+const NAME_REGEX = /^[가-힣a-zA-Z\s]{2,20}$/;
+const LOGIN_ID_REGEX = /^[a-zA-Z0-9]{4,20}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 watch(
   () => form.value.loginId,
   () => {
@@ -54,8 +58,25 @@ const handleCheckId = async () => {
 
 const handleSignup = async () => {
   errorMessage.value = '';
+
+  if (!NAME_REGEX.test(form.value.name)) {
+    errorMessage.value = '이름은 한글/영문 2~20자로 입력해주세요.';
+    return;
+  }
+  if (!LOGIN_ID_REGEX.test(form.value.loginId)) {
+    errorMessage.value = '아이디는 영문/숫자 4~20자로 입력해주세요.';
+    return;
+  }
   if (!idChecked.value) {
     errorMessage.value = '아이디 중복확인을 해주세요.';
+    return;
+  }
+  if (!EMAIL_REGEX.test(form.value.email) || form.value.email.length > 100) {
+    errorMessage.value = '올바른 이메일 형식으로 입력해주세요.';
+    return;
+  }
+  if (form.value.password.length < 8 || form.value.password.length > 100) {
+    errorMessage.value = '비밀번호는 8자 이상 100자 이하로 입력해주세요.';
     return;
   }
   if (form.value.password !== form.value.passwordConfirm) {
@@ -69,7 +90,7 @@ const handleSignup = async () => {
   }
 
   try {
-    await signup({
+    const response = await signup({
       loginId: form.value.loginId,
       password: form.value.password,
       name: form.value.name,
@@ -77,6 +98,10 @@ const handleSignup = async () => {
       birthDate: form.value.birthDate,
       gender: form.value.gender,
     });
+    if (response.data && response.data.success === false) {
+      errorMessage.value = response.data.message || '회원가입 중 오류가 발생했습니다.';
+      return;
+    }
     alert('회원가입이 완료되었습니다.');
     router.push({ name: 'login' });
   } catch (error) {
@@ -96,6 +121,7 @@ const handleSignup = async () => {
         type="text"
         placeholder="홍길동"
         class="w-full border rounded-lg px-4 py-3"
+        maxlength="20"
         required
       />
     </div>
@@ -112,6 +138,7 @@ const handleSignup = async () => {
           type="text"
           placeholder="ID를 입력하세요"
           class="flex-1 border rounded-lg px-4 py-3"
+          maxlength="20"
           @input="idChecked = false"
           required
         />
@@ -140,6 +167,7 @@ const handleSignup = async () => {
         type="email"
         placeholder="example@email.com"
         class="w-full border rounded-lg px-4 py-3"
+        maxlength="100"
         required
       />
     </div>
@@ -194,6 +222,7 @@ const handleSignup = async () => {
         type="password"
         placeholder="8자 이상"
         class="w-full border rounded-lg px-4 py-3"
+        maxlength="100"
         required
       />
     </div>
@@ -206,6 +235,7 @@ const handleSignup = async () => {
         type="password"
         placeholder="비밀번호를 다시 입력하세요"
         class="w-full border rounded-lg px-4 py-3"
+        maxlength="100"
         required
       />
     </div>

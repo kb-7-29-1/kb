@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+
 @RestController
 @Log4j2
 @RequestMapping("/api/user")
@@ -18,7 +20,7 @@ public class UserController {
     private final UserService userService;
 
     @PostMapping("/signup")
-    public ResponseEntity<?> signup(@RequestBody SignupRequestDto dto){
+    public ResponseEntity<?> signup(@Valid @RequestBody SignupRequestDto dto){
         userService.signup(dto);
         return ResponseEntity.ok().build();
     }

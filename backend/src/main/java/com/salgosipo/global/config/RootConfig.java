@@ -76,6 +76,7 @@ public class RootConfig {
         config.setJdbcUrl(url);
         config.setUsername(username);
         config.setPassword(password);
+        config.setConnectionInitSql("SET time_zone = '+09:00'");
         HikariDataSource dataSource = new HikariDataSource(config);
         return dataSource;
     }

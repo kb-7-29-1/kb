@@ -44,6 +44,10 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  isBookmarkPending: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['close', 'toggle-bookmark']);
@@ -294,7 +298,8 @@ const detailImageUrl = computed(() => {
           <!-- 찜 버튼 -->
           <button
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#dc4b5d]"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#dc4b5d] disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isBookmarkPending"
             @click="property && emit('toggle-bookmark', property.propertyId)"
           >
             <svg
