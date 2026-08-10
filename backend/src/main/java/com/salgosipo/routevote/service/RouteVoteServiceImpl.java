@@ -13,7 +13,8 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 @Log4j2
 public class RouteVoteServiceImpl implements RouteVoteService {
-    private static final int MIN_RELIABLE_VOTE_COUNT = 5;
+    // 20명 이상 참여 시 결과 나타냄
+    private static final int MIN_RELIABLE_VOTE_COUNT = 20;
     private static final String SAFE = "SAFE";
     private static final String UNSAFE = "UNSAFE";
 

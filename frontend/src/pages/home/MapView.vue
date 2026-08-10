@@ -1599,9 +1599,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         />
         <!-- 🚗 선택한 매물의 이동 경로 피드백 카드 (상세 패널 열림 및 매물 선택 시 노출) -->
         <RouteFeedbackCard
-          v-if="isPanelOpen && selectedProperty"
+          v-if="isPanelOpen && selectedProperty && destinationConfig.id"
           :key="selectedProperty.propertyId"
           class="pointer-events-auto"
+          :property-id="selectedProperty.propertyId"
+          :destination-id="destinationConfig.id"
         />
       </div>
 
