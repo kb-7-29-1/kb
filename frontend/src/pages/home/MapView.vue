@@ -430,6 +430,9 @@ const handleResetFilters = async () => {
   }
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
+  saveQuickFilterToCache(appliedFilterState.value);
+  syncFiltersToUrlQuery(appliedFilterState.value);
+  mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   await fetchPropertiesFromBackend();
 };
 
