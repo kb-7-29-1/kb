@@ -70,8 +70,7 @@ public class DestinationServiceImpl implements DestinationService {
                     requestUri,
                     HttpMethod.GET,
                     new HttpEntity<>(headers),
-                    String.class
-            );
+                    String.class);
 
             resultList.addAll(toDestinationList(response.getBody()));
         } catch (Exception e) {
@@ -154,8 +153,7 @@ public class DestinationServiceImpl implements DestinationService {
         if (!StringUtils.hasText(clientId) || !StringUtils.hasText(clientSecret)) {
             throw new IllegalStateException(
                     "네이버 검색 API 키가 없습니다. 실행 환경 변수 NAVER_SEARCH_CLIENT_ID와 "
-                            + "NAVER_SEARCH_CLIENT_SECRET을 설정하세요."
-            );
+                            + "NAVER_SEARCH_CLIENT_SECRET을 설정하세요.");
         }
     }
 

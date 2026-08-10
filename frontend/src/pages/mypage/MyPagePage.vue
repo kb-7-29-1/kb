@@ -28,32 +28,77 @@ const formatAmount = (amount) => {
   return `${value.toLocaleString()}만원 이하`;
 };
 
-const destination = computed(() => onboarding.value?.destination?.destName ?? '설정 정보 없음');
+const destination = computed(() => {
+  if (!onboarding.value) return '설정 정보 없음';
+  const dest = onboarding.value.destination;
+  if (typeof dest === 'object' && dest !== null) {
+    return dest.destName || dest.name || dest.destinationName || '설정 정보 없음';
+  }
+  return dest || onboarding.value.destinationName || onboarding.value.destName || '설정 정보 없음';
+});
+
 const transport = computed(() => {
   if (!onboarding.value) return '설정 정보 없음';
 
-  const label = onboarding.value.transportMode === 'WALK' ? '도보' : '대중교통';
-  return `${label} (최대 ${onboarding.value.maxTravelTime}분)`;
+  const travelTime = onboarding.value.maxTravelTime ?? onboarding.value.travelTime;
+  if (travelTime === undefined || travelTime === null || !Number.isFinite(Number(travelTime))) {
+    return '설정 정보 없음';
+  }
+
+  const mode = onboarding.value.transportMode || onboarding.value.transport;
+  const label = mode && String(mode).toUpperCase().includes('WALK') ? '도보' : '대중교통';
+  return `${label} (최대 ${travelTime}분)`;
 });
-const deposit = computed(() => formatAmount(onboarding.value?.budgetDeposit));
+
+const deposit = computed(() => {
+  const dep = onboarding.value?.budgetDeposit ?? onboarding.value?.maxDeposit ?? onboarding.value?.deposit;
+  return formatAmount(dep);
+});
+
 const rent = computed(() => {
-  const value = Number(onboarding.value?.budgetRent);
+  const rawRent = onboarding.value?.budgetRent ?? onboarding.value?.maxRent ?? onboarding.value?.monthlyRent;
+  const value = Number(rawRent);
   if (!Number.isFinite(value)) return '설정 정보 없음';
   return value === 0 ? '전세' : `${value.toLocaleString()}만원 이하`;
 });
+
 const safety = computed(() => {
-  const score = onboarding.value?.minSafetyScore;
-  return Number.isFinite(Number(score)) ? `${score}점 이상` : '설정 정보 없음';
+  const score = onboarding.value?.minSafetyScore ?? onboarding.value?.safety;
+  if (score !== undefined && score !== null) {
+    if (typeof score === 'number' || Number.isFinite(Number(score))) {
+      return `${score}점 이상`;
+    }
+    if (score === 'high') return '85점 이상';
+    if (score === 'medium') return '70점 이상';
+  }
+  return '설정 정보 없음';
 });
 
 const loadOnboarding = async () => {
+  let saved = null;
   try {
-    onboarding.value = await onboardingApi.getOnboarding();
+    const localResult = localStorage.getItem('salgosipo-onboarding-result');
+    const localDraft = localStorage.getItem('salgosipo-onboarding-draft');
+    if (localResult) {
+      saved = JSON.parse(localResult);
+    } else if (localDraft) {
+      saved = JSON.parse(localDraft);
+    }
+  } catch (error) {
+    console.warn('LocalStorage onboarding data load error:', error);
+  }
+
+  try {
+    const apiData = await onboardingApi.getOnboarding();
+    if (apiData && typeof apiData === 'object' && Object.keys(apiData).length > 0) {
+      saved = { ...saved, ...apiData };
+    }
   } catch (error) {
     if (error.response?.status !== 404) {
       console.error('ONBOARDING GET ERROR: ', error);
     }
   } finally {
+    onboarding.value = saved;
     isOnboardingLoading.value = false;
   }
 };
