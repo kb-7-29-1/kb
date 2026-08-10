@@ -407,6 +407,17 @@ const toggleIsochrone = () => {
 // 필터 초기화
 const handleReset = () => {
   activePopover.value = null;
+
+  // 퀵필터 값은 즉시 기본 상태로 초기화
+  filters.value = {
+    ...filters.value,
+    tradeType: 'MONTHLY',
+    minDeposit: 0,
+    minRent: 0,
+  };
+  depositValA.value = 0;
+  rentValA.value = 0;
+
   emit('reset');
 };
 

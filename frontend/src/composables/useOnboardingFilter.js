@@ -156,6 +156,13 @@ export function useOnboardingFilter() {
         filterState.value.minSafetyScore = 70;
       }
     }
+
+    // 온보딩에는 최대 예산만 저장하므로 초기화 시 월세 탭과 최소 예산을 기본값으로 되돌린다.
+    if (resetDestination) {
+      filterState.value.tradeType = 'MONTHLY';
+      filterState.value.minDeposit = 0;
+      filterState.value.minRent = 0;
+    }
   };
 
   return {
