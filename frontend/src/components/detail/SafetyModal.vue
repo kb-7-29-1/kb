@@ -229,7 +229,7 @@ const hasPoliceStation = computed(() => Boolean(props.property?.hasPoliceStation
   height: min(720px, calc(100vh - 40px));
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  overflow: hidden;
   background-color: #ffffff;
   border-radius: 20px;
   padding: 24px;
