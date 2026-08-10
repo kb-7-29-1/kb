@@ -29,7 +29,7 @@ export function useOnboardingFilter() {
     selectedAmenities: [],
   });
 
-  const loadOnboardingDefaultFilters = async () => {
+  const loadOnboardingDefaultFilters = async ({ resetDestination = false } = {}) => {
     let saved = null;
 
     try {
@@ -56,25 +56,33 @@ export function useOnboardingFilter() {
     // 3. 온보딩 설정값을 filterState 디폴트 값에 필드 매핑
     if (saved) {
       // 사용자가 직접 검색/선택한 목적지가 이미 존재하는 경우 DB 온보딩값(송파구 등)으로 덮어쓰지 않음
-      if (!filterState.value.destinationLat || !filterState.value.destinationLng) {
+      if (
+        resetDestination ||
+        !filterState.value.destinationLat ||
+        !filterState.value.destinationLng
+      ) {
         const rawDest = saved.destination || saved.destinationName || saved.destName;
-      if (rawDest) {
-        if (typeof rawDest === 'object' && rawDest !== null) {
-          filterState.value.destination =
-            rawDest.destName || rawDest.name || rawDest.destinationName || '세종대학교';
-          filterState.value.destinationAddress = rawDest.destAddress || rawDest.address || '';
+        if (rawDest) {
+          if (typeof rawDest === 'object' && rawDest !== null) {
+            const destinationId = rawDest.destinationId ?? rawDest.destId ?? saved.destinationId;
+            if (destinationId != null) {
+              filterState.value.destinationId = Number(destinationId);
+            }
+            filterState.value.destination =
+              rawDest.destName || rawDest.name || rawDest.destinationName || '세종대학교';
+            filterState.value.destinationAddress = rawDest.destAddress || rawDest.address || '';
 
-          const latVal = rawDest.destLatitude || rawDest.lat || rawDest.latitude;
-          const lngVal = rawDest.destLongitude || rawDest.lng || rawDest.longitude;
-          if (latVal && lngVal) {
-            filterState.value.destinationLat = Number(latVal);
-            filterState.value.destinationLng = Number(lngVal);
+            const latVal = rawDest.destLatitude || rawDest.lat || rawDest.latitude;
+            const lngVal = rawDest.destLongitude || rawDest.lng || rawDest.longitude;
+            if (latVal && lngVal) {
+              filterState.value.destinationLat = Number(latVal);
+              filterState.value.destinationLng = Number(lngVal);
+            }
+          } else if (typeof rawDest === 'string') {
+            filterState.value.destination = rawDest;
           }
-        } else if (typeof rawDest === 'string') {
-          filterState.value.destination = rawDest;
         }
       }
-    }
 
       // 이동 수단 매핑
       if (saved.transport || saved.transportMode) {
@@ -121,9 +129,7 @@ export function useOnboardingFilter() {
 
     if (saved.transport || saved.transportMode) {
       const mode = String(saved.transport || saved.transportMode).toUpperCase();
-      filterState.value.transportMode = mode.includes('WALK')
-        ? 'WALK'
-        : 'TRANSIT';
+      filterState.value.transportMode = mode.includes('WALK') ? 'WALK' : 'TRANSIT';
     }
 
     const travelTime = saved.maxTravelTime ?? saved.travelTime;
@@ -131,14 +137,12 @@ export function useOnboardingFilter() {
       filterState.value.travelTime = Number(travelTime);
     }
 
-    const maxDeposit =
-      saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
+    const maxDeposit = saved.budgetDeposit ?? saved.maxDeposit ?? saved.deposit;
     if (maxDeposit != null) {
       filterState.value.maxDeposit = Number(maxDeposit);
     }
 
-    const maxRent =
-      saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
+    const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
     if (maxRent != null) {
       filterState.value.maxRent = Number(maxRent);
     }
@@ -151,6 +155,13 @@ export function useOnboardingFilter() {
       } else if (saved.safety === 'medium') {
         filterState.value.minSafetyScore = 70;
       }
+    }
+
+    // 온보딩에는 최대 예산만 저장하므로 초기화 시 월세 탭과 최소 예산을 기본값으로 되돌린다.
+    if (resetDestination) {
+      filterState.value.tradeType = 'MONTHLY';
+      filterState.value.minDeposit = 0;
+      filterState.value.minRent = 0;
     }
   };
 
