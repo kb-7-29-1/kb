@@ -1613,12 +1613,8 @@ const amenityLoadingText = computed(() => {
         </template>
         <template v-else>
           <span>🏠</span>
-          <span v-if="props.baseCount && props.baseCount !== props.totalCount"
-            >매물 {{ props.totalCount }}/{{ props.baseCount }}개</span
-          >
-          <span v-else>매물 {{ props.totalCount }}개</span>
-          <<<<<<< HEAD
-
+          <!-- 분모 분수 표기는 임시 비노출 처리하여 깔끔하게 단일 수량만 표기 -->
+          <span>매물 {{ props.totalCount }}개</span>
           <!-- 선택된 편의시설 조건 아이콘들 실시간 표기 -->
           <template v-if="activeAmenityIcons.length">
             <span class="opacity-40 text-[10px]">|</span>
@@ -1635,7 +1631,6 @@ const amenityLoadingText = computed(() => {
               >필터 적용됨</span
             >
           </template>
-          ======= >>>>>>> develop
         </template>
       </div>
     </div>
