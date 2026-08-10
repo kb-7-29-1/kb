@@ -418,9 +418,6 @@ watch(
 );
 
 const handleResetFilters = async () => {
-  const confirmReset = window.confirm('처음 설정한 온보딩 조건으로 필터를 되돌릴까요?');
-  if (!confirmReset) return;
-
   showFilterAnalysisLoading();
   const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters({ resetDestination: true });
