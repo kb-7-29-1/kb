@@ -1,8 +1,7 @@
 package com.salgosipo.onboarding.service;
 
-import com.salgosipo.destination.domain.DestinationVO;
 import com.salgosipo.destination.dto.DestinationDTO;
-import com.salgosipo.destination.mapper.DestinationMapper;
+import com.salgosipo.destination.service.DestinationService;
 import com.salgosipo.onboarding.dto.OnboardingDTO;
 import com.salgosipo.onboarding.mapper.OnboardingMapper;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Log4j2
 public class OnboardingServiceImpl implements OnboardingService {
-    private final DestinationMapper destinationMapper;
+    private final DestinationService destinationService;
     private final OnboardingMapper onboardingMapper;
 
     @Override
@@ -22,19 +21,21 @@ public class OnboardingServiceImpl implements OnboardingService {
     public void saveOnboarding(Integer userId, OnboardingDTO onboarding) {
         validateDestination(onboarding.getDestination());
 
-        DestinationVO destination = onboarding.getDestination().toVO();
-        destinationMapper.insertDestination(destination);
+        DestinationDTO savedDestination = destinationService.saveDestination(onboarding.getDestination());
 
         onboarding.setUserId(userId);
-        onboarding.setDestinationId(destination.getDestinationId());
+        onboarding.setDestination(savedDestination);
+        onboarding.setDestinationId(savedDestination.getDestinationId());
 
         onboardingMapper.insertOnboarding(onboarding.toVO());
+        log.info("[Onboarding] saved: userId={}, destinationId={}", userId, savedDestination.getDestinationId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public OnboardingDTO getOnboarding(Integer userId) {
-        return onboardingMapper.findByUserId(userId);
+        OnboardingDTO onboarding = onboardingMapper.findByUserId(userId);
+        return onboarding;
     }
 
     private void validateDestination(DestinationDTO destination) {

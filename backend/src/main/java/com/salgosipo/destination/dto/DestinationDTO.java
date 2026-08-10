@@ -27,4 +27,18 @@ public class DestinationDTO {
                 .destAddress(destAddress)
                 .build();
     }
+
+    public static DestinationDTO fromVO(DestinationVO destination) {
+        if (destination == null) {
+            return null;
+        }
+
+        return DestinationDTO.builder()
+                .destinationId(destination.getDestinationId())
+                .destLatitude(destination.getDestLatitude())
+                .destLongitude(destination.getDestLongitude())
+                .destName(destination.getDestName())
+                .destAddress(destination.getDestAddress())
+                .build();
+    }
 }
