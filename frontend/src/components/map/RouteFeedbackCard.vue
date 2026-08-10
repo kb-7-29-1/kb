@@ -4,26 +4,20 @@
     class="w-[310px] rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-md p-4 shadow-xl transition-all"
   >
     <!-- 헤더 -->
-    <div
-      class="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2"
-    >
+    <div class="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
       <div class="flex items-center gap-1.5">
         <span
           class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-600 text-xs"
         >
           📍
         </span>
-        <span class="text-xs font-black text-slate-900"
-          >귀갓길 경로 실시간 평가</span
-        >
+        <span class="text-xs font-black text-slate-900">귀갓길 경로 실시간 평가</span>
       </div>
       <div class="flex flex-shrink-0 items-center gap-1.5">
         <span
           class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-600 border border-emerald-200"
         >
-          <span
-            class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
-          ></span>
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           실시간
         </span>
         <button
@@ -38,9 +32,7 @@
     </div>
 
     <!-- 질문 -->
-    <p class="mb-1 text-xs font-bold text-slate-800">
-      이 경로를 이용해보셨나요?
-    </p>
+    <p class="mb-1 text-xs font-bold text-slate-800">이 경로를 이용해보셨나요?</p>
 
     <!-- 통계 (데이터 충분) / 참여 유도 (데이터 부족) -->
     <p class="mb-3 text-[12px] leading-snug text-slate-500">
@@ -48,8 +40,7 @@
         이 경로를 이용하신
         <strong class="font-black text-slate-900">{{ totalVotes }}명</strong>
         중
-        <strong class="font-black text-blue-600"
-          >{{ positiveVotes }}명({{ positiveRate }}%)</strong
+        <strong class="font-black text-blue-600">{{ positiveVotes }}명({{ positiveRate }}%)</strong
         >이 럭키비키하다고 평가했어요.
       </template>
       <template v-else>
@@ -89,10 +80,7 @@
     </div>
 
     <!-- 스위칭 완료 피드백 안내 -->
-    <p
-      v-if="myVote"
-      class="mt-2 text-center text-[11px] font-bold text-blue-600 animate-fade-in"
-    >
+    <p v-if="myVote" class="mt-2 text-center text-[11px] font-bold text-blue-600 animate-fade-in">
       {{
         myVote === 'POSITIVE'
           ? '✨ 오예! 완전 럭키비키 기운이 반영되었어요!'
@@ -100,6 +88,16 @@
       }}
     </p>
   </div>
+  <button
+    v-else
+    type="button"
+    class="inline-flex h-10 w-10 items-center justify-center rounded-full border border-blue-100 bg-white/95 text-sm text-[#4058f5] shadow-lg backdrop-blur transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/95 active:translate-y-0"
+    aria-label="귀갓길 경로 평가 다시 펼치기"
+    title="귀갓길 경로 평가 펼치기"
+    @click="isVisible = true"
+  >
+    <i class="fa-solid fa-route" aria-hidden="true"></i>
+  </button>
 </template>
 
 <script setup>
@@ -114,9 +112,7 @@ const MIN_VOTES_FOR_STATS = 5;
 
 const hasEnoughData = computed(() => totalVotes.value >= MIN_VOTES_FOR_STATS);
 const positiveRate = computed(() =>
-  totalVotes.value > 0
-    ? Math.round((positiveVotes.value / totalVotes.value) * 100)
-    : 0,
+  totalVotes.value > 0 ? Math.round((positiveVotes.value / totalVotes.value) * 100) : 0,
 );
 
 // 투표 선택/스위치/해제 유연한 토글 제어
