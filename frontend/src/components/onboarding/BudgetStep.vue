@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import api from '@/api/api';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import { getBankLogoUrl } from '@/utils/bankLogo';
+import { getBankLinkUrl } from '@/utils/bankLink';
 import {
   DEPOSIT_MAX_LABEL,
   DEPOSIT_MIN_LABEL,
@@ -129,6 +130,13 @@ const formatAmount = (amount) => {
 };
 
 const bankLogoUrl = computed(() => getBankLogoUrl(loan.value?.companyName));
+const bankLinkUrl = computed(() => getBankLinkUrl(loan.value?.companyName));
+
+const openBankLink = () => {
+  if (bankLinkUrl.value) {
+    window.open(bankLinkUrl.value, '_blank', 'noopener,noreferrer');
+  }
+};
 
 const loanLimitParts = computed(() => {
   const text = loan.value?.loanLimit || '';
@@ -199,10 +207,19 @@ const rangeStyle = (value, min, max) => {
         </div>
       </div>
 
+      <p v-if="loan" class="loan-panel-hint">상품 클릭 시 해당 은행 사이트로 이동합니다</p>
       <aside
         v-if="loan"
         class="loan-panel"
-        :class="{ 'is-refreshing': loanLoading, 'is-updated': justUpdated }"
+        :class="{
+          'is-refreshing': loanLoading,
+          'is-updated': justUpdated,
+          'loan-panel--clickable': bankLinkUrl,
+        }"
+        :role="bankLinkUrl ? 'button' : undefined"
+        :tabindex="bankLinkUrl ? 0 : undefined"
+        @click="openBankLink"
+        @keydown.enter="openBankLink"
       >
         <div class="loan-icon" aria-hidden="true">
           <img v-if="bankLogoUrl" :src="bankLogoUrl" :alt="loan.companyName" class="loan-icon__logo" />
@@ -349,12 +366,17 @@ input[type='range']::-moz-range-thumb {
   font-size: 11px;
 }
 
+.loan-panel-hint {
+  margin: 30px 0 6px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
 .loan-panel {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-top: 30px;
   padding: 16px;
   max-height: 260px;
   overflow-y: auto;
@@ -362,6 +384,14 @@ input[type='range']::-moz-range-thumb {
   border-radius: 14px;
   background: #eff6ff;
   transition: background-color 0.5s ease, border-color 0.5s ease, opacity 0.2s ease;
+}
+
+.loan-panel--clickable {
+  cursor: pointer;
+}
+
+.loan-panel--clickable:hover {
+  border-color: #60a5fa;
 }
 
 .loan-panel.is-refreshing {
