@@ -1,1 +1,157 @@
-Hi
+# 🛡️ 살고싶오
+
+**낯선 동네로 이주할 때 겪는 주거 및 귀갓길 안전 불안을 해소하는 안심 주거 매칭 & 개인화 금융 솔루션**
+
+1~2년 단기 계약이 잦은 대학생, 사회초년생, 1인 가구, 낯선 지역 이주자를 핵심 타깃으로,
+`건물 안전(위반건축물·준공연식)` + `거리 안전(CCTV·가로등·파출소 기반 CPTED 점수)` + `대출 금융 상품 추천`을
+하나의 지도 기반 서비스에서 제공합니다.
+
+---
+
+## ✨ 핵심 기능
+
+1. **초개인화 온보딩**: 주 목적지(직장/학교), 이동 수단(도보/대중교통), 보증금·월세 예산, 안전 선호도를 단계별로 수집
+2. **지도 & 매물 탐색**: 목적지 기준 도보권 지도 시각화, 편의시설(편의점/카페/마트 등) 필터, 매물 마커 및 목록
+3. **건물 안전 정보**: 위반건축물 여부, 준공연식 표시
+4. **거리 안전 점수 (CPTED)**: CCTV·가로등 밀도, 파출소 접근성 기반 0~100점 안전 점수 및 안심 귀갓길 경로 시각화, 경로 만족도 투표
+5. **실거주 댓글 & 태그**: 매물 댓글에서 키워드를 추출해 자동으로 특징 태그 배지 생성
+6. **관심 매물(찜)**: 매물 찜하기/해제, 마이페이지에서 목록 관리
+7. **개인화 금융 매칭**: 사용자 예산·나이 조건에 맞는 대출 상품 추천(온보딩 단계 및 매물 상세 페이지), 은행 로고 표시, 클릭 시 해당 은행 사이트로 이동
+8. **회원 관리**: 회원가입/로그인(JWT), 아이디·비밀번호 찾기, 프로필 수정, 비밀번호 변경, 회원 탈퇴
+9. **세션 관리**: 멀티탭 로그아웃 동기화, 세션 만료 임박 알림 및 연장
+
+---
+
+## 🧱 기술 스택
+
+### Frontend (`frontend/`)
+- Vue 3 (Composition API, `<script setup>`)
+- Vite, Pinia, Vue Router
+- Axios, Tailwind CSS
+- Naver Map API
+
+### Backend (`backend/`)
+- Java 17, Spring Framework 5 (Spring Legacy, WAR 배포) + Gretty(Tomcat 9) 로컬 실행
+- Spring Security + JWT (`jjwt`) 기반 인증/인가
+- MyBatis + MySQL, HikariCP
+- 외부 연동: 국토교통부·건축물대장 등 공공데이터(data.go.kr), 금융감독원 금융상품 API(finlife), Naver 지도/검색 API, Tmap 보행자 API, ODsay 대중교통 API
+
+### 공통 / 인프라
+- Docker
+- GitHub 기반 협업 (main / develop / feature 브랜치 전략)
+
+---
+
+## 📁 프로젝트 구조
+
+```
+kb/
+├── frontend/                 # Vue 3 + Vite 프론트엔드
+│   └── src/
+│       ├── api/              # Axios 인스턴스 및 도메인별 API 모듈
+│       ├── components/       # 도메인별 재사용 컴포넌트 (auth, map, detail, mypage, onboarding, common ...)
+│       ├── composables/      # 재사용 가능한 Composition 함수
+│       ├── pages/            # 라우트 단위 페이지
+│       ├── router/           # Vue Router 설정
+│       ├── stores/           # Pinia 전역 상태
+│       └── utils/            # 포맷터, 은행 로고/링크 매칭 등 공통 유틸
+├── backend/                  # Spring Legacy + MyBatis 백엔드
+│   └── src/main/java/com/salgosipo/
+│       ├── global/            # 공통 설정, Security/JWT, 예외 처리, 응답 포맷
+│       ├── auth/               # 로그인, 아이디/비밀번호 찾기, 세션 연장
+│       ├── user/                # 회원가입, 프로필, 탈퇴
+│       ├── onboarding/          # 온보딩 조건 등록/조회
+│       ├── destination/         # 목적지 검색/좌표 변환
+│       ├── property/            # 매물 정보 및 상세
+│       ├── amenity/              # 편의시설 필터
+│       ├── comment/               # 댓글 및 태그 자동 추출
+│       ├── safety/                # CPTED 안전 점수, 안심 경로, 투표
+│       ├── bookmark/              # 관심 매물(찜)
+│       └── loan/                  # 개인화 대출 상품 추천
+└── .agents/                  # 기획/설계 참고 문서 모음 (아래 참조)
+```
+
+---
+
+## 🚀 시작하기
+
+### 환경 변수
+
+루트 또는 각 서비스에 `.env` 파일로 아래 키들을 설정해야 합니다 (`.env.local` 참고, 값은 별도 관리):
+
+- `VITE_NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` — Naver 지도/로그인
+- `NAVER_SEARCH_CLIENT_ID` / `NAVER_SEARCH_CLIENT_SECRET` — Naver 검색(목적지 검색)
+- `PUBLIC_DATA_SERVICE_KEY` — 공공데이터(건축물대장 등)
+- `SECURITY_LIGHT_API_KEY` — CCTV/가로등 등 안전 데이터
+- `TMAP_API_KEY` — 보행자 경로
+- `ODSAY_API_KEY` — 대중교통 경로
+- `OPENAI_API_KEY` — (필요 시) AI 관련 기능
+
+### Frontend 실행
+
+```bash
+cd frontend
+npm install
+npm run dev       # 개발 서버 (Vite)
+npm run build     # 프로덕션 빌드
+```
+
+### Backend 실행
+
+```bash
+cd backend
+./gradlew appRun   # Gretty로 Tomcat9 기동 (기본 포트 8080)
+```
+
+DB 접속 정보 및 외부 API 키는 `backend/src/main/resources/application.properties`에서 설정합니다.
+
+---
+
+## 🗄️ 데이터베이스
+
+MySQL 8.0+, `utf8mb4` / `utf8mb4_unicode_ci` 기준. 회원/목적지/온보딩/매물/이미지/댓글/태그/안전점수/투표/편의시설/관심매물 등
+핵심 테이블 DDL과 ERD는 [`​.agents/db_schema_reference.md`](.agents/db_schema_reference.md)에서 확인할 수 있습니다.
+
+---
+
+## 👥 팀 구성 (29반 1팀)
+
+| 이름 | 담당                                           |
+| --- |----------------------------------------------|
+| 구혜성 (팀장/PM) | 회원관리, 관심 매물 ,대출상품 추천                          |
+| 안효선 | 초개인화 온보딩(Step 1~5), 목적지 API, 온보딩 데이터 CRUD    |
+| 김민준 (PL) | 매물 카드 UI/리스트, 지도 렌더링, 커스텀 마커                 |
+| 김병승 | CPTED 안전 점수 알고리즘, Tmap 연동, 안심 귀갓길 시각화, 경로 투표 |
+| 송은지 | 편의시설 커스텀 필터, 댓글 & 키워드 태그, 도보시간 차트            |
+
+---
+
+## 🌿 브랜치 전략 & 커밋 컨벤션
+
+```
+main (배포/제출용, PR로만 merge)
+  └─ develop (통합 브랜치)
+       └─ feature/{기능명}
+```
+
+- 커밋 타입: `feat`, `fix`, `refactor`, `docs`, `style`, `chore`
+- 파일 10개 / 500줄 이상의 대형 PR 지양, 1개 기능 단위로 분할
+- 팀원 최소 1명 승인 후 merge (셀프 머지 금지)
+- 작업 시작 전 `git pull origin develop` 필수
+- 공통 설정 파일(`SecurityConfig`, `application.properties` 등) 수정 시 팀 공지 후 진행
+
+---
+
+## 📚 참고 문서 (`.agents/`)
+
+| 문서 | 내용 |
+| --- | --- |
+| [agent.md](.agents/agent.md) | 프로젝트 마스터 허브 인덱스 |
+| [scaffolding_guide.md](.agents/scaffolding_guide.md) | 프론트/백엔드 디렉토리 구조 및 초기 세팅 명령어 |
+| [db_schema_reference.md](.agents/db_schema_reference.md) | 11개 테이블 DDL 및 ERD |
+| [notion_summary_reference.md](.agents/notion_summary_reference.md) | 노션 정리 종합 가이드 & Git 컨벤션 |
+| [wbs_reference.md](.agents/wbs_reference.md) | 8주차 마일스톤 및 과업 WBS |
+| [e2e_test_guide.md](.agents/e2e_test_guide.md) | Playwright E2E 테스트 시나리오 |
+| [mobile_ui_prompt.md](.agents/mobile_ui_prompt.md) / [pc_ui_prompt.md](.agents/pc_ui_prompt.md) | 모바일/PC UI 디자인 프롬프트 |
+| [project_plan_prompt.md](.agents/project_plan_prompt.md) | 기획안 핵심 파트별 디자인 프롬프트 |
+| [presentation_reference.md](.agents/presentation_reference.md) | 발표자료 요약 & CPTED 알고리즘 가이드 |
