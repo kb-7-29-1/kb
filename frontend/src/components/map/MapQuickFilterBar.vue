@@ -96,14 +96,36 @@ watch(activePopover, (newVal) => {
   emit('popover-change', newVal);
 });
 const destinationSearchKeyword = ref('');
+const destinationSearchInput = ref(null);
 const destinationSearchResults = ref([]);
 const selectedDestination = ref(null);
 const isDestinationSearching = ref(false);
 const isDestinationSaving = ref(false);
 const destinationSearchError = ref('');
 const isDestinationComposing = ref(false);
+const isDestinationSelecting = ref(false);
 let destinationSearchTimer;
 let destinationSearchRequestId = 0;
+let destinationSelectionReleaseTimer;
+let destinationCompositionEndTimer;
+
+const beginDestinationSelection = () => {
+  clearTimeout(destinationSelectionReleaseTimer);
+  isDestinationSelecting.value = true;
+};
+
+const finishDestinationSelection = () => {
+  clearTimeout(destinationSelectionReleaseTimer);
+  destinationSelectionReleaseTimer = setTimeout(() => {
+    isDestinationSelecting.value = false;
+  }, 180);
+};
+
+const cancelPendingDestinationSearch = () => {
+  clearTimeout(destinationSearchTimer);
+  destinationSearchRequestId += 1;
+  isDestinationSearching.value = false;
+};
 
 const handleDestinationCompositionStart = () => {
   isDestinationComposing.value = true;
@@ -111,11 +133,18 @@ const handleDestinationCompositionStart = () => {
 
 const handleDestinationCompositionEnd = (event) => {
   isDestinationComposing.value = false;
-  destinationSearchKeyword.value = event.target.value;
-  scheduleDestinationSearch(destinationSearchKeyword.value);
+  const completedKeyword = event.target.value;
+
+  clearTimeout(destinationCompositionEndTimer);
+  destinationCompositionEndTimer = setTimeout(() => {
+    if (isDestinationSelecting.value) return;
+    destinationSearchKeyword.value = completedKeyword;
+    scheduleDestinationSearch(completedKeyword);
+  }, 40);
 };
 
 const handleDestinationSearchInput = (event) => {
+  if (isDestinationSelecting.value) return;
   destinationSearchKeyword.value = event.target.value;
   scheduleDestinationSearch(event.target.value);
 };
@@ -204,24 +233,23 @@ const selectDestinationOption = (dest) => {
 };
 
 const selectDestination = (destination) => {
+  beginDestinationSelection();
+  cancelPendingDestinationSearch();
   selectedDestination.value = destination;
   destinationSearchKeyword.value = destination.destName;
   destinationSearchResults.value = [];
   destinationSearchError.value = '';
-
-  // 적용 전까지는 로컬 임시 필터에만 저장한다.
-  filters.value.destinationId = destination.destinationId || destination.destId || null;
-  filters.value.destination = destination.destName;
-  filters.value.destinationAddress = destination.destAddress;
-  filters.value.destinationLat = Number(destination.destLatitude);
-  filters.value.destinationLng = Number(destination.destLongitude);
+  finishDestinationSelection();
 };
 
 const clearDestinationSearch = () => {
+  cancelPendingDestinationSearch();
   destinationSearchKeyword.value = '';
   destinationSearchResults.value = [];
   selectedDestination.value = null;
   destinationSearchError.value = '';
+
+  nextTick(() => destinationSearchInput.value?.focus());
 };
 
 const applyDestination = async () => {
@@ -257,15 +285,13 @@ const scheduleDestinationSearch = (value) => {
   const requestId = ++destinationSearchRequestId;
 
   const keyword = value.trim();
-  if (selectedDestination.value?.destName !== value) selectedDestination.value = null;
-
   if (keyword.length < 2 || selectedDestination.value?.destName === value) {
     destinationSearchResults.value = [];
     isDestinationSearching.value = false;
     return;
   }
 
-  destinationSearchResults.value = [];
+  selectedDestination.value = null;
   isDestinationSearching.value = true;
   destinationSearchTimer = setTimeout(async () => {
     try {
@@ -282,8 +308,6 @@ const scheduleDestinationSearch = (value) => {
     }
   }, 300);
 };
-
-watch(destinationSearchKeyword, scheduleDestinationSearch);
 
 // 백엔드 금융감독원/KB대출 추천 API 연동
 const recommendedLoanFromApi = ref(null);
@@ -329,9 +353,6 @@ watch(
       flexTime: 10,
       ...newVal,
     };
-    selectedDestination.value = null;
-    destinationSearchKeyword.value = '';
-    destinationSearchResults.value = [];
   },
   { deep: true },
 );
@@ -362,6 +383,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', handleSliderEnd);
   window.removeEventListener('touchend', handleSliderEnd);
   clearTimeout(destinationSearchTimer);
+  clearTimeout(destinationSelectionReleaseTimer);
+  clearTimeout(destinationCompositionEndTimer);
   clearTimeout(sliderDragTimer);
   if (updateFiltersDebounceTimer) clearTimeout(updateFiltersDebounceTimer);
 });
@@ -551,7 +574,7 @@ const handleDepositTrackClick = (e) => {
   const rect = e.currentTarget.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
   const ratio = Math.max(0, Math.min(1, clickX / rect.width));
-  const maxIdx = depositOptions.value.length - 1;
+  const maxIdx = depositOptions.length - 1;
   const clickedIdx = Math.round(ratio * maxIdx);
 
   const distA = Math.abs(depositValA.value - clickedIdx);
@@ -793,6 +816,7 @@ const amenityLoadingText = computed(() => {
           >
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <input
+              ref="destinationSearchInput"
               v-model="destinationSearchKeyword"
               @input="handleDestinationSearchInput"
               @compositionstart="handleDestinationCompositionStart"
@@ -818,7 +842,7 @@ const amenityLoadingText = computed(() => {
             <div
               class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5 px-0.5"
             >
-              <span>🕒 최근 검색 목적지 (최대 10개)</span>
+              <span>🕒 최근 검색 목적지</span>
             </div>
             <ul
               class="max-h-44 overflow-y-auto space-y-1 rounded-xl border border-slate-100 bg-slate-50/50 p-1.5"
@@ -870,7 +894,7 @@ const amenityLoadingText = computed(() => {
               <button
                 type="button"
                 class="flex w-full items-center gap-2 px-3 py-3 text-left transition-colors hover:bg-blue-50"
-                @click="selectDestination(item)"
+                @pointerdown.capture.prevent="selectDestination(item)"
               >
                 <i class="fa-solid fa-location-dot text-blue-500" aria-hidden="true"></i>
                 <span class="min-w-0 flex-1">
