@@ -104,7 +104,9 @@
         ON DUPLICATE KEY UPDATE
             destination_id = LAST_INSERT_ID(destination_id),
             dest_name = VALUES(dest_name),
-            dest_address = VALUES(dest_address)
+            dest_address = VALUES(dest_address),
+            dest_latitude = VALUES(dest_latitude),
+            dest_longitude = VALUES(dest_longitude)
 
         <selectKey keyProperty="destinationId" resultType="int" order="AFTER">
             SELECT LAST_INSERT_ID()
