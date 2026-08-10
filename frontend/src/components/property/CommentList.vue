@@ -49,6 +49,10 @@ const propertyAddress = computed(() => {
   );
 });
 
+const propertyName = computed(
+  () => props.property?.title || props.property?.propertyName || props.property?.name || '매물 정보',
+);
+
 const formatDateTime = (dateTime) => {
   if (!dateTime) return '';
 
@@ -93,7 +97,6 @@ const submitEdit = (commentId) => {
 
 <template>
   <section class="resident-report">
-    <!-- 상단 매물 헤더 -->
     <header class="report-header">
       <button
           type="button"
@@ -101,12 +104,16 @@ const submitEdit = (commentId) => {
           aria-label="뒤로 가기"
           @click="emit('close')"
       >
-        ‹
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="back-icon">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
       </button>
 
       <div class="property-information">
         <div class="property-title-row">
-          <h2 class="property-name">💬실거주 리포트</h2>
+          <h2 class="property-name">
+            💬 실거주 리포트
+          </h2>
         </div>
 
         <p class="property-address">
@@ -121,11 +128,14 @@ const submitEdit = (commentId) => {
 
     <!-- 댓글 목록 -->
     <section class="comment-list">
+
+      <!-- 빈 상태(Empty State) 디자인 -->
       <div v-if="!comments.length" class="empty-comment">
-        <span class="empty-comment-icon">💬</span>
+        <div class="empty-comment-icon">💬</div>
         <strong>아직 등록된 댓글이 없어요</strong>
         <p>이 매물의 첫 번째 의견을 남겨보세요.</p>
       </div>
+
       <article
           v-for="comment in comments"
           :key="comment.commentId"
@@ -234,7 +244,7 @@ const submitEdit = (commentId) => {
   background: #f7f8fa;
 }
 
-/* 상단 헤더 */
+/* ✨ 무거운 그라데이션 제거 & 모던 화이트 헤더 적용 ✨ */
 .report-header {
   position: sticky;
   top: 0;
@@ -246,151 +256,119 @@ const submitEdit = (commentId) => {
   padding: 14px 22px;
   border-bottom: 1px solid rgb(255 255 255 / 12%);
   background: linear-gradient(135deg, #17213d 0%, #11182d 100%);
+  backdrop-filter: blur(8px); /* 스크롤 시 뒤가 은은하게 비치는 효과 */
   box-shadow: 0 3px 12px rgb(15 23 42 / 18%);
 }
 
+/* 세련된 아이콘 버튼 스타일 */
 .back-button {
   display: flex;
+  align-items: center;
+  justify-content: center;
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
   padding: 0;
   border: 0;
   border-radius: 10px;
   background: rgb(255 255 255 / 8%);
   color: #d5dcf0;
-  font-size: 30px;
-  font-weight: 300;
-  line-height: 1;
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
 .back-button:hover {
-  background: rgb(255 255 255 / 15%);
+  background-color: rgb(255 255 255 / 15%);
+}
+
+.back-icon {
+  width: 22px;
+  height: 22px;
 }
 
 .property-information {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
   min-width: 0;
 }
 
-.property-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.property-label {
+  color: #aab5cc;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .property-name {
-  overflow: hidden;
   margin: 0;
   color: #fff;
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 800;
+  line-height: 1.3;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .property-address {
-  overflow: hidden;
-  margin: 5px 0 0;
+  margin: 0;
   color: #aab5cc;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 /* --- 타이틀이 제거된 태그 섹션 --- */
 .tag-summary {
-  /* 불필요한 제목이 빠졌으므로 패딩을 줄여서 공간 낭비 방지 */
   padding: 16px 22px;
   border-bottom: 1px solid #f0f2f5;
   background: #fff;
 }
 
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-/* 모던한 알약(Pill) 디자인 칩 */
-.summary-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 7px 12px 7px 10px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: default;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.summary-tag:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-.tag-icon {
-  font-size: 14px;
-  margin-right: 6px;
-}
-
-.tag-name {
-  margin-right: 6px;
-}
-
-/* 카운트 숫자 뱃지 */
-.tag-count-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 5px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-/* 긍정 태그 (세련된 파란색 계열) */
-.summary-tag.positive {
-  background: #f0f5ff;
-  color: #3182f6;
-}
-.summary-tag.positive .tag-count-badge {
-  background: #dbe4ff;
-  color: #1c7ed6;
-}
-
-/* 부정 태그 (부드러운 빨간색 계열) */
-.summary-tag.negative {
-  background: #fff4f4;
-  color: #f04452;
-}
-.summary-tag.negative .tag-count-badge {
-  background: #ffe3e4;
-  color: #e03131;
-}
-
 /* --- 댓글 목록 및 기타 CSS --- */
 .empty-comment {
   display: flex;
-  box-sizing: border-box;
-  width: calc(100% - clamp(24px, 8vw, 44px));
-  min-height: 180px;
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin: 4px auto 20px;
-  padding: 24px;
-  border: 1px dashed #cfd6e3;
-  border-radius: 14px;
-  background: #fff;
-  color: #667085;
+  padding: 40px 20px;
   text-align: center;
+}
+
+.empty-comment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  font-size: 28px;
+  animation: float 2.5s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.empty-comment strong {
+  color: #333d4b;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.empty-comment p {
+  margin: 8px 0 0;
+  color: #8b95a1;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .comment-list {
@@ -558,28 +536,6 @@ const submitEdit = (commentId) => {
   text-decoration: underline;
 }
 
-.empty-comment-icon {
-  display: flex;
-  width: 42px;
-  height: 42px;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
-  border-radius: 50%;
-  background: #eef1ff;
-  font-size: 20px;
-}
-
-.empty-comment strong {
-  color: #374151;
-  font-size: 14px;
-}
-
-.empty-comment p {
-  margin: 6px 0 0;
-  font-size: 12px;
-}
-
 .comment-form {
   margin-top: auto;
   padding: 15px 22px 20px;
@@ -654,11 +610,10 @@ const submitEdit = (commentId) => {
 
 @media (max-width: 480px) {
   .report-header {
-    min-height: 92px;
-    padding: 17px 18px;
+    padding: 12px 16px;
   }
   .property-name {
-    font-size: 17px;
+    font-size: 16px;
   }
   .tag-summary {
     padding: 14px 18px;
