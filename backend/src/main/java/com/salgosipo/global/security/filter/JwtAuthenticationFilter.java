@@ -42,9 +42,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String bearerToken = request.getHeader(AUTHORIZATION_HEADER);
         if (bearerToken != null && bearerToken.startsWith(BEARER_PREFIX)){
             String token = bearerToken.substring(BEARER_PREFIX.length()); //7인덱스이후의 문자열 추출
-
-            Authentication authentication = getAuthentication(token);
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                Authentication authentication = getAuthentication(token);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (Exception e) {
+                log.warn("유효하지 않거나 삭제된 사용자의 토큰 요청입니다: {}", e.getMessage());
+                SecurityContextHolder.clearContext();
+            }
         }
         //jwt유효성검증 --> username추출.
         //username으로 db에서 가장 최신의 정보를 꺼내온다.

@@ -35,19 +35,42 @@ public class PropertySearchCondDTO {
     // 정렬 (RECOMMENDED, PRICE_ASC, PRICE_DESC, SAFETY_SCORE_DESC 등)
     private String sort;
 
+    // 페이징 (기본 1페이지, 페이지당 200개)
+    @Builder.Default
+    private Integer page = 1;
+
+    @Builder.Default
+    private Integer size = 200;
+
+    public Integer getOffset() {
+        int currentPage = (page != null && page > 0) ? page : 1;
+        int currentSize = (size != null && size > 0) ? size : 200;
+        return (currentPage - 1) * currentSize;
+    }
+
     public String toCacheKey() {
-        String latStr = lat != null ? String.format("%.3f", lat) : "";
-        String lngStr = lng != null ? String.format("%.3f", lng) : "";
+        String latStr = lat != null ? String.format("%.2f", lat) : "";
+        String lngStr = lng != null ? String.format("%.2f", lng) : "";
         String radStr = radius != null ? String.format("%.1f", radius) : "";
         String minRadStr = minRadius != null ? String.format("%.1f", minRadius) : "";
-        return String.format("%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s",
+        String swLatStr = swLat != null ? String.format("%.2f", swLat) : "";
+        String swLngStr = swLng != null ? String.format("%.2f", swLng) : "";
+        String neLatStr = neLat != null ? String.format("%.2f", neLat) : "";
+        String neLngStr = neLng != null ? String.format("%.2f", neLng) : "";
+        return String.format("%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s",
+                destinationId != null ? destinationId : 0,
                 keyword != null ? keyword : "",
                 propertyType != null ? propertyType : "",
+                buildingType != null ? buildingType : 0,
+                roomType != null ? roomType : 0,
                 minDeposit != null ? minDeposit : 0,
                 maxDeposit != null ? maxDeposit : 999999,
                 minMonthlyRent != null ? minMonthlyRent : 0,
                 maxMonthlyRent != null ? maxMonthlyRent : 9999,
                 latStr, lngStr, radStr, minRadStr,
-                sort != null ? sort : "");
+                swLatStr, swLngStr, neLatStr, neLngStr,
+                sort != null ? sort : "",
+                page != null ? page : 1,
+                size != null ? size : 100);
     }
 }

@@ -37,4 +37,5 @@ public class PropertyListDTO {
     private String dataSource;     // DB 또는 PUBLIC_API
     private Integer dealCount;     // 동일 건물/위치 실거래 건수
     private List<String> tags;     // 주요 태그 목록
+    private String createdAt;      // DB 매물 생성/등록일시
 }

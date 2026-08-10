@@ -15,6 +15,10 @@ public interface PropertyMapper {
             @Param("userId") Long userId
     );
 
+    long selectPropertyListCount(
+            @Param("cond") PropertySearchCondDTO cond
+    );
+
     PropertyDetailDTO selectPropertyDetail(
             @Param("propertyId") Long propertyId,
             @Param("destinationId") Integer destinationId,
