@@ -20,6 +20,8 @@ export const getHaversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // 거리 (km)
 };
 
+export const calculateDistanceKm = getHaversineDistance;
+
 /**
  * 네이버 지도 Reverse Geocode API를 호출하여 위경도 좌표를 장소/주소명으로 변환합니다.
  * 1순위: 건물명/장소명 (land.buildingName)
