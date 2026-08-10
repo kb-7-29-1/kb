@@ -199,11 +199,12 @@ const goMyPage = () => {
 
 @media (max-width: 768px) {
   .home-page {
-    --app-header-height: calc(env(safe-area-inset-top, 0px) + 50px);
+    --app-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
   }
 
   .app-header {
     height: var(--app-header-height);
+    align-items: flex-end;
     padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
   }
 }
