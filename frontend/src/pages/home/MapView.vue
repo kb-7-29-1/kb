@@ -231,7 +231,7 @@ const triggerAllLoadedToast = () => {
 const handleLoadMoreClick = () => {
   if (isMapMoved.value) {
     handleSearchInThisArea();
-  } else if (properties.value.length >= serverTotalCount.value || serverTotalCount.value <= 200) {
+  } else if (properties.value.length >= serverTotalCount.value) {
     triggerAllLoadedToast();
   } else {
     loadMoreProperties();
@@ -499,12 +499,14 @@ const fetchPropertiesFromBackend = (immediate = false, isAppend = false) => {
   });
 };
 
-// URL 브라우저 주소창 Query 파라미터 양방향 실시간 동기화 유틸 (한글 텍스트 dest 제외, 위경도 좌표 및 숫자로만 깔끔 구성)
+// URL 브라우저 주소창 Query 파라미터 양방향 실시간 동기화 유틸
 const syncFiltersToUrlQuery = (filters) => {
   if (!filters) return;
   const query = {
     ...route.query,
-    dest: undefined,
+    dest: filters.destination || filters.destinationName || undefined,
+    destName: filters.destination || filters.destinationName || undefined,
+    destAddress: filters.destinationAddress || undefined,
     destLat: filters.destinationLat
       ? Number(filters.destinationLat).toFixed(4)
       : undefined,
@@ -528,10 +530,30 @@ const syncFiltersToUrlQuery = (filters) => {
 
 const parseUrlQueryToFilters = () => {
   const q = route.query;
-  if (!q || (!q.destLat && !q.tradeType && !q.maxDeposit)) return false;
+  if (!q || (!q.destLat && !q.tradeType && !q.maxDeposit && !q.dest && !q.destName)) return false;
 
+  const destNameVal = q.destName || q.dest;
+  if (destNameVal) {
+    filterState.value.destination = String(destNameVal);
+    filterState.value.destinationName = String(destNameVal);
+  }
+  if (q.destAddress) {
+    filterState.value.destinationAddress = String(q.destAddress);
+  }
   if (q.destLat) filterState.value.destinationLat = Number(q.destLat);
   if (q.destLng) filterState.value.destinationLng = Number(q.destLng);
+
+  // URL에 destLat/destLng만 있고 destName이 생략된 경우 세종대 이름으로 오인되는 현상 방지
+  if (q.destLat && q.destLng && !destNameVal) {
+    const lat = Number(q.destLat);
+    const lng = Number(q.destLng);
+    const distToSejong = calculateDistanceKm(37.5502, 127.0731, lat, lng);
+    if (distToSejong > 0.5) {
+      filterState.value.destination = '지정한 목적지';
+      filterState.value.destinationName = '지정한 목적지';
+    }
+  }
+
   if (q.tradeType) filterState.value.tradeType = String(q.tradeType);
   if (q.minDeposit != null) filterState.value.minDeposit = Number(q.minDeposit);
   if (q.maxDeposit != null) filterState.value.maxDeposit = Number(q.maxDeposit);
@@ -576,8 +598,9 @@ const loadQuickFilterFromCache = () => {
 };
 
 onMounted(async () => {
-  // 온보딩(DB) 조건 최우선 로드
-  await loadOnboardingDefaultFilters({ resetDestination: true });
+  // URL에 커스텀 목적지 좌표가 있으면 DB 온보딩 목적지 이름으로 덮어쓰지 않음
+  const hasCustomDestInUrl = !!(route.query?.destLat || route.query?.dest || route.query?.destName);
+  await loadOnboardingDefaultFilters({ resetDestination: !hasCustomDestInUrl });
 
   const hasUrlQuery = parseUrlQueryToFilters();
   if (hasUrlQuery) {
