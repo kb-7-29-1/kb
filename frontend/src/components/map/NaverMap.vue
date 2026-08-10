@@ -764,6 +764,7 @@ const handleMapRightClick = async (e) => {
     cardContainer.querySelector('.btn-confirm').addEventListener('click', () => {
       emit('change-destination', {
         name: placeName,
+        address: geoResult.roadAddress || geoResult.jibunAddress || placeName,
         lat,
         lng,
       });

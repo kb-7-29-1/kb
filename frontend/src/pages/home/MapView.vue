@@ -656,6 +656,7 @@ const handleChangeDestination = ({ name, lat, lng, address }) => {
   filterState.value.destinationAddress = destAddress;
   filterState.value.destinationLat = Number(lat);
   filterState.value.destinationLng = Number(lng);
+  filterState.value.destinationId = null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
