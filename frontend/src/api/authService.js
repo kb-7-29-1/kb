@@ -34,3 +34,6 @@ export const withdraw = (password) => api.delete('/user', {data:{password}})
 export const logout = () =>{
     // 별도 서버 호출 없음, useAuthStore.logout() 사용
 }
+
+// 로그인 연장
+export const refreshToken = () => api.post('/auth/refresh')
