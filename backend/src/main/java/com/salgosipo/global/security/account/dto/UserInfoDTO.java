@@ -11,6 +11,7 @@ import java.util.Date;
 @AllArgsConstructor
 @Data
 public class UserInfoDTO {
+    Long userId;
     String loginId;
     String name;
     String email;
@@ -18,7 +19,7 @@ public class UserInfoDTO {
 
     public static UserInfoDTO of(UserVO user) {
         return new UserInfoDTO(
-                user.getLoginId(), user.getName(), user.getEmail(), user.getBirthDate()
+                user.getUserId(), user.getLoginId(), user.getName(), user.getEmail(), user.getBirthDate()
         );
     }
 

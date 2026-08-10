@@ -1005,16 +1005,24 @@ watch(
 );
 
 // 찜 토글
+const pendingBookmarkIds = ref(new Set());
+
 const handleToggleBookmark = async (id) => {
   const item = properties.value.find((p) => p.propertyId === id);
   if (!item) return;
+  if (pendingBookmarkIds.value.has(id)) return;
 
+  pendingBookmarkIds.value.add(id);
   try {
-    if (item.isBookmarked) {
-      await api.delete(`/bookmark/${id}`);
-    } else {
-      await api.post('/bookmark', { propertyId: id });
+    const response = item.isBookmarked
+      ? await api.delete(`/bookmark/${id}`)
+      : await api.post('/bookmark', { propertyId: id });
+
+    if (response.data && response.data.success === false) {
+      console.error('BOOKMARK TOGGLE ERROR: ', response.data.message);
+      return;
     }
+
     item.isBookmarked = !item.isBookmarked;
 
     if (Number(selectedProperty.value?.propertyId) === Number(id)) {
@@ -1025,6 +1033,8 @@ const handleToggleBookmark = async (id) => {
     }
   } catch (error) {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
+  } finally {
+    pendingBookmarkIds.value.delete(id);
   }
 };
 
@@ -1228,6 +1238,9 @@ const {
           :property="selectedProperty"
           :amenities="selectedPropertyAmenities"
           :destination="destinationConfig"
+          :is-bookmark-pending="
+            selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)
+          "
           @close="mobileSidebarTab = 'list'"
           @toggle-bookmark="handleToggleBookmark"
         />
@@ -1352,6 +1365,7 @@ const {
                 selectedProperty &&
                 selectedProperty.propertyId === prop.propertyId
               "
+              :is-bookmark-pending="pendingBookmarkIds.has(prop.propertyId)"
               @select="handleSelectProperty"
               @toggle-bookmark="handleToggleBookmark"
             />
@@ -1499,6 +1513,9 @@ const {
       :property="selectedProperty"
       :amenities="selectedPropertyAmenities"
       :destination="destinationConfig"
+      :is-bookmark-pending="
+        selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)
+      "
       @close="isPanelOpen = false"
       @toggle-bookmark="handleToggleBookmark"
     />

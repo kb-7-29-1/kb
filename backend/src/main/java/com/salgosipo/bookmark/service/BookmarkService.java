@@ -7,6 +7,7 @@ import com.salgosipo.user.domain.UserVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +31,13 @@ public class BookmarkService {
         if(bookmarkMapper.countByUserIdAndPropertyId(userId, propertyId)>0){
             throw new IllegalArgumentException("이미 찜한 매물입니다.");
         }
-        bookmarkMapper.addBookmark(userId,propertyId);
+        try {
+            bookmarkMapper.addBookmark(userId,propertyId);
+        } catch (DataIntegrityViolationException e) {
+            // 연속 클릭 등으로 두 요청이 거의 동시에 들어와 중복 체크를 함께 통과한 경우,
+            // bookmarks 테이블의 PK(user_id, property_id) 제약으로 두 번째 INSERT가 여기서 걸림
+            throw new IllegalArgumentException("이미 찜한 매물입니다.");
+        }
     }
 
     @Transactional
