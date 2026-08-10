@@ -41,7 +41,8 @@ const maxRent = ref(120);
 const selectedLoanId = ref('NONE');
 const transportMode = ref('walk');
 const travelTime = ref(15);
-const flexTime = ref(10);
+// 대중교통 도넛 영역의 안쪽 원(최소 이동 시간)은 PC 퀵필터와 동일하게 5분부터 시작합니다.
+const flexTime = ref(5);
 const selectedDestination = ref(null);
 const searchKeyword = ref('');
 const destinationSearchInput = ref(null);
@@ -218,6 +219,11 @@ const onRentMaxInput = () => {
   }
 };
 
+const normalizeTransitMinTime = (value, maxTravelTime) => {
+  const max = Math.min(30, Math.max(5, Number(maxTravelTime) || 15));
+  return Math.min(max, Math.max(5, Number(value) || 5));
+};
+
 watch(
   [() => props.onboarding, () => props.appliedFilters],
   ([onboarding, appliedFilters]) => {
@@ -238,6 +244,10 @@ watch(
     minSafetyScore.value = Number(filters.minSafetyScore);
     transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
     travelTime.value = Number(filters.maxTravelTime);
+    flexTime.value = normalizeTransitMinTime(
+      filters.minTravelTime ?? filters.flexTime,
+      travelTime.value,
+    );
   },
   { immediate: true, deep: true },
 );
@@ -265,6 +275,10 @@ const resetFilters = () => {
   minSafetyScore.value = Number(onboarding.minSafetyScore);
   transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
+  flexTime.value = normalizeTransitMinTime(
+    onboarding.minTravelTime ?? onboarding.flexTime,
+    travelTime.value,
+  );
   if (onboarding.selectedLoanId) selectedLoanId.value = onboarding.selectedLoanId;
 };
 
@@ -273,6 +287,8 @@ const getFilters = () => ({
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
+  minTravelTime: transportMode.value === 'transit' ? flexTime.value : 0,
+  flexTime: transportMode.value === 'transit' ? flexTime.value : 0,
   leaseType: leaseType.value,
   budgetDepositMin: minDeposit.value,
   budgetDeposit: maxDeposit.value,

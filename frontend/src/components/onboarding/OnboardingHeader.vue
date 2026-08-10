@@ -37,7 +37,7 @@ defineEmits(['back', 'go-login']);
 
       <p class="desktop-logo">
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
-        살고싶오
+        집으로
       </p>
 
       <div class="desktop-progress-row">

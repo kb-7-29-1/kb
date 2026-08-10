@@ -34,7 +34,7 @@ const showFindModal = ref(false);
           <span class="auth-logo__mark"
             ><i class="fa-solid fa-shield-halved" aria-hidden="true"></i
           ></span>
-          살고싶오
+          집으로
         </h1>
         <template v-if="mode === 'login'">
           <p class="auth-greeting">
