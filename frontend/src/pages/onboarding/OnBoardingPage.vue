@@ -239,13 +239,16 @@ const setDestination = (destination) => {
 .onboarding-flow {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
+  height: 100dvh;
 }
 
 .onboarding-content {
   flex: 1;
+  min-height: 0;
   padding: 24px 20px 110px;
   overflow-x: clip;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .step-forward-enter-active,
@@ -287,6 +290,7 @@ const setDestination = (destination) => {
 
   .onboarding-flow {
     width: min(100%, 460px);
+    height: auto;
     min-height: 0;
   }
 
@@ -294,6 +298,7 @@ const setDestination = (destination) => {
     flex: 0 0 auto;
     padding: 16px 0 12px;
     margin: 10px 0px;
+    overflow-y: visible;
   }
 
   @media (max-height: 760px) {
