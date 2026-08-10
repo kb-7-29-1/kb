@@ -1182,7 +1182,8 @@ const handleAmenitySelectionChange = (selectedFilters) => {
 };
 
 const resetAmenityDetailFilters = () => {
-  const selectedFilters = amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
+  const selectedFilters =
+    amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
 
   // 초기화 시 편의시설 선택은 유지하고, 시간 제한만 종류별 기본값으로 되돌린다.
   amenityDetailFilters.value = selectedFilters.map((filter) => {
@@ -1197,7 +1198,6 @@ const resetAmenityDetailFilters = () => {
       walkTimeMinutes: defaultWalkTime,
     };
   });
-
 };
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
@@ -1260,7 +1260,7 @@ const {
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        class="w-full pb-4 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
@@ -1270,11 +1270,11 @@ const {
 
       <!-- 모바일 전용 탭 스위처 ([📋 매물 목록] | [🏠 선택 매물 상세]) -->
       <div
-        class="flex xl:hidden items-center border-b border-slate-200 px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none"
+        class="flex xl:hidden items-center px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none"
       >
         <button
           type="button"
-          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
           :class="[
             mobileSidebarTab === 'list'
               ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
@@ -1287,7 +1287,7 @@ const {
         </button>
         <button
           type="button"
-          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
           :class="[
             mobileSidebarTab === 'detail'
               ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
@@ -1322,7 +1322,7 @@ const {
             selectedProperty &&
             pendingBookmarkIds.has(selectedProperty.propertyId)
           "
-          @close="mobileSidebarTab = 'list'"
+          @close="clearSelectedProperty"
           @toggle-bookmark="handleToggleBookmark"
         />
       </div>
@@ -1340,9 +1340,11 @@ const {
         <div
           class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3 shrink-0"
         >
-          <div class="flex items-center justify-between xl:hidden">
+          <div
+            v-if="isMapAnalysisLoading"
+            class="flex items-center justify-between xl:hidden"
+          >
             <span
-              v-if="isMapAnalysisLoading"
               class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
             >
               <i
@@ -1350,12 +1352,6 @@ const {
                 aria-hidden="true"
               ></i>
               안전 분석 중
-            </span>
-            <span
-              v-else
-              class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
-            >
-              총 {{ visibleProperties.length }}개 매물
             </span>
           </div>
 
@@ -1511,33 +1507,6 @@ const {
         />
       </div>
 
-      <div
-        v-if="
-          selectedProperty &&
-          (isSafetyRouteLoading || selectedSafetyRouteMeta || safetyRouteError)
-        "
-        class="pointer-events-none absolute right-16 top-4 z-30 max-w-[260px] rounded-full border border-slate-200 bg-white/95 px-3 py-2 text-[11px] font-bold shadow-lg backdrop-blur"
-      >
-        <span v-if="isSafetyRouteLoading" class="text-[#4058f5]">
-          <i
-            class="fa-solid fa-spinner mr-1 animate-spin"
-            aria-hidden="true"
-          ></i>
-          TMAP 안전 경로 확인 중
-        </span>
-        <span v-else-if="safetyRouteError" class="text-rose-600">
-          {{ safetyRouteError }}
-        </span>
-        <span v-else class="text-slate-700">
-          안전 {{ selectedSafetyRouteMeta?.safetyScore ?? '--' }}점 ·
-          {{
-            selectedSafetyRouteMeta?.cacheHit
-              ? 'DB 저장 경로'
-              : 'TMAP 신규 계산'
-          }}
-        </span>
-      </div>
-
       <NaverMap
         :properties="visibleProperties"
         :selected-property="selectedProperty"
@@ -1607,7 +1576,7 @@ const {
       :is-bookmark-pending="
         selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)
       "
-      @close="isPanelOpen = false"
+      @close="clearSelectedProperty"
       @toggle-bookmark="handleToggleBookmark"
     />
   </div>

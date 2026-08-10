@@ -129,6 +129,88 @@ const destinationMarkers = new Set();
 let pendingRenderFrame = null;
 let safetyRoutePolyline = null;
 let lastSafetyRouteKey = '';
+let selectedContextFitFrame = null;
+
+const getSelectedContextFitMargin = () => {
+  const mapElement = document.getElementById('naver-map-container');
+  if (!mapElement) return { top: 88, right: 28, bottom: 28, left: 28 };
+
+  const { width, height } = mapElement.getBoundingClientRect();
+  const isDesktop = window.matchMedia('(min-width: 1280px)').matches;
+
+  if (isDesktop) {
+    // PC 우측 상세 패널에 가려지지 않도록 여백 확보
+    const detailPanel = document.querySelector('.property-detail-panel');
+    const panelWidth = detailPanel?.getBoundingClientRect().width ?? 0;
+
+    return {
+      top: 84,
+      right: Math.min(panelWidth + 32, Math.max(56, width * 0.44)),
+      bottom: 36,
+      left: 32,
+    };
+  }
+
+  // 모바일 하단 매물/상세 시트와 헤더에 가리지 않는 범위로 맞춤
+  const mobilePanel = document.querySelector('.mobile-aside-panel');
+  const panelHeight = mobilePanel?.getBoundingClientRect().height ?? height / 3;
+
+  return {
+    top: 118,
+    right: 24,
+    bottom: Math.min(panelHeight + 20, Math.max(80, height * 0.7)),
+    left: 24,
+  };
+};
+
+const fitToSelectedPropertyContext = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps || !props.selectedProperty) {
+    return;
+  }
+
+  const points = [];
+  const addPoint = (latitude, longitude) => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      points.push(new window.naver.maps.LatLng(lat, lng));
+    }
+  };
+
+  // 선택 매물, 목적지 포함
+  addPoint(props.selectedProperty.latitude, props.selectedProperty.longitude);
+  addPoint(
+    props.destination?.lat ?? props.destination?.destLatitude,
+    props.destination?.lng ?? props.destination?.destLongitude,
+  );
+
+  // 귀갓길 경로, 편의시설 마커 한 화면에 포함
+  (props.safetyRoute?.routePoints ?? []).forEach((point) => {
+    addPoint(point.latitude ?? point.lat, point.longitude ?? point.lng);
+  });
+  props.amenities.forEach((amenity) => {
+    addPoint(amenity.amenityLatitude, amenity.amenityLongitude);
+  });
+
+  if (points.length < 2) return;
+
+  const bounds = new window.naver.maps.LatLngBounds(points[0], points[0]);
+  points.slice(1).forEach((point) => bounds.extend(point));
+
+  mapInstance.value.panToBounds(
+    bounds,
+    { duration: 650, easing: 'easeOutCubic' },
+    getSelectedContextFitMargin(),
+  );
+};
+
+const scheduleSelectedPropertyContextFit = () => {
+  if (selectedContextFitFrame) cancelAnimationFrame(selectedContextFitFrame);
+  selectedContextFitFrame = requestAnimationFrame(() => {
+    selectedContextFitFrame = null;
+    fitToSelectedPropertyContext();
+  });
+};
 
 const clearSafetyRoutePolyline = () => {
   if (safetyRoutePolyline) {
@@ -176,9 +258,7 @@ const renderSafetyRoute = () => {
     safetyRoutePolyline.setMap(null);
   }
 
-  const path = points.map(
-    (point) => new window.naver.maps.LatLng(point.lat, point.lng),
-  );
+  const path = points.map((point) => new window.naver.maps.LatLng(point.lat, point.lng));
 
   safetyRoutePolyline = new window.naver.maps.Polyline({
     map: mapInstance.value,
@@ -191,10 +271,8 @@ const renderSafetyRoute = () => {
   });
   lastSafetyRouteKey = routeKey;
 
-  // 매물 클릭 직후 전체 TMAP 경로가 한 화면에 들어오도록 카메라를 맞춥니다.
-  const bounds = new window.naver.maps.LatLngBounds(path[0], path[0]);
-  path.slice(1).forEach((latLng) => bounds.extend(latLng));
-  mapInstance.value.fitBounds(bounds);
+  // 경로·목적지·선택 매물·편의시설을 포함하도록 카메라 조정
+  scheduleSelectedPropertyContextFit();
 };
 
 const clearDestinationMarkers = () => {
@@ -707,13 +785,25 @@ watch(
 
 watch(
   () => props.amenities,
-  () => renderAmenityMarkers(),
+  () => {
+    renderAmenityMarkers();
+    scheduleSelectedPropertyContextFit();
+  },
   { deep: true },
 );
 
 watch(
   () => props.safetyRoute,
-  () => renderSafetyRoute(),
+  () => {
+    renderSafetyRoute();
+    scheduleSelectedPropertyContextFit();
+  },
+  { deep: true },
+);
+
+watch(
+  [() => props.selectedProperty, () => props.destination],
+  () => scheduleSelectedPropertyContextFit(),
   { deep: true },
 );
 
@@ -729,7 +819,7 @@ const fitToIsochroneRadius = () => {
     return;
 
   const filter = props.liveFilter || props.appliedFilter;
-  if (!filter || filter.showIsochrone === false) return;
+  if (!filter || filter.showIsochrone === false || props.selectedProperty) return;
 
   let radiusMeters = 900;
   if (filter.transportMode === 'WALK') {
@@ -802,6 +892,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (selectedContextFitFrame) cancelAnimationFrame(selectedContextFitFrame);
   activePropertyMarkersMap.forEach((marker) => marker.setMap(null));
   activePropertyMarkersMap.clear();
   clearDestinationMarkers();
@@ -848,6 +939,7 @@ const moveMapToDestination = () => {
 
     <!-- 2. 이소크론 동심원 & 외부 암영 마스크 분리 전용 오버레이 컴포넌트 -->
     <IsochroneOverlay
+      v-if="!selectedProperty"
       :map-instance="mapInstance"
       :destination="destination"
       :applied-filter="appliedFilter"

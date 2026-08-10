@@ -1,6 +1,12 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import onboardingApi from '@/api/onboardingApi';
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import {
+  getRecentDestinations,
+  removeRecentDestinationGlobal,
+  saveRecentDestinationGlobal,
+} from '@/utils/recentDestinations.js';
 import {
   DEPOSIT_MAX_LABEL,
   DEPOSIT_MIN_LABEL,
@@ -44,10 +50,25 @@ const isSearching = ref(false);
 const searchError = ref('');
 const isComposing = ref(false);
 const isSelectingDestination = ref(false);
+const authStore = useAuthStore();
+const currentUserId = computed(() => authStore.user?.userId || authStore.user?.id || 'guest');
+const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 let searchTimer;
 let searchRequestId = 0;
 let selectionReleaseTimer;
 let compositionEndTimer;
+
+watch(currentUserId, (userId) => {
+  recentDestinations.value = getRecentDestinations(userId);
+});
+
+const saveRecentDestination = (destination) => {
+  recentDestinations.value = saveRecentDestinationGlobal(destination, currentUserId.value);
+};
+
+const removeRecentDestination = (destName) => {
+  recentDestinations.value = removeRecentDestinationGlobal(destName, currentUserId.value);
+};
 
 const beginDestinationSelection = () => {
   clearTimeout(selectionReleaseTimer);
@@ -126,6 +147,7 @@ const selectDestination = (destination) => {
   searchKeyword.value = destination.destName;
   searchResults.value = [];
   searchError.value = '';
+  saveRecentDestination(destination);
   finishDestinationSelection();
 };
 
@@ -297,6 +319,35 @@ onBeforeUnmount(() => {
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
       </label>
+      <div
+        v-if="recentDestinations.length && !searchKeyword.trim() && !isSearching"
+        class="recent-destination-section"
+      >
+        <p class="recent-destination-title">🕒 최근 검색 목적지</p>
+        <ul class="recent-destination-list">
+          <li v-for="item in recentDestinations.slice(0, 3)" :key="item.destName">
+            <button
+              type="button"
+              class="recent-destination-item"
+              @pointerdown.capture.prevent="selectDestination(item)"
+            >
+              <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+              <span>
+                <strong>{{ item.destName }}</strong>
+                <small>{{ item.destAddress }}</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="recent-destination-remove"
+              :aria-label="`${item.destName} 삭제`"
+              @pointerdown.stop.prevent="removeRecentDestination(item.destName)"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </li>
+        </ul>
+      </div>
       <p v-if="isSearching" class="search-message">검색 중이에요.</p>
       <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
       <p
@@ -598,6 +649,95 @@ onBeforeUnmount(() => {
   background: transparent;
   color: #a1a8b5;
   font-size: 10px;
+}
+.recent-destination-section {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #e8ecf3;
+  border-radius: 12px;
+  background: #f8faff;
+}
+.recent-destination-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 7px;
+  color: #7b8797;
+  font-size: 11px;
+  font-weight: 700;
+}
+.recent-destination-title i {
+  color: #3d55f6;
+  font-size: 10px;
+}
+.recent-destination-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recent-destination-list li {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 8px;
+  background: #fff;
+}
+.recent-destination-item {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  padding: 7px 4px 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #3d55f6;
+  text-align: left;
+}
+.recent-destination-item > i {
+  flex: 0 0 auto;
+  font-size: 11px;
+}
+.recent-destination-item span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+.recent-destination-item strong,
+.recent-destination-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recent-destination-item strong {
+  color: #4b5563;
+  font-size: 11px;
+}
+.recent-destination-item small {
+  color: #9aa3b0;
+  font-size: 10px;
+}
+.recent-destination-remove {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #b5bcc7;
+  font-size: 10px;
+}
+.recent-destination-remove:hover {
+  background: #eef1ff;
+  color: #3d55f6;
 }
 .search-message {
   margin: 8px 2px 0;
