@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import com.salgosipo.property.dto.PropertyPageResponseDTO;
+
 @Service
 @RequiredArgsConstructor
 @Log4j2
@@ -21,18 +23,27 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyMapper propertyMapper;
 
     @Override
-    @Cacheable(value = "propertyList", key = "#cond != null ? #cond.toCacheKey() : ''", unless = "#result == null || #result.isEmpty()")
-    public List<PropertyListDTO> getPropertyList(PropertySearchCondDTO cond, Long userId) {
+    @Cacheable(value = "propertyList", key = "#cond != null ? #cond.toCacheKey() : ''", unless = "#result == null || #result.items == null || #result.items.isEmpty()")
+    public PropertyPageResponseDTO getPropertyList(PropertySearchCondDTO cond, Long userId) {
         try {
+            long totalCount = propertyMapper.selectPropertyListCount(cond);
             List<PropertyListDTO> list = propertyMapper.selectPropertyList(cond, userId);
             if (list != null && !list.isEmpty()) {
                 list.forEach(item -> item.setDataSource("DB"));
-                return list;
+            } else {
+                list = List.of();
             }
+            return PropertyPageResponseDTO.builder()
+                    .totalCount(totalCount)
+                    .items(list)
+                    .build();
         } catch (Exception e) {
             log.error("DB property search error: {}", e.getMessage(), e);
         }
-        return List.of();
+        return PropertyPageResponseDTO.builder()
+                .totalCount(0)
+                .items(List.of())
+                .build();
     }
 
     @Override

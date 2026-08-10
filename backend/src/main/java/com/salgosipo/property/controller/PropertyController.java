@@ -2,6 +2,7 @@ package com.salgosipo.property.controller;
 
 import com.salgosipo.property.dto.PropertyDetailDTO;
 import com.salgosipo.property.dto.PropertyListDTO;
+import com.salgosipo.property.dto.PropertyPageResponseDTO;
 import com.salgosipo.property.dto.PropertySearchCondDTO;
 import com.salgosipo.property.service.PropertyService;
 import lombok.RequiredArgsConstructor;
@@ -23,16 +24,16 @@ public class PropertyController {
     private final PropertyService propertyService;
 
     /**
-     * 매물 목록 조회 (필터링, 5종 정렬, 지도 사각형 Bounds / 중심점 검색)
+     * 매물 목록 조회 (100개 단위 페이징, 필터링, 정렬, 지도 Bounds/중심점 검색)
      * GET /api/properties
      */
     @GetMapping
-    public ResponseEntity<List<PropertyListDTO>> getPropertyList(
+    public ResponseEntity<PropertyPageResponseDTO> getPropertyList(
             @ModelAttribute PropertySearchCondDTO cond,
             @RequestParam(value = "userId", required = false) Long userId
     ) {
-        List<PropertyListDTO> list = propertyService.getPropertyList(cond, userId);
-        return ResponseEntity.ok(list);
+        PropertyPageResponseDTO result = propertyService.getPropertyList(cond, userId);
+        return ResponseEntity.ok(result);
     }
 
     /**
