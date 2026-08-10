@@ -5,12 +5,16 @@ import com.salgosipo.auth.dto.FindIdResponseDto;
 import com.salgosipo.auth.dto.FindPasswordRequestDto;
 import com.salgosipo.auth.dto.ResetPasswordRequestDto;
 import com.salgosipo.auth.service.AuthService;
+import com.salgosipo.global.security.account.domain.CustomUser;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,5 +39,11 @@ public class AuthController {
     public ResponseEntity<?> resetPassword(@RequestBody ResetPasswordRequestDto dto){
         authService.resetPassword(dto);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@AuthenticationPrincipal CustomUser customUser){
+        String token = authService.refreshToken(customUser.getUsername());
+        return ResponseEntity.ok(Map.of("token", token));
     }
 }

@@ -511,12 +511,8 @@ watch(
 
 const handleResetFilters = async () => {
   showFilterAnalysisLoading();
-  const previousDestinationKey = getDestinationKey(appliedFilterState.value);
   await loadOnboardingDefaultFilters({ resetDestination: true });
-
-  if (previousDestinationKey !== getDestinationKey(filterState.value)) {
-    clearAmenitiesForDestinationChange();
-  }
+  clearAmenitiesForDestinationChange();
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   saveQuickFilterToCache(appliedFilterState.value);
@@ -1186,9 +1182,22 @@ const handleAmenitySelectionChange = (selectedFilters) => {
 };
 
 const resetAmenityDetailFilters = () => {
-  amenityFilterRef.value?.resetFilters?.();
-  amenityDetailFilters.value = [];
-  handleApplyAmenities([]);
+  const selectedFilters = amenityFilterRef.value?.getSelectedAmenities?.() ?? [];
+
+  // 초기화 시 편의시설 선택은 유지하고, 시간 제한만 종류별 기본값으로 되돌린다.
+  amenityDetailFilters.value = selectedFilters.map((filter) => {
+    const defaultWalkTime =
+      Number(filter.amenityType) === 1
+        ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+        : DEFAULT_AMENITY_WALK_TIME;
+
+    return {
+      ...filter,
+      timeLimit: defaultWalkTime,
+      walkTimeMinutes: defaultWalkTime,
+    };
+  });
+
 };
 const applyAmenityDetailFilters = () => {
   handleApplyAmenities(
