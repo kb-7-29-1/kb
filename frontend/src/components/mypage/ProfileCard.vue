@@ -39,10 +39,14 @@ const cancelEdit = () => {
 const handleUpdateProfile = async () => {
   updateError.value = '';
   try {
-    await updateProfile({
+    const response = await updateProfile({
       name: editForm.value.name,
       email: editForm.value.email,
     });
+    if (response.data && response.data.success === false) {
+      updateError.value = response.data.message || '프로필 수정 중 오류가 발생했습니다.';
+      return;
+    }
     await fetchProfile();
     isEditing.value = false;
   } catch (error) {
