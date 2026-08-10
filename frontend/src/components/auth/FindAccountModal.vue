@@ -16,9 +16,13 @@ const handleFindId = async () => {
   maskedLoginId.value = '';
   try {
     const response = await findId(email.value);
+    if (response.data && response.data.success === false) {
+      findIdError.value = response.data.message || '해당 이메일로 가입된 계정이 없습니다.';
+      return;
+    }
     maskedLoginId.value = response.data.maskedLoginId;
   } catch (error) {
-    findIdError.value = '해당 이메일로 가입된 계정이 없습니다.';
+    findIdError.value = '아이디 찾기 중 오류가 발생했습니다.';
   }
 };
 
@@ -37,9 +41,13 @@ const handleVerify = async () => {
       name: pwName.value,
       email: pwEmail.value,
     });
+    if (response.data && response.data.success === false) {
+      verifyError.value = response.data.message || '일치하는 계정 정보가 없습니다.';
+      return;
+    }
     verifiedResetToken.value = response.data;
   } catch (error) {
-    verifyError.value = '일치하는 계정 정보가 없습니다.';
+    verifyError.value = '본인 확인 중 오류가 발생했습니다.';
   }
 };
 
@@ -57,10 +65,14 @@ const handleResetPassword = async () => {
   }
 
   try {
-    await resetPassword({
+    const response = await resetPassword({
       resetToken: verifiedResetToken.value,
       newPassword: newPassword.value,
     });
+    if (response.data && response.data.success === false) {
+      resetError.value = response.data.message || '비밀번호 변경 중 오류가 발생했습니다.';
+      return;
+    }
     resetSuccess.value = true;
   } catch (error) {
     resetError.value = '비밀번호 변경 중 오류가 발생했습니다.';
