@@ -39,6 +39,16 @@ const loadOnboardingSummary = async () => {
 onMounted(loadOnboardingSummary);
 
 const handleReset = async () => {
+  if (activeTab.value === 'amenity') {
+    // 모바일 편의시설 초기화는 선택 상태와 적용 결과를 유지하고,
+    // 편의시설 시간과 온보딩 입력값만 화면에서 기본값으로 되돌린다.
+    amenityFilterRef.value?.resetTimeLimits?.();
+    onboardingFilterRef.value?.resetFilters?.();
+    await loadOnboardingSummary();
+    return;
+  }
+
+  // 온보딩 탭 초기화는 기존처럼 온보딩과 편의시설 조건을 전체 초기화한다.
   emit('reset');
 
   await loadOnboardingSummary();

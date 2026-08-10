@@ -78,6 +78,12 @@ const resetFilters = () => {
   });
 };
 
+const resetTimeLimits = () => {
+  amenities.value.forEach((item) => {
+    item.timeLimit = getDefaultTimeLimit(item.amenityType);
+  });
+};
+
 const restoreAppliedFilters = (filters = []) => {
   amenities.value.forEach((item) => {
     const applied = filters.find((filter) => Number(filter.amenityType) === item.amenityType);
@@ -104,6 +110,7 @@ const applyFilters = () => {
 
 defineExpose({
   resetFilters,
+  resetTimeLimits,
   applyFilters,
   getFilters,
   getSelectedAmenities,
