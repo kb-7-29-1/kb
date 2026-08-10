@@ -9,7 +9,7 @@ const emit = defineEmits(['open-property']);
 const fetchBookmarks = async () => {
   try {
     const response = await api.get('/bookmark');
-    // 이 화면에 처음 들어왔을 때의 목록만 서버 기준으로 구성합니다.
+    // 화면에 처음 들어왔을 때의 목록만 서버 기준으로 구성
     bookmarks.value = (response.data || []).map((bookmark) => ({
       ...bookmark,
       isBookmarked: true,
@@ -32,8 +32,8 @@ const toggleBookmark = async (item) => {
       await api.post('/bookmark', { propertyId });
     }
 
-    // 해제해도 현재 목록에서는 카드를 유지하고, 하트 상태만 바로 바꿉니다.
-    // 페이지 재진입/새로고침 시 서버 목록을 다시 받아 찜 해제 카드는 자연스럽게 사라집니다.
+    // 해제해도 목록은 유지하고, 하트 상태만 바꿈
+    // 페이지 재진입/새로고침 시 목록 재조회
     item.isBookmarked = !wasBookmarked;
   } catch (error) {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
@@ -226,6 +226,7 @@ onMounted(fetchBookmarks);
     transform 0.15s ease;
 }
 
+/* 모바일 탭 후 hover 상태가 남아 아이콘 테두리가 변하지 않도록 PC 마우스에서만 적용 */
 .bookmark-item:hover {
   border-color: #cbd6ff;
   background: #f0f4ff;
@@ -338,8 +339,7 @@ onMounted(fetchBookmarks);
     transform 0.15s ease;
 }
 
-/* 터치 기기는 탭 후에도 hover가 남을 수 있어, 마우스 환경에서만 강조합니다. */
-@media (hover: hover) and (pointer: fine) {
+@media (min-width: 768px) and (hover: hover) and (pointer: fine) {
   .bookmark-remove-button:hover {
     border-color: #dc4b5d;
     color: #dc4b5d;
