@@ -3,7 +3,7 @@ import {useAuthStore} from '@/stores/useAuthStore.js';
 import {refreshToken} from '@/api/authService.js';
 import router from '@/router';
 
-const WARNING_BEFORE_MS = 29 * 60 * 1000; // 만료 60초 전 경고
+const WARNING_BEFORE_MS = 60 * 1000; // 만료 60초 전 경고
 
 function getTokenExpiry(token) {
     try {
