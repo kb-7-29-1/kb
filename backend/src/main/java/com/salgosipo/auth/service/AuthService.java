@@ -48,4 +48,8 @@ public class AuthService {
         String encodedPassword = passwordEncoder.encode(dto.getNewPassword());
         authMapper.resetPassword(userId, encodedPassword);
     }
+
+    public String refreshToken(String username){
+        return jwtProcessor.generateToken(username);
+    }
 }
