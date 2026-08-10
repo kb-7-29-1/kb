@@ -141,6 +141,25 @@ const scheduleSearch = (value) => {
 
 watch(selectedPurpose, (value) => emit('update:purpose', value));
 
+// 마이페이지 온보딩 수정 진입 시 입력창에 기존 목적지 값을 채우도록
+watch(
+  () => props.selectedDestination,
+  (destination) => {
+    selectedDestination.value = destination ?? null;
+    keyword.value = destination?.destName ?? '';
+    destinations.value = [];
+    searchError.value = '';
+  },
+  { deep: true },
+);
+
+watch(
+  () => props.purpose,
+  (purpose) => {
+    selectedPurpose.value = purpose ?? 'school';
+  },
+);
+
 onBeforeUnmount(() => {
   clearTimeout(searchTimer);
   clearTimeout(selectionReleaseTimer);
