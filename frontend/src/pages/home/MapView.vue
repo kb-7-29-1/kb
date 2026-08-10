@@ -1083,7 +1083,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-2 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        class="w-full pb-4 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
@@ -1092,12 +1092,10 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       </div>
 
       <!-- 모바일 전용 탭 스위처 ([📋 매물 목록] | [🏠 선택 매물 상세]) -->
-      <div
-        class="flex xl:hidden items-center border-b border-slate-200 px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none"
-      >
+      <div class="flex xl:hidden items-center px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none">
         <button
           type="button"
-          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
           :class="[
             mobileSidebarTab === 'list'
               ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
@@ -1110,7 +1108,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         </button>
         <button
           type="button"
-          class="flex-1 py-1.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
           :class="[
             mobileSidebarTab === 'detail'
               ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
@@ -1156,19 +1154,12 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
       >
         <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
         <div class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3 shrink-0">
-          <div class="flex items-center justify-between xl:hidden">
+          <div v-if="isMapAnalysisLoading" class="flex items-center justify-between xl:hidden">
             <span
-              v-if="isMapAnalysisLoading"
               class="inline-flex shrink-0 items-center gap-1.5 text-[13px] font-bold text-[#5267e8]"
             >
               <i class="fa-solid fa-spinner animate-spin" aria-hidden="true"></i>
               안전 분석 중
-            </span>
-            <span
-              v-else
-              class="inline-flex shrink-0 items-center text-[13px] font-bold text-slate-500"
-            >
-              총 {{ visibleProperties.length }}개 매물
             </span>
           </div>
 
