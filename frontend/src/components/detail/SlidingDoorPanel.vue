@@ -7,6 +7,8 @@ import SafetyModal from '@/components/detail/SafetyModal.vue';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import api from '@/api/api.js';
 import safetyService from '@/api/safetyService.js';
+import { getBankLogoUrl } from '@/utils/bankLogo';
+import { getBankLinkUrl } from '@/utils/bankLink';
 
 const authStore = useAuthStore();
 
@@ -191,6 +193,13 @@ const fetchLoanList = async () => {
     loanList.value = [];
   } finally {
     loanListLoading.value = false;
+  }
+};
+
+const openBankLink = (companyName) => {
+  const url = getBankLinkUrl(companyName);
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 };
 
@@ -561,6 +570,9 @@ const detailImageUrl = computed(() => {
             </div>
 
             <div v-show="isLoanOpen">
+              <p v-if="loanList.length > 0" class="finance-section-hint">
+                상품 클릭 시 해당 은행 사이트로 이동합니다
+              </p>
               <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
                 상품을 찾고 있어요...
               </div>
@@ -568,8 +580,25 @@ const detailImageUrl = computed(() => {
                 추천 가능한 대출 상품이 없습니다.
               </div>
               <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
-                <div v-for="item in loanList" :key="item.productName" class="loan-item">
-                  <span class="loan-bank-tag">{{ item.companyName }}</span>
+                <div
+                  v-for="item in loanList"
+                  :key="item.productName"
+                  class="loan-item"
+                  :class="{ 'loan-item--clickable': getBankLinkUrl(item.companyName) }"
+                  :role="getBankLinkUrl(item.companyName) ? 'button' : undefined"
+                  :tabindex="getBankLinkUrl(item.companyName) ? 0 : undefined"
+                  @click="openBankLink(item.companyName)"
+                  @keydown.enter="openBankLink(item.companyName)"
+                >
+                  <div class="loan-item__header">
+                    <img
+                      v-if="getBankLogoUrl(item.companyName)"
+                      :src="getBankLogoUrl(item.companyName)"
+                      :alt="item.companyName"
+                      class="loan-item__logo"
+                    />
+                    <span class="loan-bank-tag">{{ item.companyName }}</span>
+                  </div>
                   <p class="loan-item__name">{{ item.productName }}</p>
                   <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
                 </div>
@@ -833,6 +862,12 @@ const detailImageUrl = computed(() => {
   cursor: pointer;
 }
 
+.finance-section-hint {
+  margin: 0 0 8px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
 .finance-section-title {
   display: flex;
   align-items: center;
@@ -891,10 +926,28 @@ const detailImageUrl = computed(() => {
     border-color 0.15s ease;
 }
 
-.loan-item:hover {
+.loan-item--clickable {
+  cursor: pointer;
+}
+
+.loan-item--clickable:hover {
   transform: translateY(-1px);
   border-color: #c7d2f5;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+}
+
+.loan-item__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.loan-item__logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #fff;
 }
 
 .loan-bank-tag {
