@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.salgosipo.safety.mapper.TestLineStringMapper">
+
+    <!-- 이미 저장된 property_id 전체를 한 번에 조회해서, TMAP 재호출 여부 판단에 사용 -->
+    <select id="selectExistingPropertyIds" resultType="java.lang.Long">
+        SELECT property_id
+        FROM test_line_string
+        WHERE destination_id = #{destinationId}
+    </select>
+
+    <insert id="insertTestLineString" parameterType="com.salgosipo.safety.domain.TestLineStringVO">
+        INSERT INTO test_line_string (property_id, destination_id, line_string)
+        VALUES (#{propertyId}, #{destinationId}, #{lineStringJson})
+    </insert>
+
+    <select id="countTestLineString" resultType="int">
+        SELECT COUNT(*)
+        FROM test_line_string
+        WHERE destination_id = #{destinationId}
+    </select>
+
+    <select id="selectTestLineStringPage"
+            resultType="com.salgosipo.safety.domain.TestLineStringVO">
+        SELECT
+            property_id AS propertyId,
+            destination_id AS destinationId,
+            CAST(line_string AS CHAR) AS lineStringJson
+        FROM test_line_string
+        WHERE destination_id = #{destinationId}
+        ORDER BY property_id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>
