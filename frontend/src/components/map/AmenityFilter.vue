@@ -4,7 +4,6 @@
       <AmenityTypeFilter
         :amenities="amenities"
         @toggle="toggleAmenity"
-        @reset="handleReset"
       />
       <p v-if="showGuideText" class="amenity-guide-text">
         ⚠ 선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
@@ -77,12 +76,6 @@ const resetFilters = () => {
     item.selected = false;
     item.timeLimit = getDefaultTimeLimit(item.amenityType);
   });
-};
-
-const handleReset = () => {
-  resetFilters();
-  emit('selection-change', getSelectedAmenities());
-  emit('apply', getFilters());
 };
 
 const restoreAppliedFilters = (filters = []) => {

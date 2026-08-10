@@ -69,7 +69,12 @@ export function usePropertyComments() {
       await load(propertyId);
       return true;
     } catch (error) {
-      submitError.value = '댓글을 수정하지 못했습니다.';
+      if (error.response?.status === 404) {
+        await load(propertyId);
+        submitError.value = '이미 삭제된 댓글입니다.';
+      } else {
+        submitError.value = '댓글을 수정하지 못했습니다.';
+      }
       console.error('COMMENT UPDATE ERROR:', error);
       return false;
     } finally {
