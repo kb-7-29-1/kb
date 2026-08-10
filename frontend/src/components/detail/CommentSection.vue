@@ -33,9 +33,8 @@ const {
   remove,
 } = usePropertyComments();
 
-const openCommentList = async () => {
+const openCommentList = () => {
   showCommentList.value = true;
-  await load(props.propertyId);
 };
 
 const createComment = async ({ content }) => {
