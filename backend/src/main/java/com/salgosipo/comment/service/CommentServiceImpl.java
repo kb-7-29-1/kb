@@ -4,6 +4,7 @@ import com.salgosipo.comment.domain.PropertyCommentVO;
 import com.salgosipo.comment.dto.CommentResponseDTO;
 import com.salgosipo.comment.dto.CommentRequestDTO;
 import com.salgosipo.comment.dto.CommentTagResponseDTO;
+import com.salgosipo.comment.exception.CommentNotFoundException;
 import com.salgosipo.comment.mapper.CommentMapper;
 import com.salgosipo.user.domain.UserVO;
 import com.salgosipo.user.mapper.UserMapper;
@@ -39,7 +40,7 @@ public class CommentServiceImpl implements CommentService {
         if (commentMapper.updateComment(
                 createCommentVO(propertyId, commentId, loginId, getContent(request))
         ) == 0) {
-            throw new IllegalArgumentException("수정할 댓글이 없습니다.");
+            throw new CommentNotFoundException("수정할 댓글이 없습니다.");
         }
         commentTagAnalysisService.refreshPropertyTags(propertyId);
     }
