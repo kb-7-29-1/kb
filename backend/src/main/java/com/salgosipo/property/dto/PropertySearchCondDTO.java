@@ -36,18 +36,26 @@ public class PropertySearchCondDTO {
     private String sort;
 
     public String toCacheKey() {
-        String latStr = lat != null ? String.format("%.3f", lat) : "";
-        String lngStr = lng != null ? String.format("%.3f", lng) : "";
+        String latStr = lat != null ? String.format("%.2f", lat) : "";
+        String lngStr = lng != null ? String.format("%.2f", lng) : "";
         String radStr = radius != null ? String.format("%.1f", radius) : "";
         String minRadStr = minRadius != null ? String.format("%.1f", minRadius) : "";
-        return String.format("%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s",
+        String swLatStr = swLat != null ? String.format("%.2f", swLat) : "";
+        String swLngStr = swLng != null ? String.format("%.2f", swLng) : "";
+        String neLatStr = neLat != null ? String.format("%.2f", neLat) : "";
+        String neLngStr = neLng != null ? String.format("%.2f", neLng) : "";
+        return String.format("%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s_%s",
+                destinationId != null ? destinationId : 0,
                 keyword != null ? keyword : "",
                 propertyType != null ? propertyType : "",
+                buildingType != null ? buildingType : 0,
+                roomType != null ? roomType : 0,
                 minDeposit != null ? minDeposit : 0,
                 maxDeposit != null ? maxDeposit : 999999,
                 minMonthlyRent != null ? minMonthlyRent : 0,
                 maxMonthlyRent != null ? maxMonthlyRent : 9999,
                 latStr, lngStr, radStr, minRadStr,
+                swLatStr, swLngStr, neLatStr, neLngStr,
                 sort != null ? sort : "");
     }
 }
