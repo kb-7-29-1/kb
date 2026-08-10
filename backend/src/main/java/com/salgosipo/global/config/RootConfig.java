@@ -43,7 +43,8 @@ import javax.sql.DataSource;
         "com.salgosipo.user.service",
         "com.salgosipo.loan.service",
         "com.salgosipo.loan.client",
-        "com.salgosipo.amenity.client"})
+        "com.salgosipo.amenity.client",
+        "com.salgosipo.global.config"})
 public class RootConfig {
     //프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired

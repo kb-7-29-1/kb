@@ -4,6 +4,7 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.SignatureException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import com.salgosipo.global.security.util.JsonResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -24,10 +25,10 @@ public class AuthenticationErrorFilter extends OncePerRequestFilter {
             super.doFilter(request, response, filterChain);
         } catch (ExpiredJwtException e) {
             JsonResponse.sendError(response, HttpStatus.UNAUTHORIZED, "토큰의 유효시간이 지났습니다.");
-        } catch (UnsupportedJwtException | MalformedJwtException | SignatureException e) {
+        } catch (UnsupportedJwtException | MalformedJwtException | SignatureException | UsernameNotFoundException e) {
             JsonResponse.sendError(response, HttpStatus.UNAUTHORIZED, e.getMessage());
         } catch (ServletException e) {
-            JsonResponse.sendError(response, HttpStatus.INTERNAL_SERVER_ERROR, e.getMessage());
+            JsonResponse.sendError(response, HttpStatus.UNAUTHORIZED, e.getMessage());
         }
     }
 }
