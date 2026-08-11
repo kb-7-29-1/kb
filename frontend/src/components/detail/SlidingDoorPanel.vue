@@ -415,13 +415,12 @@ const detailImageUrl = computed(() => {
           <!-- 🔗 매물 URL 주소 복사/공유 버튼 -->
           <button
             type="button"
-            class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600 active:scale-95 cursor-pointer relative"
+            class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#4058f5] active:scale-95"
             title="매물 주소 공유하기 (링크 복사)"
             @click="handleCopyShareLink"
           >
             <svg
-              width="18"
-              height="18"
+              class="h-5 w-5"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
