@@ -655,10 +655,12 @@ const detailImageUrl = computed(() => {
                 <!-- image_56c273.png 스타일의 모달 오픈 버튼 -->
                 <button
                   type="button"
-                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-[12px] leading-tight text-slate-500 transition-colors hover:bg-slate-50"
+                  class="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 transition-colors hover:border-[#c9d2ff] hover:bg-[#f5f7ff] hover:text-[#4058f5]"
                   @click="openSafetyModal"
                 >
-                  <span class="block">안전 점수는 어떻게 산출되나요?</span>
+                  <i class="fa-regular fa-circle-question text-[11px]" aria-hidden="true"></i>
+                  <span>점수 산출 기준</span>
+                  <i class="fa-solid fa-chevron-right text-[8px]" aria-hidden="true"></i>
                 </button>
               </div>
 
