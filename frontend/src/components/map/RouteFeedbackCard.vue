@@ -79,7 +79,6 @@ const castVote = async (voteType) => {
     clearTimeout(effectTimer);
     effectTimer = setTimeout(() => {
       activeEffect.value = null;
-      isVisible.value = false;
     }, 1100);
   }
 };
@@ -105,7 +104,10 @@ watch(
           class="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-white/95 backdrop-blur-md p-4 text-center border border-slate-200/80 shadow-2xl"
         >
           <!-- 🍀 럭키비키 뾰로롱 파티클 -->
-          <div v-if="activeEffect === 'SAFE'" class="relative flex items-center justify-center mb-1">
+          <div
+            v-if="activeEffect === 'SAFE'"
+            class="relative flex items-center justify-center mb-1"
+          >
             <span class="text-4xl animate-bounce">🍀</span>
             <span class="sparkle-particle absolute -top-3 -left-3 text-lg">✨</span>
             <span class="sparkle-particle absolute -top-4 right-0 text-base">🌟</span>
@@ -126,7 +128,11 @@ watch(
             {{ activeEffect === 'SAFE' ? '완전 럭키비키! 🍀' : '언 럭키비키... 💩' }}
           </p>
           <p class="text-[10.5px] font-bold text-slate-500 mt-0.5">
-            {{ activeEffect === 'SAFE' ? '긍정 피드백이 반짝 반영되었어요!' : '피드백을 학습하여 경로를 개선할게요!' }}
+            {{
+              activeEffect === 'SAFE'
+                ? '긍정 피드백이 반짝 반영되었어요!'
+                : '피드백을 학습하여 경로를 개선할게요!'
+            }}
           </p>
         </div>
       </Transition>
