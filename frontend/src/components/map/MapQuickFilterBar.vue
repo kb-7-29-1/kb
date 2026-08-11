@@ -971,8 +971,6 @@ const amenityLoadingText = computed(() => {
           <span class="text-[10px] text-slate-400">▼</span>
         </button>
 
-
-
         <!-- 목적지 변경 드롭다운 -->
         <div
           v-if="activePopover === 'destination'"
@@ -1189,7 +1187,7 @@ const amenityLoadingText = computed(() => {
               v-model.number="filters.minSafetyScore"
               min="0"
               max="90"
-              step="10"
+              step="1"
               class="w-full appearance-none cursor-pointer shadow-inner transition-all safety-range-input"
               :style="{
                 '--thumb-color': safetyThumbColor,
