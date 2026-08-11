@@ -105,19 +105,19 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
 
   const detailBadge =
     isExpanded && walkingInfo
-      ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
+      ? `<span class="amenity-detail shrink-0 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white">${walkingInfo}</span>`
       : '';
 
   const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
 
   return `
     <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
-      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
-        <span class="shrink-0 text-violet-600">${icon}</span>
+      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-600 bg-violet-600 px-2.5 text-xs font-bold text-white shadow-lg transition-all duration-200 group-hover:bg-violet-700 group-hover:shadow-xl ${expandedClass}">
+        <span class="shrink-0">${icon}</span>
         <span class="shrink-0">${amenity.amenityName || ''}</span>
         ${detailBadge}
       </div>
-      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-400 transition-colors duration-200 group-hover:bg-violet-50"></div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-600 transition-colors duration-200 group-hover:bg-violet-700"></div>
       <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
     </div>
   `;
