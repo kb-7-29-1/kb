@@ -123,7 +123,7 @@ const submitEdit = (commentId) => {
     </header>
 
     <section v-if="tags.length" class="tag-summary">
-      <TagBadge :tags="tags" />
+      <TagBadge :tags="tags" :show-all="true" />
     </section>
 
     <!-- 댓글 목록 -->
