@@ -15,6 +15,8 @@ public class CommentResponseDTO {
 
     private String nickname;
 
+    private String profileImage;
+
     private String content;
 
     private LocalDateTime createdAt;
