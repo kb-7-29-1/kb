@@ -7,6 +7,10 @@ const props = defineProps({
     required: true,
     default: () => [],
   },
+  showAll: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['show-more']);
@@ -16,12 +20,12 @@ const MAX_DISPLAY = 2;
 
 // 화면에 보여줄 태그
 const displayedTags = computed(() => {
-  return props.tags.slice(0, MAX_DISPLAY);
+  return props.showAll ? props.tags : props.tags.slice(0, MAX_DISPLAY);
 });
 
 // 나머지 숨겨진 태그 개수
 const remainingCount = computed(() => {
-  return Math.max(0, props.tags.length - MAX_DISPLAY);
+  return props.showAll ? 0 : Math.max(0, props.tags.length - MAX_DISPLAY);
 });
 </script>
 
