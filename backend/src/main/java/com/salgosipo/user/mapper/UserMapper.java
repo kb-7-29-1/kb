@@ -15,6 +15,8 @@ public interface UserMapper {
 
     int countByEmail(String email);
 
+    int countByEmailExcludingUser(@Param("email") String email, @Param("userId") Long userId);
+
     UserProfileResponseDto findProfileByUserId(Long userId);
 
     void updateProfile(@Param("userId") Long userId,

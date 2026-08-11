@@ -40,6 +40,10 @@
         select count(*) from users where email = #{email} and del_yn = 'N'
     </select>
 
+    <select id="countByEmailExcludingUser" resultType="java.lang.Integer">
+        select count(*) from users where email = #{email} and user_id != #{userId} and del_yn = 'N'
+    </select>
+
     <select id="findProfileByUserId" resultType="com.salgosipo.user.dto.UserProfileResponseDto">
         select user_id, login_id, name, email, birth_date, gender, profile_image
         from users where user_id = #{userId} and del_yn ='N'
