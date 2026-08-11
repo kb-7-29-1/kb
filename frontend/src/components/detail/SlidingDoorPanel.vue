@@ -293,7 +293,7 @@ const detailImageUrl = computed(() => {
 </script>
 
 <template>
-  <div>
+  <div class="contents">
     <div
       v-if="isImagePreviewOpen && property"
       class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-sm"
@@ -317,12 +317,6 @@ const detailImageUrl = computed(() => {
       />
     </div>
 
-    <!-- Backdrop Overlay (패널 열렸을 때 오버레이 - PC 전용) -->
-    <div
-      v-if="isOpen && !isInline"
-      class="property-detail-backdrop hidden xl:block fixed inset-0 bg-slate-900/30 backdrop-blur-xs z-40 transition-opacity"
-      @click="emit('close')"
-    ></div>
     <!-- 🎉 공유 링크 복사 완료 토스트 알림 배너 -->
     <Transition name="toast">
       <div
@@ -340,11 +334,11 @@ const detailImageUrl = computed(() => {
     <component
       v-if="isOpen || isInline"
       :is="isInline ? 'div' : 'aside'"
-      class="property-detail-panel bg-white flex flex-col transition-transform duration-300 ease-in-out relative"
+      class="property-detail-panel bg-white flex flex-col transition-transform duration-300 ease-in-out"
       :class="[
         isInline
           ? 'w-full h-full'
-          : 'hidden xl:flex fixed top-0 right-0 bottom-0 w-full sm:w-[380px] z-50 shadow-2xl border-l border-slate-200',
+          : 'hidden xl:flex fixed right-0 bottom-0 w-full sm:w-[380px] z-40 shadow-2xl border-l border-slate-200',
         !isInline &&
           (isOpen
             ? 'translate-x-0 opacity-100 pointer-events-auto'
@@ -826,7 +820,7 @@ const detailImageUrl = computed(() => {
 
 <style scoped>
 .property-detail-panel {
-  top: 0;
+  top: var(--app-header-height, 56px) !important;
 }
 
 :deep(.detail-section-divider) {
@@ -848,7 +842,7 @@ const detailImageUrl = computed(() => {
   background: #f5f7fb;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
   .property-detail-backdrop {
     display: none;
   }
