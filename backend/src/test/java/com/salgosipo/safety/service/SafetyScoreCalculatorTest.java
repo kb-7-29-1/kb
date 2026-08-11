@@ -14,30 +14,30 @@ class SafetyScoreCalculatorTest {
     private final SafetyScoreCalculator calculator = new SafetyScoreCalculator();
 
     @Test
-    void cctvDensityPenaltyUsesConfiguredBoundaries() {
+    void cctvDensityPenaltyIncreasesContinuously() {
         assertEquals(0, calculator.calculateCctvDensityPenalty(50.0));
         assertEquals(5, calculator.calculateCctvDensityPenalty(75.0));
         assertEquals(10, calculator.calculateCctvDensityPenalty(100.0));
-        assertEquals(15, calculator.calculateCctvDensityPenalty(150.0));
-        assertEquals(20, calculator.calculateCctvDensityPenalty(150.1));
+        assertEquals(15, calculator.calculateCctvDensityPenalty(125.0));
+        assertEquals(20, calculator.calculateCctvDensityPenalty(150.0));
     }
 
     @Test
-    void cctvCoveragePenaltyUsesConfiguredBoundaries() {
+    void cctvCoveragePenaltyChangesProportionally() {
         assertEquals(0, calculator.calculateCctvCoveragePenalty(80.0));
         assertEquals(4, calculator.calculateCctvCoveragePenalty(60.0));
         assertEquals(8, calculator.calculateCctvCoveragePenalty(40.0));
-        assertEquals(12, calculator.calculateCctvCoveragePenalty(20.0));
-        assertEquals(15, calculator.calculateCctvCoveragePenalty(19.9));
+        assertEquals(11, calculator.calculateCctvCoveragePenalty(20.0));
+        assertEquals(15, calculator.calculateCctvCoveragePenalty(0.0));
     }
 
     @Test
-    void streetLightCoveragePenaltyUsesConfiguredBoundaries() {
+    void streetLightCoveragePenaltyChangesProportionally() {
         assertEquals(0, calculator.calculateStreetLightCoveragePenalty(80.0));
-        assertEquals(10, calculator.calculateStreetLightCoveragePenalty(60.0));
-        assertEquals(20, calculator.calculateStreetLightCoveragePenalty(40.0));
-        assertEquals(30, calculator.calculateStreetLightCoveragePenalty(20.0));
-        assertEquals(55, calculator.calculateStreetLightCoveragePenalty(19.9));
+        assertEquals(14, calculator.calculateStreetLightCoveragePenalty(60.0));
+        assertEquals(28, calculator.calculateStreetLightCoveragePenalty(40.0));
+        assertEquals(41, calculator.calculateStreetLightCoveragePenalty(20.0));
+        assertEquals(55, calculator.calculateStreetLightCoveragePenalty(0.0));
     }
 
     @Test
@@ -63,6 +63,6 @@ class SafetyScoreCalculatorTest {
         assertEquals(55, result.getBreakdown().getStreetLightCoveragePenalty());
         assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
         assertEquals(100, result.getBreakdown().getTotalPenalty());
-        assertEquals(33, result.getSafetyScore());
+        assertEquals(50, result.getSafetyScore());
     }
 }
