@@ -2,7 +2,11 @@
 // [임시/테스트 전용] 세종대 도보 15분권 매물 안전점수 알고리즘을 눈으로 검증하기 위한
 // 독립 디버그 페이지입니다. 10개 개별 On/Off 토글 & 실시간 영향권 렌더링 지원.
 import { onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import api from '@/api/api.js';
+
+const route = useRoute();
+const router = useRouter();
 
 const DESTINATION_ID = 1; // 세종대 고정
 
@@ -20,8 +24,14 @@ const FACILITY_COLOR = {
 
 const FACILITY_RADIUS = {
   CCTV: 50,
-  STREET_LIGHT: 50,
+  STREET_LIGHT: 30,
   POLICE: 300,
+};
+
+const FACILITY_LABEL = {
+  CCTV: '📷 CCTV',
+  STREET_LIGHT: '💡 보안등',
+  POLICE: '👮 파출소',
 };
 
 const mapEl = ref(null);
@@ -48,6 +58,106 @@ const activeItemIndices = ref([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 const isLoading = ref(false);
 const loadError = ref('');
 const selectedDetail = ref(null);
+
+const isStatsModalOpen = ref(false);
+const isStatsLoading = ref(false);
+const statsData = ref(null);
+
+async function openStatsModal() {
+  isStatsModalOpen.value = true;
+  if (statsData.value) return;
+
+  isStatsLoading.value = true;
+  try {
+    const res = await api.get('/safety/test/linestrings', {
+      params: {
+        destinationId: DESTINATION_ID,
+        offset: 0,
+        limit: 1000,
+      },
+    });
+
+    const items = res.data.items || [];
+    if (!items.length) return;
+
+    const scores = items.map((i) => Number(i.safetyScore)).sort((a, b) => a - b);
+    const totalCnt = scores.length;
+    const sum = scores.reduce((acc, v) => acc + v, 0);
+    const avg = (sum / totalCnt).toFixed(1);
+
+    const mid = Math.floor(totalCnt / 2);
+    const median =
+      totalCnt % 2 !== 0
+        ? scores[mid]
+        : ((scores[mid - 1] + scores[mid]) / 2).toFixed(1);
+
+    const min = scores[0];
+    const max = scores[scores.length - 1];
+
+    const variance =
+      scores.reduce((acc, v) => acc + Math.pow(v - Number(avg), 2), 0) / totalCnt;
+    const stdDev = Math.sqrt(variance).toFixed(1);
+
+    const safeCnt = items.filter((i) => i.safetyGrade === 'SAFE').length;
+    const warningCnt = items.filter((i) => i.safetyGrade === 'WARNING').length;
+    const dangerCnt = items.filter((i) => i.safetyGrade === 'DANGER').length;
+
+    const histogram = Array(10).fill(0);
+    items.forEach((i) => {
+      const score = Math.max(0, Math.min(100, Number(i.safetyScore)));
+      const bucket = Math.min(9, Math.floor(score / 10));
+      histogram[bucket]++;
+    });
+    const maxBucketCnt = Math.max(...histogram, 1);
+
+    const avgCctvPenalty = (
+      items.reduce(
+        (acc, i) =>
+          acc +
+          (i.breakdown?.cctvCoveragePenalty || 0) +
+          (i.breakdown?.cctvDensityPenalty || 0),
+        0,
+      ) / totalCnt
+    ).toFixed(1);
+
+    const avgStreetLightPenalty = (
+      items.reduce(
+        (acc, i) => acc + (i.breakdown?.streetLightCoveragePenalty || 0),
+        0,
+      ) / totalCnt
+    ).toFixed(1);
+
+    const policeMissingCnt = items.filter(
+      (i) => !i.breakdown?.hasPoliceStation,
+    ).length;
+    const policeMissingRatio = ((policeMissingCnt / totalCnt) * 100).toFixed(1);
+
+    statsData.value = {
+      totalCnt,
+      avg,
+      median,
+      min,
+      max,
+      stdDev,
+      safeCnt,
+      safePct: ((safeCnt / totalCnt) * 100).toFixed(1),
+      warningCnt,
+      warningPct: ((warningCnt / totalCnt) * 100).toFixed(1),
+      dangerCnt,
+      dangerPct: ((dangerCnt / totalCnt) * 100).toFixed(1),
+      histogram,
+      maxBucketCnt,
+      avgCctvPenalty,
+      avgStreetLightPenalty,
+      policeMissingCnt,
+      policeMissingRatio,
+    };
+  } catch (err) {
+    console.error('Failed to compute stats:', err);
+  } finally {
+    isStatsLoading.value = false;
+  }
+}
 
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -139,6 +249,7 @@ function renderFacilitiesForActiveItems() {
   relevantFacilities.forEach((facility) => {
     const color = FACILITY_COLOR[facility.facilityType] || '#94a3b8';
     const radius = FACILITY_RADIUS[facility.facilityType] || 50;
+    const labelText = FACILITY_LABEL[facility.facilityType] || facility.facilityType;
 
     const circle = new window.naver.maps.Circle({
       map: mapInstance,
@@ -155,8 +266,8 @@ function renderFacilitiesForActiveItems() {
       map: mapInstance,
       position: new window.naver.maps.LatLng(facility.latitude, facility.longitude),
       icon: {
-        content: `<div style="width:8px;height:8px;background:${color};border:1.5px solid #fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>`,
-        anchor: new window.naver.maps.Point(4, 4),
+        content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}</div>`,
+        anchor: new window.naver.maps.Point(20, 8),
       },
     });
 
@@ -307,14 +418,15 @@ function deselectAllItems() {
   updateItemVisibilities();
 }
 
-async function fetchPage(page) {
+async function fetchPage(page, updateUrl = true) {
   if (isLoading.value) return;
   isLoading.value = true;
   loadError.value = '';
   selectedDetail.value = null;
   clearMapOverlays();
 
-  const offset = (page - 1) * PAGE_SIZE;
+  const targetPage = Math.max(1, Number(page) || 1);
+  const offset = (targetPage - 1) * PAGE_SIZE;
 
   try {
     const response = await api.get('/safety/test/linestrings', {
@@ -326,7 +438,7 @@ async function fetchPage(page) {
     });
     const { totalCount: total, items } = response.data;
     totalCount.value = total;
-    currentPage.value = page;
+    currentPage.value = targetPage;
     currentItems.value = items || [];
     activeItemIndices.value = currentItems.value.map((_, idx) => idx); // 기본 전체 ON
 
@@ -334,6 +446,10 @@ async function fetchPage(page) {
 
     if (currentItems.value.length > 0) {
       selectedDetail.value = { ...currentItems.value[0], displayNumber: 1 };
+    }
+
+    if (updateUrl && Number(route.query.page) !== targetPage) {
+      router.replace({ query: { ...route.query, page: targetPage } });
     }
   } catch (error) {
     loadError.value =
@@ -379,12 +495,23 @@ async function initMap() {
       },
     });
 
-    await fetchPage(1);
+    const initialPage = Math.max(1, Number(route.query.page) || 1);
+    await fetchPage(initialPage, false);
   } catch (error) {
     loadError.value =
       '지도를 초기화하지 못했습니다. 로그인 상태와 서버 상태를 확인해주세요.';
   }
 }
+
+watch(
+  () => route.query.page,
+  (newPage) => {
+    const parsedPage = Math.max(1, Number(newPage) || 1);
+    if (parsedPage !== currentPage.value) {
+      fetchPage(parsedPage, false);
+    }
+  },
+);
 
 watch(showRoutes, updateItemVisibilities);
 watch(showScoreLabel, updateItemVisibilities);
@@ -418,7 +545,17 @@ onUnmounted(() => {
         >
           ◀ 이전 10개
         </button>
-        <span class="safety-debug-page-num">{{ currentPage }} P</span>
+        <div class="flex items-center gap-1">
+          <input
+            type="number"
+            min="1"
+            :max="Math.ceil(totalCount / PAGE_SIZE) || 1"
+            :value="currentPage"
+            class="w-12 h-8 text-center font-black border border-slate-300 rounded-lg text-xs bg-white text-slate-800 focus:outline-none focus:border-blue-600 shadow-xs"
+            @change="fetchPage(Number($event.target.value))"
+          />
+          <span class="text-xs font-bold text-slate-500">P</span>
+        </div>
         <button
           type="button"
           class="safety-debug-page-button"
@@ -486,15 +623,21 @@ onUnmounted(() => {
         <label><input v-model="showInfluenceRadius" type="checkbox" /> 안전 시설 영향권 반경 원형</label>
         <div class="toggle-sub-group">
           <label><input v-model="showCctv" type="checkbox" /> CCTV (50m 반경)</label>
-          <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (50m 반경)</label>
+          <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (30m 반경)</label>
           <label><input v-model="showPolice" type="checkbox" /> 파출소 (300m 반경)</label>
         </div>
       </div>
 
       <div class="safety-debug-legend">
+        <div class="font-bold text-slate-700 text-[11px] mb-1">범례 (Legend)</div>
         <span><i style="background: #22a06b"></i> SAFE (80~100점)</span>
         <span><i style="background: #e69a1d"></i> WARNING (60~79점)</span>
         <span><i style="background: #dc4b5d"></i> DANGER (~59점)</span>
+        <div class="border-t pt-1 mt-1 space-y-0.5 text-[11px]">
+          <span><i style="background: #2a60f7"></i> 📷 파란색 = CCTV (50m 반경)</span>
+          <span><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (30m 반경)</span>
+          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (300m 반경)</span>
+        </div>
       </div>
 
       <div v-if="selectedDetail" class="safety-debug-detail">
@@ -509,9 +652,160 @@ onUnmounted(() => {
           <li>총 페널티: {{ selectedDetail.breakdown.totalPenalty }}</li>
         </ul>
       </div>
+
+      <!-- 📊 안전점수 통계 분석 모달 버튼 -->
+      <button
+        type="button"
+        class="w-full mt-3 py-2.5 px-3 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-black shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 border border-slate-700"
+        @click="openStatsModal"
+      >
+        <span class="text-sm">📊</span>
+        <span>세종대 540여개 전체 통계 분석 모달</span>
+      </button>
     </aside>
 
     <div ref="mapEl" class="safety-debug-map"></div>
+
+    <!-- 📊 세종대 540개 매물 안전점수 통계 분석 모달 -->
+    <Transition name="fade">
+      <div
+        v-if="isStatsModalOpen"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 pointer-events-auto overflow-y-auto"
+        @click.self="isStatsModalOpen = false"
+      >
+        <div
+          class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col"
+        >
+          <!-- 헤더 -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">📊</span>
+              <div>
+                <h3 class="text-base font-black text-slate-900 leading-tight">세종대 도보 15분권 안전점수 수치 통계</h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">전체 {{ statsData?.totalCnt || 540 }}개 매물의 분포 및 정규분포 히스토그램</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 font-bold transition-all text-sm"
+              @click="isStatsModalOpen = false"
+            >
+              ✕
+            </button>
+          </div>
+
+          <!-- 로딩 상태 -->
+          <div v-if="isStatsLoading" class="p-12 text-center space-y-3">
+            <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-600"></i>
+            <p class="text-xs font-bold text-slate-600">540여개 매물의 점수를 실시간 집계 계산 중이에요...</p>
+          </div>
+
+          <!-- 메인 데이터 콘텐츠 -->
+          <div v-else-if="statsData" class="p-6 overflow-y-auto space-y-6">
+            <!-- 1. 핵심 수치 요약 카운터 (4 컬럼) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                <span class="text-[11px] font-bold text-slate-400 block">평균 점수 (Mean)</span>
+                <strong class="text-xl font-black text-blue-600 mt-1 block">{{ statsData.avg }}점</strong>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                <span class="text-[11px] font-bold text-slate-400 block">중앙값 (Median)</span>
+                <strong class="text-xl font-black text-indigo-600 mt-1 block">{{ statsData.median }}점</strong>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                <span class="text-[11px] font-bold text-slate-400 block">최저 / 최고점</span>
+                <strong class="text-xl font-black text-slate-800 mt-1 block">{{ statsData.min }}~{{ statsData.max }}점</strong>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
+                <span class="text-[11px] font-bold text-slate-400 block">표준 편차 (σ)</span>
+                <strong class="text-xl font-black text-slate-700 mt-1 block">±{{ statsData.stdDev }}점</strong>
+              </div>
+            </div>
+
+            <!-- 2. 점수 구간별 정규분포 히스토그램 바 차트 -->
+            <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <span>📈</span>
+                  <span>점수 구간별 분포 (정규분포 히스토그램)</span>
+                </h4>
+                <span class="text-[11px] text-slate-400 font-medium">10점 단위 구간</span>
+              </div>
+
+              <!-- Bar Chart -->
+              <div class="flex items-end gap-1.5 h-36 pt-4 pb-2 px-2 bg-white rounded-xl border border-slate-100">
+                <div
+                  v-for="(count, idx) in statsData.histogram"
+                  :key="idx"
+                  class="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end"
+                >
+                  <!-- Tooltip -->
+                  <div class="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-10">
+                    {{ idx * 10 }}~{{ idx * 10 + 9 }}점: {{ count }}개
+                  </div>
+                  <!-- Bar Value -->
+                  <span class="text-[9px] font-extrabold text-slate-500 leading-none mb-0.5">{{ count }}</span>
+                  <!-- Bar Fill -->
+                  <div
+                    class="w-full rounded-t-md transition-all duration-300 group-hover:brightness-110"
+                    :style="{
+                      height: `${Math.max(6, (count / statsData.maxBucketCnt) * 100)}%`,
+                      backgroundColor: idx >= 8 ? '#22a06b' : idx >= 6 ? '#e69a1d' : '#dc4b5d',
+                    }"
+                  ></div>
+                  <!-- Axis Label -->
+                  <span class="text-[9px] font-bold text-slate-400 leading-none shrink-0 mt-1">{{ idx * 10 }}대</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. 안전 등급별 비율 (SAFE / WARNING / DANGER) -->
+            <div class="space-y-2">
+              <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <span>🏷️</span>
+                <span>안전 등급별 분포 비율</span>
+              </h4>
+              <div class="grid grid-cols-3 gap-2">
+                <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center">
+                  <div class="text-[11px] font-black text-emerald-700">🟢 SAFE (80점~)</div>
+                  <div class="text-base font-black text-emerald-800 mt-1">{{ statsData.safeCnt }}개 <span class="text-xs opacity-75">({{ statsData.safePct }}%)</span></div>
+                </div>
+                <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-100 text-center">
+                  <div class="text-[11px] font-black text-amber-700">🟡 WARNING (60~79점)</div>
+                  <div class="text-base font-black text-amber-800 mt-1">{{ statsData.warningCnt }}개 <span class="text-xs opacity-75">({{ statsData.warningPct }}%)</span></div>
+                </div>
+                <div class="p-3 rounded-xl bg-rose-50/70 border border-rose-100 text-center">
+                  <div class="text-[11px] font-black text-rose-700">🔴 DANGER (~59점)</div>
+                  <div class="text-base font-black text-rose-800 mt-1">{{ statsData.dangerCnt }}개 <span class="text-xs opacity-75">({{ statsData.dangerPct }}%)</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4. 3대 주요 감점 요인 평균 -->
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+              <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <span>⚠️</span>
+                <span>3대 치안 요소별 평균 감점 분석</span>
+              </h4>
+              <ul class="text-xs space-y-1.5 text-slate-700 font-medium">
+                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                  <span>💡 가로등(보안등) 사각지대 평균 감점</span>
+                  <strong class="text-amber-600 font-black">-{{ statsData.avgStreetLightPenalty }}점</strong>
+                </li>
+                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                  <span>📷 CCTV 사각지대 평균 감점</span>
+                  <strong class="text-blue-600 font-black">-{{ statsData.avgCctvPenalty }}점</strong>
+                </li>
+                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                  <span>👮 파출소 300m 이내 미존재 비율</span>
+                  <strong class="text-rose-600 font-black">{{ statsData.policeMissingRatio }}% <span class="text-[11px] text-slate-400 font-normal">({{ statsData.policeMissingCnt }}개 매물)</span></strong>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
