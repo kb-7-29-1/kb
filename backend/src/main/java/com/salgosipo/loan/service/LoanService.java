@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salgosipo.loan.client.LoanApiClient;
 import com.salgosipo.loan.dto.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class LoanService {
 
     private final LoanApiClient loanApiClient;
@@ -99,7 +101,19 @@ public class LoanService {
 
     // 전세 (금감원 API)
     private List<LoanProductDto> getJeonseLoans(Integer age){
-        JeonseLoanApiResponse response = loanApiClient.fetchJeonseLoans("020000"); // 은행권
+        JeonseLoanApiResponse response;
+        try {
+            response = loanApiClient.fetchJeonseLoans("020000"); // 은행권
+        } catch (Exception e) {
+            log.warn("금감원 전세대출 API 호출 실패", e);
+            return List.of();
+        }
+
+        if (response == null || response.getResult() == null) {
+            log.warn("금감원 전세대출 API 응답이 비정상입니다: {}", response);
+            return List.of();
+        }
+
         List<JeonseLoanBase> baseList = response.getResult().getBaseList();
         List<JeonseLoanOption> optionList = response.getResult().getOptionList();
 
@@ -124,7 +138,9 @@ public class LoanService {
                     Double avgRate = matchedOptions.stream()
                             .map(JeonseLoanOption::getRateAvg)
                             .filter(Objects::nonNull)
-                            .min(Double::compareTo)
+                            .mapToDouble(Double::doubleValue)
+                            .average()
+                            .stream().boxed().findFirst()
                             .orElse(null);
 
                     String rateInfo;
@@ -225,10 +241,11 @@ public class LoanService {
     private Double extractLoanRatio(String loanLimit){
         if(loanLimit == null) return null;
 
-        Matcher matcher = Pattern.compile("(\\d+)%").matcher(loanLimit);
+        Matcher matcher = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*%").matcher(loanLimit);
         if(matcher.find()){
-            return Integer.parseInt(matcher.group(1)) / 100.0;
+            return Double.parseDouble(matcher.group(1)) / 100.0;
         }
+        log.warn("대출한도 텍스트 파싱 실패, 형식 확인 필요: {}", loanLimit);
         return null;
     }
 
@@ -245,7 +262,10 @@ public class LoanService {
         }
 
         Matcher matcher = Pattern.compile("([\\d.]+)\\s*백만원").matcher(loanLimit);
-        if(!matcher.find()) return loanLimit;
+        if(!matcher.find()) {
+            log.warn("대출한도 금액 표기 정규화 실패, 형식 확인 필요: {}", loanLimit);
+            return loanLimit;
+        }
 
         double eok = Double.parseDouble(matcher.group(1)) / 100.0;
         String eokText = (eok == Math.floor(eok))
@@ -254,4 +274,6 @@ public class LoanService {
 
         return matcher.replaceFirst(eokText + "억원");
     }
+
+
 }
