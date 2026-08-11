@@ -433,12 +433,29 @@ const togglePopover = (name) => {
   activePopover.value = activePopover.value === name ? null : name;
 };
 
-const selectTradeType = (tradeType) => {
-  filters.value.tradeType = tradeType;
-
-  // 전세 탭 선택 시 월세 값 0으로 초기화
-  if (tradeType === 'JEONSE') {
+const selectTradeType = (type) => {
+  filters.value.tradeType = type;
+  if (type === 'ALL') {
+    depositValA.value = 0;
+    depositValB.value = DEPOSIT_OPTIONS.length - 1;
+    rentValA.value = 0;
+    rentValB.value = RENT_MAX;
+    filters.value.minDeposit = 0;
+    filters.value.maxDeposit = DEPOSIT_MAX;
+    filters.value.minRent = 0;
+    filters.value.maxRent = RENT_MAX;
+  } else if (type === 'JEONSE') {
+    rentValA.value = 0;
+    rentValB.value = 0;
+    filters.value.minRent = 0;
     filters.value.maxRent = 0;
+  } else if (type === 'MONTHLY') {
+    if (rentValA.value === 0 && rentValB.value === 0) {
+      rentValA.value = 0;
+      rentValB.value = RENT_MAX;
+      filters.value.minRent = 0;
+      filters.value.maxRent = RENT_MAX;
+    }
   }
 };
 
@@ -551,7 +568,6 @@ const handleRentSliderUpdate = (val) => {
   rentValA.value = minR;
   rentValB.value = maxR;
   filters.value.minRent = minR;
-  filters.value.maxRent = maxR;
 };
 
 // @vueform/slider 바인딩용 독립 ref 튜플
@@ -648,9 +664,14 @@ watch(
 const depositAmountLabel = computed(() => {
   const minVal = filters.value.minDeposit ?? 0;
   const maxVal = filters.value.maxDeposit ?? DEPOSIT_MAX;
-  if (minVal === 0 && maxVal >= DEPOSIT_MAX) return '전체';
-  if (minVal === 0) return `${formatDepositAmount(maxVal)} 이하`;
-  if (maxVal >= DEPOSIT_MAX) return `${formatDepositAmount(minVal)} 이상`;
+  const minLimit = DEPOSIT_OPTIONS[0] || 0;
+
+  // 두 핸들이 동일한 위치일 때 -> 단일 금액 표시 (예: "10억원", "5,000만원")
+  if (minVal === maxVal) return formatDepositAmount(minVal);
+
+  if (minVal <= minLimit && maxVal >= DEPOSIT_MAX) return '10억원 이하';
+  if (minVal <= minLimit) return `${formatDepositAmount(maxVal)} 이하`;
+  if (maxVal >= DEPOSIT_MAX) return `${formatDepositAmount(minVal)} ~ 10억원`;
   return `${formatDepositAmount(minVal)} ~ ${formatDepositAmount(maxVal)}`;
 });
 
@@ -658,9 +679,16 @@ const depositAmountLabel = computed(() => {
 const rentAmountLabel = computed(() => {
   const minVal = filters.value.minRent ?? 0;
   const maxVal = filters.value.maxRent ?? RENT_MAX;
-  if (minVal === 0 && maxVal >= RENT_MAX) return '전체';
+
+  // 1. 월세 0원일 때
+  if (minVal === 0 && maxVal === 0) return '전세 (월세 0원)';
+
+  // 2. 두 핸들이 동일한 위치일 때 -> 단일 금액 표시 (예: "200만원", "50만원")
+  if (minVal === maxVal) return `${minVal}만원`;
+
+  if (minVal === 0 && maxVal >= RENT_MAX) return '200만원 이하';
+  if (maxVal >= RENT_MAX) return `${minVal}만 ~ 200만원`;
   if (minVal === 0) return `${maxVal}만원 이하`;
-  if (maxVal >= RENT_MAX) return `${minVal}만원 이상`;
   return `${minVal}만 ~ ${maxVal}만원`;
 });
 
@@ -739,7 +767,7 @@ const handleRentTrackClick = (e) => {
   updateFilters();
 };
 
-// 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분)
+// 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분 - order-3 퀵버튼 표시용)
 const priceSummaryText = computed(() => {
   const {
     tradeType,
@@ -751,29 +779,43 @@ const priceSummaryText = computed(() => {
 
   const minDepShort = formatDepositShort(minDeposit);
   const maxDepShort = formatDepositShort(maxDeposit);
-  const depStr =
-    minDeposit === 0 && maxDeposit >= DEPOSIT_MAX
-      ? '전체'
-      : minDeposit === 0
-        ? `${maxDepShort} 이하`
-        : maxDeposit >= DEPOSIT_MAX
-          ? `${minDepShort} 이상`
-          : `${minDepShort}~${maxDepShort}`;
+
+  let depStr = '';
+  if (minDeposit === maxDeposit) {
+    depStr = minDepShort;
+  } else if (minDeposit === 0 && maxDeposit >= DEPOSIT_MAX) {
+    depStr = '10억 이하';
+  } else if (minDeposit === 0) {
+    depStr = `${maxDepShort} 이하`;
+  } else if (maxDeposit >= DEPOSIT_MAX) {
+    depStr = `${minDepShort}~10억`;
+  } else {
+    depStr = `${minDepShort}~${maxDepShort}`;
+  }
 
   if (tradeType === 'JEONSE') {
     return `전세: ${depStr}`;
   }
 
-  const rentStr =
-    minRent === 0 && maxRent >= RENT_MAX
-      ? '전체'
-      : minRent === 0
-        ? `${maxRent}만 이하`
-        : maxRent >= RENT_MAX
-          ? `${minRent}만 이상`
-          : `${minRent}~${maxRent}만`;
+  let rentStr = '';
+  if (minRent === 0 && maxRent === 0) {
+    rentStr = '전세';
+  } else if (minRent === maxRent) {
+    rentStr = `${minRent}만`;
+  } else if (minRent === 0 && maxRent >= RENT_MAX) {
+    rentStr = '200만 이하';
+  } else if (minRent === 0) {
+    rentStr = `${maxRent}만 이하`;
+  } else if (maxRent >= RENT_MAX) {
+    rentStr = `${minRent}~200만`;
+  } else {
+    rentStr = `${minRent}~${maxRent}만`;
+  }
 
-  if (depStr === '전체' && rentStr === '전체') {
+  if (
+    depStr === '10억 이하' &&
+    (rentStr === '200만 이하' || rentStr === '전체')
+  ) {
     return '월세: 전체';
   }
   return `월세: ${depStr} / ${rentStr}`;
@@ -914,7 +956,7 @@ const amenityLoadingText = computed(() => {
       class="hidden xl:inline-flex w-fit items-center gap-2 text-slate-800 z-30"
     >
       <!-- 📍 퀵버튼 1: 목적지 (고정 너비 min-w-[115px]) -->
-      <div class="relative order-1">
+      <div class="relative order-1 group">
         <button
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all bg-white hover:bg-slate-50 text-slate-900 border border-slate-200 shadow-sm min-w-[140px]"
@@ -1145,7 +1187,7 @@ const amenityLoadingText = computed(() => {
               v-model.number="filters.minSafetyScore"
               min="0"
               max="90"
-              step="10"
+              step="1"
               class="w-full appearance-none cursor-pointer shadow-inner transition-all safety-range-input"
               :style="{
                 '--thumb-color': safetyThumbColor,
@@ -1237,10 +1279,11 @@ const amenityLoadingText = computed(() => {
             </button>
           </div>
 
-          <!-- 🏠 월세 vs 🏢 전세 선택 탭 -->
+          <!-- 🏠 모두 | 월세 | 전세 3개 탭 -->
           <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
             <button
               v-for="t in [
+                { key: 'ALL', label: '🏡 모두' },
                 { key: 'MONTHLY', label: '🏠 월세' },
                 { key: 'JEONSE', label: '🏢 전세' },
               ]"
@@ -1280,8 +1323,14 @@ const amenityLoadingText = computed(() => {
                 :order="false"
                 :enable-cross="true"
                 :tooltip="'none'"
-                :process-style="{ backgroundColor: '#2563eb', borderRadius: '9999px' }"
-                :rail-style="{ backgroundColor: '#e2e8f0', borderRadius: '9999px' }"
+                :process-style="{
+                  backgroundColor: '#2563eb',
+                  borderRadius: '9999px',
+                }"
+                :rail-style="{
+                  backgroundColor: '#e2e8f0',
+                  borderRadius: '9999px',
+                }"
                 @drag-end="updateFilters"
                 @change="handleDepositSliderUpdate"
               />
@@ -1312,8 +1361,14 @@ const amenityLoadingText = computed(() => {
                 :order="false"
                 :enable-cross="true"
                 :tooltip="'none'"
-                :process-style="{ backgroundColor: '#2563eb', borderRadius: '9999px' }"
-                :rail-style="{ backgroundColor: '#e2e8f0', borderRadius: '9999px' }"
+                :process-style="{
+                  backgroundColor: '#2563eb',
+                  borderRadius: '9999px',
+                }"
+                :rail-style="{
+                  backgroundColor: '#e2e8f0',
+                  borderRadius: '9999px',
+                }"
                 @drag-end="updateFilters"
                 @change="handleRentSliderUpdate"
               />

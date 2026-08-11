@@ -36,7 +36,7 @@ defineEmits(['toggle']);
 .amenity-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
+  gap: 8px;
 }
 
 .amenity-btn {
@@ -44,7 +44,7 @@ defineEmits(['toggle']);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 0;
+  padding: 9px 0;
   background-color: #ffffff;
   border: 1px solid #e5e5e5;
   border-radius: 12px;
@@ -53,13 +53,13 @@ defineEmits(['toggle']);
 }
 
 .icon {
-  margin-bottom: 4px;
-  font-size: 20px;
+  margin-bottom: 3px;
+  font-size: 17px;
 }
 
 .name {
   color: #888;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
 }
 

@@ -15,7 +15,7 @@ const router = createRouter({
     { path: '/home', name: 'home', component: HomePage, alias: '/map' },
     { path: '/map', name: 'map', component: HomePage },
     { path: '/mypage', name: 'mypage', component: MyPagePage },
-    { path: '/dev/safety-debug', name: 'safety-debug', component: SafetyDebugMapPage },
+    { path: '/dev/safety-debug', name: 'safety-debug', component: SafetyDebugMapPage, alias: '/devtools/safety-debug' },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
   ],
 });

@@ -393,14 +393,20 @@ const doFetchPropertiesFromBackend = async (isAppend = false) => {
     isPropertyLoading.value = false;
     isMapMoved.value = false;
     if (centerLat != null && centerLng != null) {
-      lastFetchedCenter.value = { lat: Number(centerLat), lng: Number(centerLng) };
+      lastFetchedCenter.value = {
+        lat: Number(centerLat),
+        lng: Number(centerLng),
+      };
     }
 
     // 백엔드 DB의 모든 매물 조회가 이미 완료된 경우 (첫 페이지가 200개 미만이거나 단일 요청 완료 시)
     // 실제 유저 조건에 맞게 수집 완료된 개수(78개 등)로 serverTotalCount를 동기화하여 멈춤 현상 완결
-    if (rawCandidates.length < 200 || serverTotalCount.value <= 200) {
-      serverTotalCount.value = baseFilteredProperties.value.length || properties.value.length;
-    }
+    // if (rawCandidates.length < 200 || serverTotalCount.value <= 200) {
+    //   serverTotalCount.value =
+    //     baseFilteredProperties.value.length || properties.value.length;
+    // }
+    // 실제 유저 조건에 맞게 수집 완료된 원형 반경 내 매물 개수(예: 239개)로 serverTotalCount를 동기화
+    serverTotalCount.value = properties.value.length;
 
     const targetCandidates = candidates.length > 500 ? candidates.slice(0, 500) : candidates;
     const propertyIds = targetCandidates
@@ -507,6 +513,7 @@ const syncFiltersToUrlQuery = (filters) => {
     travelTime: filters.travelTime != null ? filters.travelTime : undefined,
     minTravelTime: filters.minTravelTime != null ? filters.minTravelTime : undefined,
     minSafety: filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
+    propertyId: selectedProperty.value?.propertyId || undefined,
   };
   router.replace({ query }).catch(() => {});
 };
@@ -673,10 +680,20 @@ const handleApplyFilters = async (showOverlay = false) => {
     clearAmenitiesForDestinationChange();
   }
 
+  // 필터 적용 또는 목적지 변경 시 이전 지도 이동 영역(Bounding Box)을 해제하여
+  // 새 목적지 중심 원형 검색이 즉시 정상 작동하도록 처리
+  filterState.value.swLat = undefined;
+  filterState.value.swLng = undefined;
+  filterState.value.neLat = undefined;
+  filterState.value.neLng = undefined;
+
+  isMapMoved.value = false;
+  pendingBounds.value = null;
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   saveQuickFilterToCache(appliedFilterState.value);
   syncFiltersToUrlQuery(appliedFilterState.value);
-  await fetchPropertiesFromBackend();
+  await fetchPropertiesFromBackend(true, false);
 };
 
 // ⭕ 이소크론 영역 보이기/가리기 버튼 토글 시 백엔드 재조회 없이 0ms 즉시 화면 반작용 동기화
@@ -1001,6 +1018,27 @@ watch(visibleProperties, (list) => {
     })),
   );
 });
+// 사이드바 목록 10개씩 무한 동적 스크롤 로딩
+const displayLimit = ref(10);
+
+watch(
+  () => visibleProperties.value.length,
+  () => {
+    displayLimit.value = 10;
+  },
+);
+
+const displayedProperties = computed(() => visibleProperties.value.slice(0, displayLimit.value));
+
+const handleListScroll = (e) => {
+  const el = e.target;
+  if (!el) return;
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 60) {
+    if (displayLimit.value < visibleProperties.value.length) {
+      displayLimit.value += 10;
+    }
+  }
+};
 
 // 수집된 마지막 매물의 생성 일자 동적 계산 (더보기 날짜 동적 표시용)
 const lastLoadedDateString = computed(() => {
@@ -1043,6 +1081,32 @@ watch(
 
     if (!isStillVisible) clearSelectedProperty();
   },
+);
+
+// 매물 선택 시 URL 주소창 실시간 동기화 (URL 공유 지원)
+watch(selectedProperty, (prop) => {
+  const query = { ...route.query };
+  if (prop && prop.propertyId) {
+    query.propertyId = String(prop.propertyId);
+  } else {
+    delete query.propertyId;
+  }
+  router.replace({ query }).catch(() => {});
+});
+
+// 공유 링크로 접속 시 (?propertyId=123) 해당 매물 자동 선택 및 슬라이딩 패널 팝업
+watch(
+  [properties, () => route.query.propertyId],
+  ([list, targetId]) => {
+    if (!list || !list.length || !targetId) return;
+    if (!selectedProperty.value || Number(selectedProperty.value.propertyId) !== Number(targetId)) {
+      const targetProp = list.find((p) => Number(p.propertyId) === Number(targetId));
+      if (targetProp) {
+        handleSelectProperty(targetProp);
+      }
+    }
+  },
+  { immediate: true },
 );
 
 const shouldHideAmenityPins = computed(
@@ -1549,8 +1613,11 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
           />
         </div>
 
-        <!-- 사이드바 매물 카드리스트 (스크롤) -->
-        <div class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5">
+        <!-- 사이드바 매물 카드리스트 (10개씩 동적 스크롤) -->
+        <div
+          class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5"
+          @scroll="handleListScroll"
+        >
           <template v-if="isPropertyLoading">
             <div v-for="index in 3" :key="index" class="property-card-skeleton animate-pulse">
               <div class="property-card-skeleton__image"></div>
@@ -1561,9 +1628,9 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
               </div>
             </div>
           </template>
-          <template v-else-if="visibleProperties.length > 0">
+          <template v-else-if="displayedProperties.length > 0">
             <PropertyCard
-              v-for="prop in visibleProperties"
+              v-for="prop in displayedProperties"
               :key="prop.propertyId"
               :property="prop"
               :is-selected="selectedProperty && selectedProperty.propertyId === prop.propertyId"
@@ -1571,6 +1638,21 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
               @select="handleSelectProperty"
               @toggle-bookmark="handleToggleBookmark"
             />
+            <!-- 10개씩 동적 스크롤 하단 로딩 바 -->
+            <div
+              v-if="displayLimit < visibleProperties.length"
+              class="py-2.5 text-center text-xs font-bold text-slate-400 bg-slate-50/60 rounded-xl border border-slate-100/80 flex items-center justify-center gap-2 select-none"
+            >
+              <i
+                class="fa-solid fa-spinner animate-spin text-blue-500 text-[11px]"
+                aria-hidden="true"
+              ></i>
+              <span
+                >스크롤하여 10개 더 보는 중 ({{ displayedProperties.length }}/{{
+                  visibleProperties.length
+                }}개)</span
+              >
+            </div>
           </template>
           <div
             v-else-if="!amenityFilterLoading"
@@ -1668,6 +1750,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
         :is-loading="isMoreLoading"
         :is-map-moved="isMapMoved"
         :visible-count="visibleProperties.length"
+        :base-count="baseFilteredProperties.length"
         :total-count="serverTotalCount"
         :last-loaded-date="lastLoadedDateString"
         :show-all-loaded-toast="showAllLoadedToast"

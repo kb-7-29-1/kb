@@ -14,6 +14,10 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  baseCount: {
+    type: Number,
+    default: 0,
+  },
   totalCount: {
     type: Number,
     required: true,
@@ -42,7 +46,9 @@ const subText = computed(() => {
 </script>
 
 <template>
-  <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-2">
+  <div
+    class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-2"
+  >
     <!-- 🎉 모든 매물 수집 완료 토스트 알림 배너 (버튼과 100% 동일 센터 정렬) -->
     <Transition name="toast">
       <div
@@ -50,7 +56,7 @@ const subText = computed(() => {
         class="bg-slate-900/95 text-white px-4 py-2 rounded-full text-xs font-extrabold shadow-2xl backdrop-blur-md flex items-center gap-1.5 border border-slate-700 pointer-events-none whitespace-nowrap animate-bounce"
       >
         <span class="text-sm">🎉</span>
-        <span>이 지역의 모든 매물을 다 불러왔어요!</span>
+        <span>이 지역에서 조건에 부합하는 모든 매물을 다 불러왔어요!</span>
       </div>
     </Transition>
 
@@ -70,7 +76,9 @@ const subText = computed(() => {
         <i
           v-if="isLoading"
           class="fa-solid fa-spinner animate-spin text-xs"
-          :class="isMapMoved ? 'text-white' : 'text-blue-500 group-hover:text-white'"
+          :class="
+            isMapMoved ? 'text-white' : 'text-blue-500 group-hover:text-white'
+          "
           aria-hidden="true"
         ></i>
         <i
@@ -86,10 +94,15 @@ const subText = computed(() => {
         <span class="text-[12px] font-extrabold">
           {{
             isLoading
-              ? (isMapMoved ? '이 위치 매물 검색 중...' : '다음 매물 불러오는 중...')
+              ? isMapMoved
+                ? '이 위치 매물 검색 중...'
+                : '다음 매물 불러오는 중...'
               : isMapMoved
                 ? '이 위치에서 매물 재검색'
-                : `매물 더보기 (${visibleCount}/${totalCount}개)`
+                : baseCount && baseCount !== visibleCount
+                  ? `매물 더보기 (${visibleCount}/${baseCount}개)`
+                  : `매물 더보기 (${visibleCount}개)`
+            /* totalCount는 사각형 쿼리 개수이므로 미노출 주석 처리: /${totalCount}개 */
           }}
         </span>
       </div>
@@ -97,7 +110,11 @@ const subText = computed(() => {
       <!-- 2nd Row: 동적 슬림 서브 날짜 안내 -->
       <div
         class="text-[10px] font-medium opacity-75 mt-0.5"
-        :class="isMapMoved ? 'text-blue-100' : 'text-slate-400 group-hover:text-blue-100'"
+        :class="
+          isMapMoved
+            ? 'text-blue-100'
+            : 'text-slate-400 group-hover:text-blue-100'
+        "
       >
         {{ subText }}
       </div>
