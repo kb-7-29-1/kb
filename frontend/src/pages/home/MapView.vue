@@ -1576,7 +1576,7 @@ const { mobilePanelHeight, isDragging, dragPixelHeight, toggleMobilePanel, start
                 @click="openAmenityDetailFilter()"
               >
                 <i class="fa-solid fa-sliders text-[10px]" aria-hidden="true"></i>
-                <span>상세 필터</span>
+                <span>이동 시간</span>
                 <i class="fa-solid fa-chevron-right text-[9px]" aria-hidden="true"></i>
               </button>
             </div>
