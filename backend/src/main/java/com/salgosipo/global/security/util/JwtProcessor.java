@@ -1,6 +1,7 @@
 package com.salgosipo.global.security.util;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -16,6 +17,7 @@ import java.util.Date;
 public class JwtProcessor {
     static private final long TOKEN_VALID_MILISECOND = 1000L * 60 * 30; // 30 분
     static private final long RESET_TOKEN_VALID_MILISECOND = 1000L * 60 * 5; // 5분
+    static private final long REFRESH_GRACE_MILISECOND = 1000L * 60 * 5; // 세션 연장 유예기간 5분
 
     public JwtProcessor(@Value("${jwt.secret}") String secretKey) {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
@@ -66,6 +68,25 @@ public class JwtProcessor {
                 .parseClaimsJws(token) //유효성 검증
                 .getBody()
                 .getSubject(); //id에 해당하는 클레임 추출
+    }
+
+    // 세션 연장(refresh) 전용: 만료된 토큰이라도 유예기간(REFRESH_GRACE_MILISECOND) 이내면 claim을 그대로 반환.
+    // 서명 불일치 등 그 외 예외는 그대로 던져서 컨트롤러가 거부하도록 함.
+    public Claims getClaimsAllowingGrace(String token){
+        try {
+            return Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        } catch (ExpiredJwtException e) {
+            Claims expiredClaims = e.getClaims();
+            long overByMillis = System.currentTimeMillis() - expiredClaims.getExpiration().getTime();
+            if (overByMillis <= REFRESH_GRACE_MILISECOND) {
+                return expiredClaims;
+            }
+            throw e;
+        }
     }
 
     //JWT유효성 검증
