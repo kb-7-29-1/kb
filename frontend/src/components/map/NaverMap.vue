@@ -362,6 +362,7 @@ const renderMarkers = () => {
           const clusterMarker = new window.naver.maps.Marker({
             position: new window.naver.maps.LatLng(task.node.lat, task.node.lng),
             map: mapInstance.value,
+            zIndex: 8,
             icon: {
               content: renderClusterPinHTML(task.node.count, task.node.items),
             },
@@ -395,6 +396,8 @@ const renderMarkers = () => {
           const propMarker = new window.naver.maps.Marker({
             position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
             map: mapInstance.value,
+            // 선택한 매물만 강조, 나머지 매물은 경로 아래에 둠
+            zIndex: isSelected ? 40 : 10,
             icon: {
               content: renderPropertyPinHTML(prop, isSelected),
             },
