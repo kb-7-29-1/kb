@@ -9,6 +9,7 @@ import com.salgosipo.user.dto.UserUpdateRequestDto;
 import com.salgosipo.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +43,13 @@ public class UserService {
                 .email(dto.getEmail())
                 .build();
 
-        userMapper.signup(vo);
+        try {
+            userMapper.signup(vo);
+        } catch (DataIntegrityViolationException e) {
+            // 거의 동시에 같은 아이디로 두 번 가입 요청이 들어와 위 countByLoginId 체크를
+            // 함께 통과한 경우, login_id UNIQUE 제약으로 두 번째 INSERT가 여기서 걸림
+            throw new IllegalArgumentException("이미 사용중인 ID 입니다");
+        }
     }
 
     public boolean isLoginIdAvailable(String loginId){
@@ -63,7 +70,14 @@ public class UserService {
         if(vo == null){
             throw new IllegalArgumentException("존재하지않는 사용자입니다.");
         }
-        userMapper.updateProfile(vo.getUserId(),dto.getName(),dto.getEmail());
+        if(userMapper.countByEmailExcludingUser(dto.getEmail(), vo.getUserId())>0){
+            throw new IllegalArgumentException("이미 사용중인 EMAIL 입니다");
+        }
+        try {
+            userMapper.updateProfile(vo.getUserId(),dto.getName(),dto.getEmail());
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("이미 사용중인 EMAIL 입니다");
+        }
     }
 
     @Transactional
