@@ -265,8 +265,6 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
-            /*
-            // [원래 TMAP 계산 로직 100% 보존 - 실행 안 되게 주석 처리만 적용]
             try {
                 CalculationResult calculation = calculateAndPersist(
                         property,
@@ -277,10 +275,8 @@ public class SafetyServiceImpl implements SafetyService {
                         calculation.stored(),
                         "CALCULATED",
                         false,
-                        calculation.insertedRows() > 0,
-                        calculation.insertedRows() > 0
-                                ? "대로 우선 경로를 계산해 DB에 저장했습니다."
-                                : "동시 요청이 먼저 저장한 DB 값을 반환했습니다."
+                        true,
+                        "대로 우선 경로를 계산해 DB에 저장했습니다."
                 ));
                 calculatedCount++;
             } catch (RuntimeException exception) {
@@ -297,13 +293,6 @@ public class SafetyServiceImpl implements SafetyService {
                 ));
                 failedCount++;
             }
-            */
-            items.add(createFailedBatchItem(
-                    propertyId,
-                    destination.getDestinationId(),
-                    "안전점수 계산 실행 중단 (임시 주석 처리)"
-            ));
-            failedCount++;
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
