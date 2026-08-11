@@ -12,7 +12,7 @@ public class SafetyScoreCalculator {
 
     static final double CCTV_ROUTE_RADIUS_METERS = 50.0;
     static final double STREET_LIGHT_ROUTE_RADIUS_METERS = 30.0;
-    static final double POLICE_ROUTE_RADIUS_METERS = 300.0;
+    static final double POLICE_ROUTE_RADIUS_METERS = 100.0;
 
     public SafetyRouteCandidateDTO calculate(PedestrianRoute route, List<SafetyFacilityVO> facilities) {
         if (route == null || route.getRoutePoints() == null || route.getRoutePoints().size() < 2) {
@@ -71,14 +71,14 @@ public class SafetyScoreCalculator {
         int cctvDensityPenalty = calculateCctvDensityPenalty(averageGapMeters);
         int cctvCoveragePenalty = calculateCctvCoveragePenalty(cctvCoverage);
         int streetLightPenalty = calculateStreetLightCoveragePenalty(streetLightCoverage);
-        int policePenalty = hasPoliceStation ? 0 : 20;
+        int policePenalty = hasPoliceStation ? 0 : 10;
         int totalPenalty = cctvDensityPenalty
                 + cctvCoveragePenalty
                 + streetLightPenalty
                 + policePenalty;
         int safetyScore = Math.max(
                 0,
-                (int) Math.round(100 - totalPenalty / 2.0)
+                (int) Math.round(100 - totalPenalty / 1.5)
         );
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
@@ -137,7 +137,7 @@ public class SafetyScoreCalculator {
         if (coveragePercent >= 60.0) return 10;
         if (coveragePercent >= 40.0) return 20;
         if (coveragePercent >= 20.0) return 30;
-        return 45;
+        return 55;
     }
 
     private int countFacilitiesNearRoute(
