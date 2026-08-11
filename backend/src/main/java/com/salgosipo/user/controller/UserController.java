@@ -45,6 +45,13 @@ public class UserController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/profile-image")
+    public ResponseEntity<?> updateProfileImage(@AuthenticationPrincipal CustomUser customUser,
+                                                @RequestBody ProfileImageUpdateRequestDto dto){
+        userService.updateProfileImage(customUser.getUsername(), dto.getImage());
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/password")
     public ResponseEntity<?> changePassword(@AuthenticationPrincipal CustomUser customUser,
                                             @RequestBody PasswordChangeRequestDto dto){

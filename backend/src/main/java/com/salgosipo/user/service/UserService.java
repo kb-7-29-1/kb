@@ -18,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final int MAX_PROFILE_IMAGE_LENGTH = 3_000_000; // data URL 기준 대략 2MB 원본 이미지 상당
+
     private final UserMapper userMapper;
     private final CommentMapper commentMapper;
     private final PasswordEncoder passwordEncoder;
@@ -62,6 +64,18 @@ public class UserService {
             throw new IllegalArgumentException("존재하지않는 사용자입니다.");
         }
         userMapper.updateProfile(vo.getUserId(),dto.getName(),dto.getEmail());
+    }
+
+    @Transactional
+    public void updateProfileImage(String loginId, String profileImage){
+        UserVO vo = userMapper.findByLoginId(loginId);
+        if(vo == null){
+            throw new IllegalArgumentException("존재하지않는 사용자입니다.");
+        }
+        if(profileImage != null && profileImage.length() > MAX_PROFILE_IMAGE_LENGTH){
+            throw new IllegalArgumentException("이미지 용량이 너무 큽니다.");
+        }
+        userMapper.updateProfileImage(vo.getUserId(), profileImage);
     }
 
     @Transactional
