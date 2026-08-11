@@ -143,8 +143,16 @@ const submitEdit = (commentId) => {
       >
         <div class="comment-header">
           <div class="nickname-wrapper">
+            <span class="comment-avatar" aria-hidden="true">
+              <img
+                v-if="comment.profileImage"
+                :src="comment.profileImage"
+                :alt="`${comment.nickname || '익명 사용자'} 프로필`"
+              />
+              <i v-else class="fa-solid fa-circle-user comment-avatar-icon" aria-hidden="true"></i>
+            </span>
             <strong class="comment-nickname"
-            >👤 {{ comment.nickname || '익명 사용자' }}</strong
+            >{{ comment.nickname || '익명 사용자' }}</strong
             >
             <span v-if="comment.isMine" class="my-badge">MY</span>
           </div>
@@ -410,6 +418,30 @@ const submitEdit = (commentId) => {
   align-items: center;
   gap: 6px;
   min-width: 0;
+}
+
+.comment-avatar {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #eef1f7;
+  font-size: 14px;
+}
+
+.comment-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.comment-avatar-icon {
+  color: #aeb8ca;
+  font-size: 28px;
 }
 
 .my-badge {
