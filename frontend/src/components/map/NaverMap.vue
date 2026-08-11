@@ -144,10 +144,11 @@ const getSelectedContextFitMargin = () => {
     const panelWidth = detailPanel?.getBoundingClientRect().width ?? 0;
 
     return {
-      top: 84,
-      right: Math.min(panelWidth + 32, Math.max(56, width * 0.44)),
-      bottom: 36,
-      left: 32,
+      // 패널 너비 + 마커·경로가 패널 경계에 닿지 않도록 여백 함께 확보
+      top: 104,
+      right: Math.min(panelWidth + 200, Math.max(200, width * 0.62)),
+      bottom: 64,
+      left: 52,
     };
   }
 
