@@ -17,6 +17,10 @@
         update users set password = #{password} where user_id = #{userId} and del_yn ='N'
     </update>
 
+    <update id="updateProfileImage">
+        update users set profile_image = #{profileImage} where user_id = #{userId} and del_yn = 'N'
+    </update>
+
     <update id="withdraw">
         update users set del_yn ='Y', login_id = CONCAT(login_id, '_withdrawn_', user_id) where user_id = #{userId}
     </update>
@@ -37,7 +41,7 @@
     </select>
 
     <select id="findProfileByUserId" resultType="com.salgosipo.user.dto.UserProfileResponseDto">
-        select user_id, login_id, name, email, birth_date, gender
+        select user_id, login_id, name, email, birth_date, gender, profile_image
         from users where user_id = #{userId} and del_yn ='N'
     </select>
 </mapper>

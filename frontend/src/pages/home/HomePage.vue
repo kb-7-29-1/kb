@@ -1,18 +1,27 @@
 <script setup>
-import { ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
 import { useRouter } from 'vue-router';
-import { useAuthStore } from '@/stores/useAuthStore.js';
+import { getProfile } from '@/api/authService.js';
 
 const router = useRouter();
-const authStore = useAuthStore();
 
 const isFilterOpen = ref(false);
 const appliedOnboardingFilters = ref(null);
 const appliedAmenityFilters = ref([]);
 const filterResetVersion = ref(0);
 const isMovingToMyPage = ref(false);
+const profileImage = ref(null);
+
+onMounted(async () => {
+  try {
+    const response = await getProfile();
+    profileImage.value = response.data.profileImage;
+  } catch (error) {
+    console.error('HOME PROFILE IMAGE GET ERROR: ', error);
+  }
+});
 
 const openFilter = () => {
   isFilterOpen.value = true;
@@ -73,7 +82,8 @@ const goMyPage = () => {
         집으로
       </span>
       <button class="profile-button" type="button" aria-label="마이페이지로 이동" @click="goMyPage">
-        {{ authStore.user?.name?.charAt(0) || '나' }}
+        <img v-if="profileImage" :src="profileImage" alt="" class="profile-button-image" />
+        <i v-else class="fa-solid fa-circle-user" aria-hidden="true"></i>
       </button>
     </header>
     <MapView
@@ -231,11 +241,22 @@ const goMyPage = () => {
   padding: 0;
   border: 0;
   border-radius: 50%;
+  overflow: hidden;
   background: #4058f5;
   color: #fff;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.profile-button-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-button i {
+  font-size: 20px;
 }
 
 .profile-button:active {
