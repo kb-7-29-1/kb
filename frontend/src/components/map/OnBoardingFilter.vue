@@ -52,7 +52,9 @@ const searchError = ref('');
 const isComposing = ref(false);
 const isSelectingDestination = ref(false);
 const authStore = useAuthStore();
-const currentUserId = computed(() => authStore.user?.userId || authStore.user?.id || 'guest');
+const currentUserId = computed(
+  () => authStore.user?.userId || authStore.user?.id || 'guest',
+);
 const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 let searchTimer;
 let searchRequestId = 0;
@@ -64,11 +66,17 @@ watch(currentUserId, (userId) => {
 });
 
 const saveRecentDestination = (destination) => {
-  recentDestinations.value = saveRecentDestinationGlobal(destination, currentUserId.value);
+  recentDestinations.value = saveRecentDestinationGlobal(
+    destination,
+    currentUserId.value,
+  );
 };
 
 const removeRecentDestination = (destName) => {
-  recentDestinations.value = removeRecentDestinationGlobal(destName, currentUserId.value);
+  recentDestinations.value = removeRecentDestinationGlobal(
+    destName,
+    currentUserId.value,
+  );
 };
 
 const beginDestinationSelection = () => {
@@ -130,15 +138,20 @@ const dualRangeStyle = (minVal, maxVal, min, max, color = '#3d55f6') => {
 const minDeposit = computed(() => depositOptions[depositMinIndex.value]);
 const maxDeposit = computed(() => depositOptions[depositMaxIndex.value]);
 const depositRangeLabel = computed(
-  () => `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
+  () =>
+    `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
 );
 const rentRangeLabel = computed(() =>
-  leaseType.value === 'jeonse' ? '해당 없음' : `${minRentStart.value}만원 ~ ${maxRent.value}만원`,
+  leaseType.value === 'jeonse'
+    ? '해당 없음'
+    : `${minRentStart.value}만원 ~ ${maxRent.value}만원`,
 );
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
   () =>
-    selectedDestination.value?.destName ?? props.onboarding?.destination?.destName ?? '세종대학교',
+    selectedDestination.value?.destName ??
+    props.onboarding?.destination?.destName ??
+    '세종대학교',
 );
 
 const selectDestination = (destination) => {
@@ -182,7 +195,8 @@ const scheduleSearch = (value) => {
     } catch (error) {
       if (requestId !== searchRequestId) return;
       searchResults.value = [];
-      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      searchError.value =
+        '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('FILTER DESTINATION SEARCH ERROR: ', error);
     } finally {
       if (requestId === searchRequestId) isSearching.value = false;
@@ -232,7 +246,9 @@ watch(
 
     selectedDestination.value = appliedFilters?.destination ?? null;
 
-    const savedMinIndex = depositOptions.indexOf(Number(filters.budgetDepositMin));
+    const savedMinIndex = depositOptions.indexOf(
+      Number(filters.budgetDepositMin),
+    );
     if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
 
     const savedMaxIndex = depositOptions.indexOf(Number(filters.budgetDeposit));
@@ -242,7 +258,8 @@ watch(
     maxRent.value = Number(filters.budgetRent);
     leaseType.value = Number(filters.budgetRent) === 0 ? 'jeonse' : 'monthly';
     minSafetyScore.value = Number(filters.minSafetyScore);
-    transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+    transportMode.value =
+      filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
     travelTime.value = Number(filters.maxTravelTime);
     flexTime.value = normalizeTransitMinTime(
       filters.minTravelTime ?? filters.flexTime,
@@ -262,28 +279,35 @@ const resetFilters = () => {
 
   if (!onboarding) return;
 
-  const savedMinIndex = depositOptions.indexOf(Number(onboarding.budgetDepositMin));
+  const savedMinIndex = depositOptions.indexOf(
+    Number(onboarding.budgetDepositMin),
+  );
   if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
   else depositMinIndex.value = 0;
 
-  const savedMaxIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
+  const savedMaxIndex = depositOptions.indexOf(
+    Number(onboarding.budgetDeposit),
+  );
   if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
 
   minRentStart.value = Number(onboarding.budgetRentMin ?? RENT_MIN);
   maxRent.value = Number(onboarding.budgetRent);
   leaseType.value = Number(onboarding.budgetRent) === 0 ? 'jeonse' : 'monthly';
   minSafetyScore.value = Number(onboarding.minSafetyScore);
-  transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+  transportMode.value =
+    onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
   flexTime.value = normalizeTransitMinTime(
     onboarding.minTravelTime ?? onboarding.flexTime,
     travelTime.value,
   );
-  if (onboarding.selectedLoanId) selectedLoanId.value = onboarding.selectedLoanId;
+  if (onboarding.selectedLoanId)
+    selectedLoanId.value = onboarding.selectedLoanId;
 };
 
 const getFilters = () => ({
-  destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
+  destination:
+    selectedDestination.value ?? props.onboarding?.destination ?? null,
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
@@ -336,12 +360,17 @@ onBeforeUnmount(() => {
         </button>
       </label>
       <div
-        v-if="recentDestinations.length && !searchKeyword.trim() && !isSearching"
+        v-if="
+          recentDestinations.length && !searchKeyword.trim() && !isSearching
+        "
         class="recent-destination-section"
       >
         <p class="recent-destination-title">🕒 최근 검색 목적지</p>
         <ul class="recent-destination-list">
-          <li v-for="item in recentDestinations.slice(0, 3)" :key="item.destName">
+          <li
+            v-for="item in recentDestinations.slice(0, 3)"
+            :key="item.destName"
+          >
             <button
               type="button"
               class="recent-destination-item"
@@ -365,7 +394,9 @@ onBeforeUnmount(() => {
         </ul>
       </div>
       <p v-if="isSearching" class="search-message">검색 중이에요.</p>
-      <p v-else-if="searchError" class="search-message error">{{ searchError }}</p>
+      <p v-else-if="searchError" class="search-message error">
+        {{ searchError }}
+      </p>
       <p
         v-else-if="
           searchKeyword.trim().length >= 2 &&
@@ -377,8 +408,14 @@ onBeforeUnmount(() => {
         검색 결과가 없어요.
       </p>
       <ul v-if="searchResults.length" class="search-result-list">
-        <li v-for="item in searchResults" :key="`${item.destName}-${item.destAddress}`">
-          <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
+        <li
+          v-for="item in searchResults"
+          :key="`${item.destName}-${item.destAddress}`"
+        >
+          <button
+            type="button"
+            @pointerdown.capture.prevent="selectDestination(item)"
+          >
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
             <span>
               <strong>{{ item.destName }}</strong>
@@ -389,6 +426,8 @@ onBeforeUnmount(() => {
         </li>
       </ul>
     </div>
+
+
 
     <!-- 🛡️ 최소 안전 점수 섹션 (목적지 검색 바로 아래 배치) -->
     <div class="filter-section">
@@ -439,7 +478,14 @@ onBeforeUnmount(() => {
       <div class="dual-range-track">
         <div
           class="dual-range-track__fill"
-          :style="dualRangeStyle(depositMinIndex, depositMaxIndex, 0, depositOptions.length - 1)"
+          :style="
+            dualRangeStyle(
+              depositMinIndex,
+              depositMaxIndex,
+              0,
+              depositOptions.length - 1,
+            )
+          "
         ></div>
         <input
           v-model.number="depositMinIndex"
@@ -508,7 +554,8 @@ onBeforeUnmount(() => {
         <p>
           시간
           <strong
-            >{{ transportMode === 'walk' ? '도보' : '대중교통' }} {{ travelTime }}분 이내</strong
+            >{{ transportMode === 'walk' ? '도보' : '대중교통' }}
+            {{ travelTime }}분 이내</strong
           >
         </p>
       </div>
@@ -559,7 +606,10 @@ onBeforeUnmount(() => {
               transportMode === 'walk' ? 40 : 60,
             )
           "
-          @input="if (transportMode === 'transit' && flexTime > travelTime) flexTime = travelTime;"
+          @input="
+            if (transportMode === 'transit' && flexTime > travelTime)
+              flexTime = travelTime;
+          "
         />
         <div class="range-labels">
           <span>{{ transportMode === 'walk' ? '5분' : '15분' }}</span
