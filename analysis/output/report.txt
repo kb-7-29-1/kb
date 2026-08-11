@@ -1,0 +1,31 @@
+label=1 (안심귀갓길) 개수: 362
+label=0 (비교군) 개수: 50
+
+=== 그룹별 평균 비교 ===
+       distance_m  cctv_count  street_light_count  cctv_coverage_pct  street_light_coverage_pct  nearest_police_distance_m  cctv_average_gap_m  street_light_average_gap_m  safety_score
+label                                                                                                                                                                                   
+0          902.14       27.70               53.02              65.67                      54.89                     284.65               58.07                       35.86         80.92
+1          395.46       19.75                9.66              85.34                      31.90                     310.61               28.80                       47.21         77.70
+
+=== 파출소 존재 비율 ===
+label
+0    0.420
+1    0.376
+
+=== label과의 상관계수 (point-biserial) ===
+distance_m                   -0.630
+cctv_coverage_pct             0.365
+street_light_count           -0.305
+cctv_average_gap_m           -0.299
+cctv_count                   -0.173
+street_light_coverage_pct    -0.169
+safety_score                 -0.096
+nearest_police_distance_m     0.050
+street_light_average_gap_m    0.031
+has_police_station           -0.030
+
+=== 로지스틱 회귀 계수 (표준화된 입력 기준) ===
+cctv_coverage_pct: 0.874
+street_light_coverage_pct: -0.419
+has_police_station: -0.089
+accuracy(전체 데이터 기준): 0.879
