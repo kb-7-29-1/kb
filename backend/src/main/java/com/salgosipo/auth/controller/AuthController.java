@@ -5,12 +5,13 @@ import com.salgosipo.auth.dto.FindIdResponseDto;
 import com.salgosipo.auth.dto.FindPasswordRequestDto;
 import com.salgosipo.auth.dto.ResetPasswordRequestDto;
 import com.salgosipo.auth.service.AuthService;
-import com.salgosipo.global.security.account.domain.CustomUser;
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,8 +43,13 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@AuthenticationPrincipal CustomUser customUser){
-        String token = authService.refreshToken(customUser.getUsername());
-        return ResponseEntity.ok(Map.of("token", token));
+    public ResponseEntity<?> refresh(@RequestHeader("Authorization") String authHeader){
+        String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+        try {
+            String newToken = authService.refreshToken(token);
+            return ResponseEntity.ok(Map.of("token", newToken));
+        } catch (JwtException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 }
