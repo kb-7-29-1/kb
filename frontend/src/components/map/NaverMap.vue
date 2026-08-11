@@ -316,7 +316,23 @@ const renderMarkers = () => {
   }
 
   // 2. 🏢 / 🏠 매물 및 클러스터 마커 렌더링 준비 (Diffing)
-  const clusteredNodes = getClusteredMarkers(props.properties, currentZoom, bounds);
+  // 선택 매물은 클러스터 계산에서 제외, 개별 마커로 유지
+  const selectedPropertyId = Number(props.selectedProperty?.propertyId);
+  const propertiesForClustering = Number.isFinite(selectedPropertyId)
+    ? props.properties.filter((property) => Number(property.propertyId) !== selectedPropertyId)
+    : props.properties;
+  const clusteredNodes = getClusteredMarkers(propertiesForClustering, currentZoom, bounds);
+
+  if (
+    Number.isFinite(selectedPropertyId) &&
+    props.selectedProperty?.latitude != null &&
+    props.selectedProperty?.longitude != null
+  ) {
+    clusteredNodes.push({
+      isCluster: false,
+      item: props.selectedProperty,
+    });
+  }
   const nextMarkerKeys = new Set();
   const nodesToCreate = [];
 
@@ -329,8 +345,7 @@ const renderMarkers = () => {
       }
     } else {
       const prop = node.item;
-      const isSelected =
-        props.selectedProperty && props.selectedProperty.propertyId === prop.propertyId;
+      const isSelected = Number(props.selectedProperty?.propertyId) === Number(prop.propertyId);
       const propKey = `prop_${prop.propertyId}_${isSelected ? 'selected' : 'normal'}`;
       nextMarkerKeys.add(propKey);
 
@@ -443,7 +458,7 @@ const refreshAmenityMarkerContents = () => {
       content: renderAmenityPin(amenity, isExpanded),
       anchor: new window.naver.maps.Point(0, 0),
     });
-    marker.setZIndex(isExpanded ? 35 : 30);
+    marker.setZIndex(isExpanded ? 55 : 50);
   });
 };
 
@@ -461,7 +476,8 @@ const renderAmenityMarkers = () => {
     const amenityMarker = new window.naver.maps.Marker({
       position: new window.naver.maps.LatLng(amenity.amenityLatitude, amenity.amenityLongitude),
       map: mapInstance.value,
-      zIndex: 30,
+      // 선택 매물에 가려지지 않도록 편의시설을 위에 표시
+      zIndex: 50,
       icon: {
         content: renderAmenityPin(amenity, expandedAmenityMarkerKeys.value.has(key)),
         anchor: new window.naver.maps.Point(0, 0),
