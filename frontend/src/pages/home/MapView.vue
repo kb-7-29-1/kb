@@ -381,16 +381,6 @@ const doFetchPropertiesFromBackend = async (isAppend = false) => {
       return true;
     });
 
-    // test: 조회된 매물 ID 출력
-    console.table(
-      candidates.map((property) => ({
-        propertyId: property.propertyId,
-        address: property.address || property.title,
-        deposit: property.deposit,
-        monthlyRent: property.monthlyRent,
-      })),
-    );
-
     // 매물 데이터 즉시 지도에 렌더링 (isAppend 모드에서는 기존 수집 매물을 유지하고 신규 추가만 통합)
     if (isAppend) {
       const existingIds = new Set(properties.value.map((p) => Number(p.propertyId)));
@@ -996,6 +986,21 @@ const visibleProperties = computed(() =>
     ? []
     : amenityFilteredProperties.value,
 );
+
+// test: 화면에 출력되는 최종 매물 목록 기준 ID만 콘솔 출력
+watch(visibleProperties, (list) => {
+  if (isPropertyLoading.value || amenityFilterLoading.value || !list.length) return;
+
+  console.table(
+    list.map((property) => ({
+      propertyId: property.propertyId,
+      address: property.address || property.title,
+      deposit: property.deposit,
+      monthlyRent: property.monthlyRent,
+      safetyScore: property.safetyScore,
+    })),
+  );
+});
 
 // 수집된 마지막 매물의 생성 일자 동적 계산 (더보기 날짜 동적 표시용)
 const lastLoadedDateString = computed(() => {

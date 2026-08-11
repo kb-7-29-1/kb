@@ -248,6 +248,7 @@ const SAMPLE_PROPERTY_IMAGES = [
 ];
 
 const detailImageUrl = computed(() => {
+  if (props.property?.imageUrls?.length) return props.property.imageUrls[0];
   if (props.property?.thumbnailUrl) return props.property.thumbnailUrl;
   const idx = Math.abs(Number(props.property?.propertyId || 0)) % SAMPLE_PROPERTY_IMAGES.length;
   return SAMPLE_PROPERTY_IMAGES[idx];
@@ -361,7 +362,9 @@ const detailImageUrl = computed(() => {
               </div>
               <div v-if="property.monthlyRent" class="flex items-baseline gap-1.5">
                 <span class="text-[13px] font-medium text-slate-500">월세</span>
-                <span class="text-[16px] font-extrabold text-slate-800">{{ property.monthlyRent }}만원</span>
+                <span class="text-[16px] font-extrabold text-slate-800"
+                  >{{ property.monthlyRent }}만원</span
+                >
               </div>
               <p class="text-[13px] font-medium text-slate-500">
                 {{ property.area || 24.5 }}m² · {{ property.floor || 3 }}층
@@ -400,7 +403,10 @@ const detailImageUrl = computed(() => {
                   {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
                 </p>
                 <p class="mt-1 text-[10px] font-medium leading-tight text-slate-500">
-                  {{ property.illegalReason || (property.isIllegalBuilding ? '위반건축물 지정 이력' : '건축물대장 기준 적법') }}
+                  {{
+                    property.illegalReason ||
+                    (property.isIllegalBuilding ? '위반건축물 지정 이력' : '건축물대장 기준 적법')
+                  }}
                 </p>
               </div>
               <div
@@ -412,10 +418,7 @@ const detailImageUrl = computed(() => {
                 <p class="mt-1 text-[11px] font-medium text-slate-600">
                   {{ formattedUseAprDay || `${property.builtYear || '2022'}년 준공` }}
                 </p>
-                <p
-                  class="mt-0.5 text-[10px] font-bold"
-                  :class="buildingAgeCategory.class"
-                >
+                <p class="mt-0.5 text-[10px] font-bold" :class="buildingAgeCategory.class">
                   {{ buildingAgeCategory.label }}
                 </p>
               </div>
@@ -432,14 +435,19 @@ const detailImageUrl = computed(() => {
               <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-center">
                 <span class="block text-[10px] font-medium text-slate-400 mb-0.5">주 용도</span>
                 <strong class="block truncate text-[11px] font-bold text-slate-700">
-                  {{ property.mainPurposeName || (property.buildingType === 3 ? '오피스텔' : '공동주택') }}
+                  {{
+                    property.mainPurposeName ||
+                    (property.buildingType === 3 ? '오피스텔' : '공동주택')
+                  }}
                 </strong>
               </div>
               <div class="rounded-xl border border-slate-100 bg-slate-50/80 p-2 text-center">
                 <span class="block text-[10px] font-medium text-slate-400 mb-0.5">내진 설계</span>
                 <strong
                   class="block truncate text-[11px] font-bold"
-                  :class="property.earthquakeProofYn === '1' ? 'text-emerald-600' : 'text-slate-600'"
+                  :class="
+                    property.earthquakeProofYn === '1' ? 'text-emerald-600' : 'text-slate-600'
+                  "
                 >
                   {{ property.earthquakeProofYn === '1' ? '적용 🟢' : '미적용 ⚪' }}
                 </strong>
@@ -449,7 +457,6 @@ const detailImageUrl = computed(() => {
 
           <!-- 🛡️ 안심 귀갓길 & 안전 지표 리포트 -->
           <section class="border-t border-slate-200 pt-4">
-
             <!-- 타이틀과 버튼을 양옆으로 배치 (flex justify-between) -->
             <div class="mb-3 flex items-start justify-between">
               <h3 class="flex items-center gap-1.5 text-[15px] font-bold text-slate-800 mt-1">
@@ -459,20 +466,20 @@ const detailImageUrl = computed(() => {
 
               <!-- image_56c273.png 스타일의 모달 오픈 버튼 -->
               <button
-                  type="button"
-                  class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-[12px] leading-tight text-slate-500 transition-colors hover:bg-slate-50"
-                  @click="openSafetyModal"
+                type="button"
+                class="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-left text-[12px] leading-tight text-slate-500 transition-colors hover:bg-slate-50"
+                @click="openSafetyModal"
               >
                 <span class="block">안전 점수는 어떻게 산출되나요?</span>
               </button>
             </div>
 
             <div
-                class="safety-report-card"
-                :class="`is-${safetyReport.tone}`"
-                :style="{
-      '--score-color': safetyReport.color,
-    }"
+              class="safety-report-card"
+              :class="`is-${safetyReport.tone}`"
+              :style="{
+                '--score-color': safetyReport.color,
+              }"
             >
               <div class="safety-report-summary">
                 <div class="safety-score-chart">
