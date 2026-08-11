@@ -42,7 +42,7 @@
         </div>
         <div class="info-content">
           <div class="info-title">분석한 귀갓길</div>
-          <div class="info-desc">목적지까지 총 {{ routeDistanceLabel || '-' }} · 도보 약 {{ routeTimeLabel || '-' }}</div>
+          <div class="info-desc">목적지까지 총 {{ routeDistanceLabel || '-' }}</div>
         </div>
       </section>
 
