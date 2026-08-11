@@ -543,6 +543,7 @@ const syncFiltersToUrlQuery = (filters) => {
       filters.minTravelTime != null ? filters.minTravelTime : undefined,
     minSafety:
       filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
+    propertyId: selectedProperty.value?.propertyId || undefined,
   };
   router.replace({ query }).catch(() => {});
 };
@@ -1156,6 +1157,37 @@ watch(
 
     if (!isStillVisible) clearSelectedProperty();
   },
+);
+
+// 매물 선택 시 URL 주소창 실시간 동기화 (URL 공유 지원)
+watch(selectedProperty, (prop) => {
+  const query = { ...route.query };
+  if (prop && prop.propertyId) {
+    query.propertyId = String(prop.propertyId);
+  } else {
+    delete query.propertyId;
+  }
+  router.replace({ query }).catch(() => {});
+});
+
+// 공유 링크로 접속 시 (?propertyId=123) 해당 매물 자동 선택 및 슬라이딩 패널 팝업
+watch(
+  [properties, () => route.query.propertyId],
+  ([list, targetId]) => {
+    if (!list || !list.length || !targetId) return;
+    if (
+      !selectedProperty.value ||
+      Number(selectedProperty.value.propertyId) !== Number(targetId)
+    ) {
+      const targetProp = list.find(
+        (p) => Number(p.propertyId) === Number(targetId),
+      );
+      if (targetProp) {
+        handleSelectProperty(targetProp);
+      }
+    }
+  },
+  { immediate: true },
 );
 
 const shouldHideAmenityPins = computed(
@@ -1867,6 +1899,7 @@ const {
         :is-loading="isMoreLoading"
         :is-map-moved="isMapMoved"
         :visible-count="visibleProperties.length"
+        :base-count="baseFilteredProperties.length"
         :total-count="serverTotalCount"
         :last-loaded-date="lastLoadedDateString"
         :show-all-loaded-toast="showAllLoadedToast"
