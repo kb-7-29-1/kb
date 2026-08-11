@@ -4,7 +4,7 @@
 
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
 export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = false) => {
-  const safetyScore = prop.safetyScore || 85;
+  const safetyScore = prop.safetyScore;
   let theme = {
     border: 'border-emerald-500',
     badge: 'bg-emerald-500/10 text-emerald-600',
