@@ -9,8 +9,11 @@ import OnboardingHeader from '@/components/onboarding/OnboardingHeader.vue';
 import SafetyStep from '@/components/onboarding/SafetyStep.vue';
 import TransportStep from '@/components/onboarding/TransportStep.vue';
 import onboardingApi from '@/api/onboardingApi';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
 
-const ONBOARDING_DRAFT_KEY = 'salgosipo-onboarding-draft';
+const authStore = useAuthStore();
+const getStorageKeys = () => getOnboardingStorageKeys(authStore.user);
 
 const defaultOnboardingData = {
   purpose: 'school',
@@ -23,7 +26,10 @@ const defaultOnboardingData = {
 
 const getSavedOnboardingData = () => {
   try {
-    const savedData = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+    const storageKeys = getStorageKeys();
+    if (!storageKeys) return {};
+
+    const savedData = localStorage.getItem(storageKeys.draft);
     return savedData ? JSON.parse(savedData) : {};
   } catch (error) {
     console.warn('ONBOARDING DRAFT LOAD ERROR: ', error);
@@ -32,7 +38,10 @@ const getSavedOnboardingData = () => {
 };
 
 const getSavedStep = () => {
-  const savedStep = Number(localStorage.getItem(`${ONBOARDING_DRAFT_KEY}-step`));
+  const storageKeys = getStorageKeys();
+  if (!storageKeys) return 1;
+
+  const savedStep = Number(localStorage.getItem(storageKeys.step));
   return Number.isInteger(savedStep) && savedStep >= 1 && savedStep <= 5 ? savedStep : 1;
 };
 
@@ -44,7 +53,8 @@ const isSaving = ref(false);
 const stepDirection = ref('forward');
 
 if (isEditingFromMyPage) {
-  localStorage.setItem(`${ONBOARDING_DRAFT_KEY}-step`, '1');
+  const storageKeys = getStorageKeys();
+  if (storageKeys) localStorage.setItem(storageKeys.step, '1');
 }
 
 const returnPath = computed(() => (route.query.from === 'mypage' ? '/mypage' : '/'));
@@ -81,13 +91,15 @@ onMounted(loadSavedOnboarding);
 watch(
   onboardingData,
   (value) => {
-    localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify(value));
+    const storageKeys = getStorageKeys();
+    if (storageKeys) localStorage.setItem(storageKeys.draft, JSON.stringify(value));
   },
   { deep: true },
 );
 
 watch(currentStep, (value) => {
-  localStorage.setItem(`${ONBOARDING_DRAFT_KEY}-step`, String(value));
+  const storageKeys = getStorageKeys();
+  if (storageKeys) localStorage.setItem(storageKeys.step, String(value));
 });
 
 const currentComponent = computed(() => {
@@ -128,8 +140,11 @@ const goLogin = () => {
 };
 
 const clearOnboardingDraft = () => {
-  localStorage.removeItem(ONBOARDING_DRAFT_KEY);
-  localStorage.removeItem(`${ONBOARDING_DRAFT_KEY}-step`);
+  const storageKeys = getStorageKeys();
+  if (!storageKeys) return;
+
+  localStorage.removeItem(storageKeys.draft);
+  localStorage.removeItem(storageKeys.step);
 };
 
 const goMap = async () => {
@@ -154,7 +169,8 @@ const goMap = async () => {
   isSaving.value = true;
 
   try {
-    localStorage.setItem('salgosipo-onboarding-result', JSON.stringify(requestData));
+    const storageKeys = getStorageKeys();
+    if (storageKeys) localStorage.setItem(storageKeys.result, JSON.stringify(requestData));
     await onboardingApi.saveOnboarding(requestData);
     clearOnboardingDraft();
     router.push('/home');

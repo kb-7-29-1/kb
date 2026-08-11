@@ -1,14 +1,12 @@
 import { ref } from 'vue';
 import onboardingApi from '@/api/onboardingApi.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT } from '@/utils/budget';
+import { useAuthStore } from '@/stores/useAuthStore';
+import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
 
-const ONBOARDING_DRAFT_KEY = 'salgosipo-onboarding-draft';
-
-/**
- * 온보딩 저장값(localStorage 및 GET /api/onboarding)을 기반으로
- * 지도 퀵 필터 기본 상태를 로드 및 관리하는 Composable
- */
+// 사용자별로 온보딩 임시저장 값 localStorage 저장
 export function useOnboardingFilter() {
+  const authStore = useAuthStore();
   const filterState = ref({
     destinationId: null,
     destination: '세종대학교',
@@ -33,8 +31,9 @@ export function useOnboardingFilter() {
     let saved = null;
 
     try {
-      const localResult = localStorage.getItem('salgosipo-onboarding-result');
-      const localDraft = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+      const storageKeys = getOnboardingStorageKeys(authStore.user);
+      const localResult = storageKeys ? localStorage.getItem(storageKeys.result) : null;
+      const localDraft = storageKeys ? localStorage.getItem(storageKeys.draft) : null;
       if (localResult) {
         saved = JSON.parse(localResult);
       } else if (localDraft) {

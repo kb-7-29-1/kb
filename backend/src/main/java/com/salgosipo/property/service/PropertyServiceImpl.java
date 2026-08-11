@@ -23,7 +23,11 @@ public class PropertyServiceImpl implements PropertyService {
     private final PropertyMapper propertyMapper;
 
     @Override
-    @Cacheable(value = "propertyList", key = "#cond != null ? #cond.toCacheKey() : ''", unless = "#result == null || #result.items == null || #result.items.isEmpty()")
+    @Cacheable(
+            value = "propertyList",
+            key = "(#cond != null ? #cond.toCacheKey() : '') + '_user_' + (#userId != null ? #userId : 0)",
+            unless = "#result == null || #result.items == null || #result.items.isEmpty()"
+    )
     public PropertyPageResponseDTO getPropertyList(PropertySearchCondDTO cond, Long userId) {
         try {
             long totalCount = propertyMapper.selectPropertyListCount(cond);
