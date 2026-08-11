@@ -172,7 +172,9 @@ const updateIsochroneOverlays = () => {
       const minTime =
         af.minTravelTime != null && af.minTravelTime > 0
           ? af.minTravelTime
-          : (af.flexTime != null ? af.flexTime : Math.round(travelTime * 0.5));
+          : af.flexTime != null
+            ? af.flexTime
+            : Math.round(travelTime * 0.5);
       const transitBaseRadius = Math.max(200, minTime * 180);
 
       outerBoundaryMeters = transitMaxRadius;
@@ -247,6 +249,37 @@ const updateIsochroneOverlays = () => {
         badgesList.value.push(innerBadge);
       }
     }
+
+    // 💡 이소크론 원형 우측 상단(45도) 외곽 위치에 미니 목적지 변경 팁 뱃지 생성
+    if (outerBoundaryMeters > 0) {
+      const latRad = (destLat * Math.PI) / 180;
+      const dDivR = outerBoundaryMeters / earthRadius;
+      const trLatOffset = dDivR * (180 / Math.PI) * 0.7071;
+      const trLngOffset = (dDivR / Math.cos(latRad)) * (180 / Math.PI) * 0.7071;
+
+      const topRightPos = new window.naver.maps.LatLng(
+        destLat + trLatOffset,
+        destLng + trLngOffset,
+      );
+
+      const topRightTipBadge = new window.naver.maps.Marker({
+        map: props.mapInstance,
+        position: topRightPos,
+        icon: {
+          content: `
+            <div style="transform: translate(25%, -50%); pointer-events: none;">
+              <div style="background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); color: #f8fafc; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 12px rgba(0,0,0,0.25); white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+                <span style="font-size: 11px;">💡</span>
+                <span class="hidden sm:inline">지도를 우클릭해서 목적지를 변경할 수 있어요</span>
+                <span class="inline sm:hidden">지도를 꾹 눌러서 목적지를 변경할 수 있어요</span>
+              </div>
+            </div>
+          `,
+          anchor: new window.naver.maps.Point(0, 0),
+        },
+      });
+      badgesList.value.push(topRightTipBadge);
+    }
   }
 
   // 2. 미리보기 권역 반경 미리 연산 (마스크 구멍 가림 방지)
@@ -268,7 +301,9 @@ const updateIsochroneOverlays = () => {
       pMinTime =
         lf.minTravelTime != null && lf.minTravelTime > 0
           ? lf.minTravelTime
-          : (lf.flexTime != null ? lf.flexTime : 5);
+          : lf.flexTime != null
+            ? lf.flexTime
+            : 5;
       pTransitBaseRadius = Math.max(200, pMinTime * 180);
     }
   }
@@ -276,7 +311,9 @@ const updateIsochroneOverlays = () => {
   // 🌑 외부 마스크 폴리곤 (미리보기 시 liveFilter 반경에 정확히 1:1 밀착하여 구멍 생성)
   const maxMaskRadius =
     props.isPreviewMode && lf
-      ? (lf.transportMode === 'WALK' ? previewRadius : pTransitMaxRadius)
+      ? lf.transportMode === 'WALK'
+        ? previewRadius
+        : pTransitMaxRadius
       : outerBoundaryMeters;
 
   const holeCirclePath = createCirclePath(destLat, destLng, maxMaskRadius, 128);
@@ -336,7 +373,9 @@ const updateIsochroneOverlays = () => {
       const pMinTime =
         lf.minTravelTime != null && lf.minTravelTime > 0
           ? lf.minTravelTime
-          : (lf.flexTime != null ? lf.flexTime : 5);
+          : lf.flexTime != null
+            ? lf.flexTime
+            : 5;
       const pTransitBaseRadius = Math.max(200, pMinTime * 180);
 
       const previewOuterCircle = new window.naver.maps.Circle({

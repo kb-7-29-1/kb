@@ -61,7 +61,7 @@ export const formatDepositShort = (amount) => {
     return `${formatted}억`;
   }
 
-  return value.toLocaleString();
+  return `${value.toLocaleString()}만`;
 };
 
 export const LOAN_PRODUCTS = [
