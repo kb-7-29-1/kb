@@ -1283,9 +1283,9 @@ const amenityLoadingText = computed(() => {
           <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
             <button
               v-for="t in [
-                { key: 'ALL', label: '모두' },
-                { key: 'MONTHLY', label: '월세' },
-                { key: 'JEONSE', label: '전세' },
+                { key: 'ALL', label: '🏡 모두' },
+                { key: 'MONTHLY', label: '🏠 월세' },
+                { key: 'JEONSE', label: '🏢 전세' },
               ]"
               :key="t.key"
               type="button"

@@ -14,6 +14,10 @@ const props = defineProps({
     type: Number,
     required: true,
   },
+  baseCount: {
+    type: Number,
+    default: 0,
+  },
   totalCount: {
     type: Number,
     required: true,
@@ -95,7 +99,10 @@ const subText = computed(() => {
                 : '다음 매물 불러오는 중...'
               : isMapMoved
                 ? '이 위치에서 매물 재검색'
-                : `매물 더보기 (${visibleCount}/${totalCount}개)`
+                : baseCount && baseCount !== visibleCount
+                  ? `매물 더보기 (${visibleCount}/${baseCount}개)`
+                  : `매물 더보기 (${visibleCount}개)`
+            /* totalCount는 사각형 쿼리 개수이므로 미노출 주석 처리: /${totalCount}개 */
           }}
         </span>
       </div>
