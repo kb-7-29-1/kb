@@ -1,6 +1,11 @@
 package com.salgosipo.safety.service;
 
+import com.salgosipo.safety.domain.PedestrianRoute;
+import com.salgosipo.safety.dto.RoutePointDTO;
+import com.salgosipo.safety.dto.SafetyRouteCandidateDTO;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -32,6 +37,32 @@ class SafetyScoreCalculatorTest {
         assertEquals(10, calculator.calculateStreetLightCoveragePenalty(60.0));
         assertEquals(20, calculator.calculateStreetLightCoveragePenalty(40.0));
         assertEquals(30, calculator.calculateStreetLightCoveragePenalty(20.0));
-        assertEquals(45, calculator.calculateStreetLightCoveragePenalty(19.9));
+        assertEquals(55, calculator.calculateStreetLightCoveragePenalty(19.9));
+    }
+
+    @Test
+    void policeRadiusUsesOneHundredMeters() {
+        assertEquals(100.0, SafetyScoreCalculator.POLICE_ROUTE_RADIUS_METERS);
+    }
+
+    @Test
+    void noFacilitiesUsesNewPenaltyFormula() {
+        PedestrianRoute route = new PedestrianRoute();
+        route.setRouteId("TEST");
+        route.setSearchOption("4");
+        route.setRouteType("대로 우선");
+        route.setDistanceMeters(1000);
+        route.setTotalTimeSeconds(800);
+        route.setRoutePoints(List.of(
+                new RoutePointDTO(37.5500, 127.0700),
+                new RoutePointDTO(37.5510, 127.0710)
+        ));
+
+        SafetyRouteCandidateDTO result = calculator.calculate(route, List.of());
+
+        assertEquals(55, result.getBreakdown().getStreetLightCoveragePenalty());
+        assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
+        assertEquals(100, result.getBreakdown().getTotalPenalty());
+        assertEquals(33, result.getSafetyScore());
     }
 }
