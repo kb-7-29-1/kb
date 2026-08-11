@@ -117,7 +117,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
         http.authorizeRequests() // 경로별 접근권한 설정
                 .antMatchers(HttpMethod.OPTIONS).permitAll()
-                .antMatchers(HttpMethod.POST, "/api/auth/refresh").authenticated() // 세션 연장은 로그인 필요
+                .antMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll() // 만료된 토큰도 유예기간 내면 컨트롤러가 직접 검증
                 .antMatchers(HttpMethod.POST, "/api/user/signup", "/api/auth/login").permitAll() // 회원가입/로그인
                 .antMatchers(HttpMethod.GET, "/api/user/check-id", "/api/destinations/search", "/api/properties", "/api/properties/**").permitAll()
                 .antMatchers(HttpMethod.POST,

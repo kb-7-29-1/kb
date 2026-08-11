@@ -5,6 +5,7 @@ import com.salgosipo.auth.dto.FindPasswordRequestDto;
 import com.salgosipo.auth.dto.ResetPasswordRequestDto;
 import com.salgosipo.auth.mapper.AuthMapper;
 import com.salgosipo.global.security.util.JwtProcessor;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -49,7 +50,8 @@ public class AuthService {
         authMapper.resetPassword(userId, encodedPassword);
     }
 
-    public String refreshToken(String username){
-        return jwtProcessor.generateToken(username);
+    public String refreshToken(String token){
+        Claims claims = jwtProcessor.getClaimsAllowingGrace(token);
+        return jwtProcessor.generateToken(claims.getSubject());
     }
 }
