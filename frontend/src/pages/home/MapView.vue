@@ -381,6 +381,16 @@ const doFetchPropertiesFromBackend = async (isAppend = false) => {
       return true;
     });
 
+    // test: 조회된 매물 ID 출력
+    console.table(
+      candidates.map((property) => ({
+        propertyId: property.propertyId,
+        address: property.address || property.title,
+        deposit: property.deposit,
+        monthlyRent: property.monthlyRent,
+      })),
+    );
+
     // 매물 데이터 즉시 지도에 렌더링 (isAppend 모드에서는 기존 수집 매물을 유지하고 신규 추가만 통합)
     if (isAppend) {
       const existingIds = new Set(properties.value.map((p) => Number(p.propertyId)));
