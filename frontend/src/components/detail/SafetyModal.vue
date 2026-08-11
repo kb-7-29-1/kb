@@ -87,7 +87,7 @@
             <div class="info-content">
               <div class="info-title">치안시설 접근성</div>
               <!-- 조건문을 사용하여 텍스트를 두 줄로 분리 -->
-              <template v-if="nearestPoliceDistanceMeters !== null">
+              <template v-if="nearestPoliceDistanceMeters !== null && nearestPoliceDistanceMeters <= 100">
                 <div class="info-desc">가장 가까운 파출소 약 {{ nearestPoliceDistanceMeters }}m</div>
                 <div class="info-desc">도보 약 {{ nearestPoliceWalkMinutes }}분</div>
               </template>
@@ -195,7 +195,7 @@ const nearestPoliceDistanceMeters = computed(
     },
 );
 const nearestPoliceWalkMinutes = computed(() => {
-  if (nearestPoliceDistanceMeters.value === null) return null;
+  if (nearestPoliceDistanceMeters.value === null || nearestPoliceDistanceMeters.value > 100) return null;
   return Math.max(1, Math.ceil(nearestPoliceDistanceMeters.value / 75));
 });
 
