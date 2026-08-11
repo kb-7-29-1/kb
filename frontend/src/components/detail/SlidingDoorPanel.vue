@@ -24,6 +24,7 @@ const isLoanOpen = ref(false);
 const isSafetyModalOpen = ref(false);
 const safetyDetails = ref(null);
 const isSafetyDetailsLoading = ref(false);
+const isImagePreviewOpen = ref(false);
 
 const props = defineProps({
   isOpen: {
@@ -60,6 +61,7 @@ const detailSessionKey = ref(0);
 const resetDetailView = async () => {
   isLoanOpen.value = false;
   isSafetyModalOpen.value = false;
+  isImagePreviewOpen.value = false;
   safetyDetails.value = null;
   isSafetyDetailsLoading.value = false;
   detailSessionKey.value += 1;
@@ -257,6 +259,29 @@ const detailImageUrl = computed(() => {
 
 <template>
   <div>
+    <div
+      v-if="isImagePreviewOpen && property"
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/75 p-5 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="매물 이미지 크게 보기"
+      @click.self="isImagePreviewOpen = false"
+    >
+      <button
+        type="button"
+        class="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-xl leading-none text-white transition hover:bg-white/25"
+        aria-label="이미지 크게 보기 닫기"
+        @click="isImagePreviewOpen = false"
+      >
+        ×
+      </button>
+      <img
+        :src="detailImageUrl"
+        :alt="`${property.title || property.address} 매물 이미지`"
+        class="max-h-full max-w-full rounded-2xl object-contain shadow-2xl"
+      />
+    </div>
+
     <!-- Backdrop Overlay (패널 열렸을 때 오버레이 - PC 전용) -->
     <div
       v-if="isOpen && !isInline"
@@ -349,11 +374,23 @@ const detailImageUrl = computed(() => {
         <div class="flex min-h-full flex-col gap-4 p-4 py-0">
           <!-- 매물 대표 사진 + 보증금/월세/평수/층수 -->
           <div class="flex gap-4">
-            <div
-              class="relative h-28 w-28 flex-shrink-0 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"
+            <button
+              type="button"
+              class="group relative h-28 w-28 flex-shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 text-left"
+              aria-label="매물 이미지 크게 보기"
+              @click="isImagePreviewOpen = true"
             >
-              <img :src="detailImageUrl" :alt="property.title" class="w-full h-full object-cover" />
-            </div>
+              <img
+                :src="detailImageUrl"
+                :alt="property.title"
+                class="h-full w-full object-cover transition duration-200 group-hover:scale-105"
+              />
+              <span
+                class="absolute inset-0 flex items-center justify-center bg-slate-900/0 text-sm text-white opacity-0 transition group-hover:bg-slate-900/30 group-hover:opacity-100"
+              >
+                <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+              </span>
+            </button>
 
             <div class="flex flex-1 flex-col justify-center gap-1.5">
               <div class="flex items-baseline gap-1.5">
