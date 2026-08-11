@@ -3,7 +3,7 @@
  */
 
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
-export const renderPropertyPinHTML = (prop, isSelected) => {
+export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = false) => {
   const safetyScore = prop.safetyScore || 85;
   let theme = {
     border: 'border-emerald-500',
@@ -41,7 +41,8 @@ export const renderPropertyPinHTML = (prop, isSelected) => {
     : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
   const badgeStyle = isSelected ? 'bg-white/20 text-white' : theme.badge;
   // 선택하지 않은 매물은 경로를 가리지 않도록 흐리게 두고, hover 시 선명하게 표시
-  const opacityStyle = isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100';
+  const opacityStyle =
+    hasSelectedProperty && !isSelected ? 'opacity-60 hover:opacity-100' : 'opacity-100';
 
   return `
     <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform transition-opacity duration-200 ${opacityStyle}">
@@ -73,9 +74,10 @@ export const renderDestinationPinHTML = (destination) => {
 };
 
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
-export const renderClusterPinHTML = (count) => {
+export const renderClusterPinHTML = (count, hasSelectedProperty = false) => {
+  const opacityStyle = hasSelectedProperty ? 'opacity-60 hover:opacity-100' : 'opacity-100';
   return `
-    <div class="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full opacity-60 hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] hover:opacity-100 cursor-pointer z-20 select-none">
+    <div class="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full ${opacityStyle} hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] cursor-pointer z-20 select-none">
       <span class="text-[18px] font-extrabold leading-none">${count.toLocaleString()}<span class="ml-px text-[11px] font-semibold">개</span></span>
     </div>
   `;

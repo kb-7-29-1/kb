@@ -29,6 +29,13 @@
                 ELSE 'DANGER'
             END AS safetyGrade,
             COALESCE(p.deal_count, 1) AS dealCount,
+            (
+                SELECT pi.image_url
+                FROM property_images pi
+                WHERE pi.property_id = p.property_id
+                ORDER BY pi.display_order ASC, pi.image_id ASC
+                LIMIT 1
+            ) AS thumbnailUrl,
             <choose>
                 <when test="userId != null">
                     CASE WHEN b.user_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
