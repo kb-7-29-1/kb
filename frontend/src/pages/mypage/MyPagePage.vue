@@ -7,6 +7,7 @@ import onboardingApi from '@/api/onboardingApi';
 import ProfileCard from '@/components/mypage/ProfileCard.vue';
 import BookmarkList from '@/components/mypage/BookmarkList.vue';
 import OnboardingPanel from '@/components/mypage/OnboardingPanel.vue';
+import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -51,12 +52,14 @@ const transport = computed(() => {
 });
 
 const deposit = computed(() => {
-  const dep = onboarding.value?.budgetDeposit ?? onboarding.value?.maxDeposit ?? onboarding.value?.deposit;
+  const dep =
+    onboarding.value?.budgetDeposit ?? onboarding.value?.maxDeposit ?? onboarding.value?.deposit;
   return formatAmount(dep);
 });
 
 const rent = computed(() => {
-  const rawRent = onboarding.value?.budgetRent ?? onboarding.value?.maxRent ?? onboarding.value?.monthlyRent;
+  const rawRent =
+    onboarding.value?.budgetRent ?? onboarding.value?.maxRent ?? onboarding.value?.monthlyRent;
   const value = Number(rawRent);
   if (!Number.isFinite(value)) return '설정 정보 없음';
   return value === 0 ? '전세' : `${value.toLocaleString()}만원 이하`;
@@ -77,8 +80,9 @@ const safety = computed(() => {
 const loadOnboarding = async () => {
   let saved = null;
   try {
-    const localResult = localStorage.getItem('salgosipo-onboarding-result');
-    const localDraft = localStorage.getItem('salgosipo-onboarding-draft');
+    const storageKeys = getOnboardingStorageKeys(authStore.user);
+    const localResult = storageKeys ? localStorage.getItem(storageKeys.result) : null;
+    const localDraft = storageKeys ? localStorage.getItem(storageKeys.draft) : null;
     if (localResult) {
       saved = JSON.parse(localResult);
     } else if (localDraft) {
