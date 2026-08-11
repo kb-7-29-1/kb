@@ -24,6 +24,9 @@ export const getProfile = () => api.get('/user/profile')
 // 프로필 수정
 export const updateProfile = (data) => api.put('/user/profile', data)
 
+// 프로필 사진 수정 (null 넘기면 기본 아이콘으로 되돌림)
+export const updateProfileImage = (image) => api.put('/user/profile-image', { image })
+
 // 비밀번호 변경
 export const changePassword = (data) => api.put('/user/password', data)
 
