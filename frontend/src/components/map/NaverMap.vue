@@ -117,19 +117,19 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
 
   const detailBadge =
     isExpanded && walkingInfo
-      ? `<span class="amenity-detail shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold text-violet-700">${walkingInfo}</span>`
+      ? `<span class="amenity-detail shrink-0 rounded-md bg-white/20 px-1.5 py-0.5 text-[10px] font-bold text-white">${walkingInfo}</span>`
       : '';
 
   const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
 
   return `
     <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
-      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-400 bg-white px-2.5 text-xs font-bold text-slate-800 shadow-lg transition-all duration-200 group-hover:bg-violet-50 group-hover:shadow-xl ${expandedClass}">
-        <span class="shrink-0 text-violet-600">${icon}</span>
+      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-600 bg-violet-600 px-2.5 text-xs font-bold text-white shadow-lg transition-all duration-200 group-hover:bg-violet-700 group-hover:shadow-xl ${expandedClass}">
+        <span class="shrink-0">${icon}</span>
         <span class="shrink-0">${amenity.amenityName || ''}</span>
         ${detailBadge}
       </div>
-      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-400 transition-colors duration-200 group-hover:bg-violet-50"></div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-600 transition-colors duration-200 group-hover:bg-violet-700"></div>
       <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
     </div>
   `;
@@ -156,10 +156,11 @@ const getSelectedContextFitMargin = () => {
     const panelWidth = detailPanel?.getBoundingClientRect().width ?? 0;
 
     return {
-      top: 84,
-      right: Math.min(panelWidth + 32, Math.max(56, width * 0.44)),
-      bottom: 36,
-      left: 32,
+      // 패널 너비 + 마커·경로가 패널 경계에 닿지 않도록 여백 함께 확보
+      top: 104,
+      right: Math.min(panelWidth + 200, Math.max(200, width * 0.62)),
+      bottom: 64,
+      left: 52,
     };
   }
 
@@ -335,11 +336,29 @@ const renderMarkers = () => {
   }
 
   // 2. 🏢 / 🏠 매물 및 클러스터 마커 렌더링 준비 (Diffing)
+  // 선택 매물은 클러스터 계산에서 제외, 개별 마커로 유지
+  const selectedPropertyId = Number(props.selectedProperty?.propertyId);
+  const propertiesForClustering = Number.isFinite(selectedPropertyId)
+    ? props.properties.filter(
+        (property) => Number(property.propertyId) !== selectedPropertyId,
+      )
+    : props.properties;
   const clusteredNodes = getClusteredMarkers(
-    props.properties,
+    propertiesForClustering,
     currentZoom,
     bounds,
   );
+
+  if (
+    Number.isFinite(selectedPropertyId) &&
+    props.selectedProperty?.latitude != null &&
+    props.selectedProperty?.longitude != null
+  ) {
+    clusteredNodes.push({
+      isCluster: false,
+      item: props.selectedProperty,
+    });
+  }
   const nextMarkerKeys = new Set();
   const nodesToCreate = [];
 
@@ -353,8 +372,7 @@ const renderMarkers = () => {
     } else {
       const prop = node.item;
       const isSelected =
-        props.selectedProperty &&
-        props.selectedProperty.propertyId === prop.propertyId;
+        Number(props.selectedProperty?.propertyId) === Number(prop.propertyId);
       const propKey = `prop_${prop.propertyId}_${isSelected ? 'selected' : 'normal'}`;
       nextMarkerKeys.add(propKey);
 
@@ -389,6 +407,7 @@ const renderMarkers = () => {
               task.node.lng,
             ),
             map: mapInstance.value,
+            zIndex: 8,
             icon: {
               content: renderClusterPinHTML(task.node.count, task.node.items),
             },
@@ -425,6 +444,8 @@ const renderMarkers = () => {
               prop.longitude,
             ),
             map: mapInstance.value,
+            // 선택한 매물만 강조, 나머지 매물은 경로 아래에 둠
+            zIndex: isSelected ? 40 : 10,
             icon: {
               content: renderPropertyPinHTML(prop, isSelected),
             },
@@ -470,7 +491,7 @@ const refreshAmenityMarkerContents = () => {
       content: renderAmenityPin(amenity, isExpanded),
       anchor: new window.naver.maps.Point(0, 0),
     });
-    marker.setZIndex(isExpanded ? 35 : 30);
+    marker.setZIndex(isExpanded ? 55 : 50);
   });
 };
 
@@ -492,7 +513,8 @@ const renderAmenityMarkers = () => {
         amenity.amenityLongitude,
       ),
       map: mapInstance.value,
-      zIndex: 30,
+      // 선택 매물에 가려지지 않도록 편의시설을 위에 표시
+      zIndex: 50,
       icon: {
         content: renderAmenityPin(
           amenity,

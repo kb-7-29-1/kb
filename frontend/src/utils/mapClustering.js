@@ -40,9 +40,11 @@ export const renderPropertyPinHTML = (prop, isSelected) => {
     ? `${theme.background} text-white z-30`
     : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
   const badgeStyle = isSelected ? 'bg-white/20 text-white' : theme.badge;
+  // 선택하지 않은 매물은 경로를 가리지 않도록 흐리게 두고, hover 시 선명하게 표시
+  const opacityStyle = isSelected ? 'opacity-100' : 'opacity-60 hover:opacity-100';
 
   return `
-    <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform">
+    <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform transition-opacity duration-200 ${opacityStyle}">
       <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}">
         <span class="shrink-0">${priceText}</span>
         <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}">
@@ -73,7 +75,7 @@ export const renderDestinationPinHTML = (destination) => {
 // 클러스터 마커 핀 HTML (축소 상태 시 매물 묶음 핀)
 export const renderClusterPinHTML = (count) => {
   return `
-    <div class="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] cursor-pointer z-20 select-none">
+    <div class="flex h-[58px] w-[58px] items-center justify-center rounded-full border border-[#aebcff] bg-[#dfe5ff] text-[#3852e8] shadow-lg transition-all transform -translate-x-1/2 -translate-y-full opacity-60 hover:-translate-y-[calc(100%+3px)] hover:bg-[#d2dcff] hover:opacity-100 cursor-pointer z-20 select-none">
       <span class="text-[18px] font-extrabold leading-none">${count.toLocaleString()}<span class="ml-px text-[11px] font-semibold">개</span></span>
     </div>
   `;

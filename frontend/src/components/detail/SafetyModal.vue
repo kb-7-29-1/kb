@@ -36,13 +36,13 @@
       </section>
 
       <!-- 귀갓길 정보 -->
-      <section v-if="routeDistanceLabel || routeTimeLabel" class="route-info-section">
+      <section v-if="routeDistanceLabel" class="route-info-section">
         <div class="icon-wrap small-icon purple-text">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
         </div>
         <div class="info-content">
           <div class="info-title">분석한 귀갓길</div>
-          <div class="info-desc">목적지까지 총 {{ routeDistanceLabel || '-' }} · 도보 약 {{ routeTimeLabel || '-' }}</div>
+          <div class="info-desc">목적지까지 총 {{ routeDistanceLabel || '-' }}</div>
         </div>
       </section>
 
@@ -183,17 +183,16 @@ const routeDistanceLabel = computed(() => {
   if (!Number.isFinite(meters) || meters <= 0) return '';
   return meters >= 1000 ? `${(meters / 1000).toFixed(1)}km` : `${Math.round(meters)}m`;
 });
-const routeTimeLabel = computed(() => {
-  const seconds = Number(props.safetyRoute?.totalTimeSeconds);
-  if (!Number.isFinite(seconds) || seconds <= 0) return '';
-  return `${Math.max(1, Math.ceil(seconds / 60))}분`;
-});
+
 const formatAverageGap = (label, value) => {
-  if (value !== null) return `${label} 간 평균 거리 약 ${value}m`;
+  if (value !== null) return `${label} 간 평균 거리 약 ${Math.round(Number(value))}m`;
   return props.isCalculating ? `${label} 간 평균 거리 계산 중` : `${label} 간 평균 거리 계산 결과 없음`;
 };
 const nearestPoliceDistanceMeters = computed(
-    () => props.safetyBreakdown?.nearestPoliceDistanceMeters ?? null,
+    () => {
+      const value = props.safetyBreakdown?.nearestPoliceDistanceMeters;
+      return value === null || value === undefined ? null : Math.round(Number(value));
+    },
 );
 const nearestPoliceWalkMinutes = computed(() => {
   if (nearestPoliceDistanceMeters.value === null) return null;
