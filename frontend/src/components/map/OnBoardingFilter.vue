@@ -111,7 +111,7 @@ const handleSearchInput = (event) => {
   scheduleSearch(event.target.value);
 };
 
-const rangeStyle = (value, min, max, color = '#3d55f6') => {
+const rangeStyle = (value, min, max, color = '#3b82f6') => {
   const percent = ((value - min) / (max - min)) * 100;
 
   return {
@@ -119,7 +119,7 @@ const rangeStyle = (value, min, max, color = '#3d55f6') => {
   };
 };
 
-const dualRangeStyle = (minVal, maxVal, min, max, color = '#3d55f6') => {
+const dualRangeStyle = (minVal, maxVal, min, max, color = '#3b82f6') => {
   const minPercent = ((minVal - min) / (max - min)) * 100;
   const maxPercent = ((maxVal - min) / (max - min)) * 100;
   return {
@@ -436,7 +436,10 @@ onBeforeUnmount(() => {
       <div class="section-heading">
         <p>거래유형</p>
       </div>
-      <p class="trade-type-guide">월세·전세 중복 선택 가능</p>
+      <p class="trade-type-guide">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        <span>월세·전세 중복 선택 가능</span>
+      </p>
       <div class="transport-options">
         <button type="button" :class="{ active: hasMonthly }" @click="toggleTradeType('MONTHLY')">
           <span>🏠</span> 월세
@@ -832,36 +835,37 @@ onBeforeUnmount(() => {
 
 input[type='range'] {
   width: 100%;
-  height: 6px;
+  height: 10px;
   margin: 0;
   appearance: none;
   border-radius: 999px;
+  box-shadow: inset 0 1px 2px rgb(15 23 42 / 8%);
   cursor: pointer;
 }
 input[type='range']::-webkit-slider-thumb {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   appearance: none;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 25%);
 }
 input[type='range']::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border: 2px solid #fff;
   border-radius: 50%;
-  background: #3d55f6;
-  box-shadow: 0 1px 4px rgb(61 85 246 / 40%);
+  background: #3b82f6;
+  box-shadow: 0 2px 6px rgb(15 23 42 / 25%);
 }
 .flex-time-range::-webkit-slider-thumb {
   background: #f59e0b !important;
-  box-shadow: 0 1px 4px rgb(245 158 11 / 40%) !important;
+  box-shadow: 0 2px 6px rgb(245 158 11 / 30%) !important;
 }
 .flex-time-range::-moz-range-thumb {
   background: #f59e0b !important;
-  box-shadow: 0 1px 4px rgb(245 158 11 / 40%) !important;
+  box-shadow: 0 2px 6px rgb(245 158 11 / 30%) !important;
 }
 .range-labels {
   display: flex;
@@ -873,7 +877,7 @@ input[type='range']::-moz-range-thumb {
 
 .dual-range-track {
   position: relative;
-  height: 17px;
+  height: 18px;
 }
 
 .dual-range-track__fill {
@@ -881,7 +885,7 @@ input[type='range']::-moz-range-thumb {
   top: 50%;
   left: 0;
   right: 0;
-  height: 6px;
+  height: 10px;
   border-radius: 999px;
   transform: translateY(-50%);
   pointer-events: none;
@@ -889,16 +893,35 @@ input[type='range']::-moz-range-thumb {
 
 .dual-range-track input[type='range'] {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 0;
   width: 100%;
-  height: 17px;
+  height: 10px;
   margin: 0;
   background: transparent;
+  box-shadow: none;
+  transform: translateY(-50%);
   pointer-events: none;
 }
 
+.dual-range-track input[type='range']::-webkit-slider-runnable-track {
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dual-range-track input[type='range']::-moz-range-track {
+  height: 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
 .dual-range-track input[type='range']::-webkit-slider-thumb {
+  margin-top: -4px;
   pointer-events: auto;
 }
 
@@ -927,10 +950,18 @@ input[type='range']::-moz-range-thumb {
 }
 
 .trade-type-guide {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   margin: -2px 0 8px;
   color: #94a3b8;
   font-size: 11px;
   line-height: 1.4;
+}
+
+.trade-type-guide i {
+  color: #3b82f6;
+  font-size: 10px;
 }
 
 .transport-options {
