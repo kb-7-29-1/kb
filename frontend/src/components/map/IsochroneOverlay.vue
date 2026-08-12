@@ -308,25 +308,35 @@ const updateIsochroneOverlays = () => {
     }
   }
 
-  // 🌑 외부 마스크 폴리곤 (미리보기 시 liveFilter 반경에 정확히 1:1 밀착하여 구멍 생성)
-  const maxMaskRadius =
-    props.isPreviewMode && lf
-      ? lf.transportMode === 'WALK'
-        ? previewRadius
-        : pTransitMaxRadius
-      : outerBoundaryMeters;
+  // 🌑 외부 마스크 폴리곤 (축적 30m 이하 Zoom >= 17 고확대 시에는 지도 세밀 조망 가림 방지를 위해 반투명 마스크 일시 해제)
+  const currentZoom = props.mapInstance ? props.mapInstance.getZoom() : 15;
+  const isHighZoom = currentZoom >= 18;
 
-  const holeCirclePath = createCirclePath(destLat, destLng, maxMaskRadius, 128);
-  maskPolygonInstance.value = markRaw(
-    new window.naver.maps.Polygon({
-      map: props.mapInstance,
-      paths: [outerBoxPath, holeCirclePath],
-      fillColor: '#0f172a',
-      fillOpacity: 0.55,
-      strokeWeight: 0,
-      clickable: false,
-    }),
-  );
+  if (!isHighZoom) {
+    const maxMaskRadius =
+      props.isPreviewMode && lf
+        ? lf.transportMode === 'WALK'
+          ? previewRadius
+          : pTransitMaxRadius
+        : outerBoundaryMeters;
+
+    const holeCirclePath = createCirclePath(
+      destLat,
+      destLng,
+      maxMaskRadius,
+      128,
+    );
+    maskPolygonInstance.value = markRaw(
+      new window.naver.maps.Polygon({
+        map: props.mapInstance,
+        paths: [outerBoxPath, holeCirclePath],
+        fillColor: '#0f172a',
+        fillOpacity: 0.55,
+        strokeWeight: 0,
+        clickable: false,
+      }),
+    );
+  }
 
   // ==========================================
   // 2. [독립 미리보기 전용 초선명 네온 점선 원 (슬라이더 조절 중 추가 등장)]
@@ -456,6 +466,8 @@ const updateIsochroneOverlays = () => {
   }
 };
 
+let zoomListener = null;
+
 // 지도 인스턴스 준비 및 props 변경 감시
 watch(
   [
@@ -467,6 +479,17 @@ watch(
   ],
   ([newMap]) => {
     if (newMap && window.naver && window.naver.maps) {
+      if (zoomListener) {
+        window.naver.maps.Event.removeListener(zoomListener);
+        zoomListener = null;
+      }
+      zoomListener = window.naver.maps.Event.addListener(
+        newMap,
+        'zoom_changed',
+        () => {
+          updateIsochroneOverlays();
+        },
+      );
       updateIsochroneOverlays();
     }
   },
@@ -478,6 +501,9 @@ onUnmounted(() => {
   badgesList.value.forEach((b) => b.setMap(null));
   if (maskPolygonInstance.value) {
     maskPolygonInstance.value.setMap(null);
+  }
+  if (zoomListener && window.naver && window.naver.maps) {
+    window.naver.maps.Event.removeListener(zoomListener);
   }
   if (boundsListener && window.naver && window.naver.maps) {
     window.naver.maps.Event.removeListener(boundsListener);

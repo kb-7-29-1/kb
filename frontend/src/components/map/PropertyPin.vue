@@ -85,7 +85,7 @@ const priceText = computed(() => {
         class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
         :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
       >
-        {{ safetyScore === null ? '--' : `${safetyScore}점` }}
+        {{ safetyScore === null ? '점수 없음' : `${safetyScore}점` }}
       </span>
     </div>
     <div class="-mt-1.5 h-2.5 w-2.5 rotate-45" :class="safetyPinTheme.pointer"></div>
