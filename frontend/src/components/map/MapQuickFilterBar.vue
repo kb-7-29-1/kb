@@ -844,15 +844,65 @@ watch(
   },
 );
 
-// const AMENITY_INFO_MAP = {
-//   1: { icon: '🏪', name: '편의점', action: '삼김 사러 가는 중...' },
-//   2: { icon: '☕', name: '카페', action: '커피 마시는 중...' },
-//   3: { icon: '🧺', name: '코인세탁소', action: '뽀송뽀송 빨래 중...' },
-//   4: { icon: '🍔', name: '패스트푸드', action: '버거 냠냠 먹는 중...' },
-//   5: { icon: '🛒', name: '다이소', action: '다이소 털러 가는 중...' },
-//   6: { icon: '💄', name: '올리브영', action: '올영 세일 구경 중...' },
-//   7: { icon: '🏢', name: '대형마트', action: '카트 끌고 장보는 중...' },
-// };
+/*
+const AMENITY_INFO_MAP = {
+  1: { icon: '🏪', name: '편의점', action: '삼김 사러 가는 중...' },
+  2: { icon: '☕', name: '카페', action: '커피 마시는 중...' },
+  3: { icon: '🧺', name: '코인세탁소', action: '뽀송뽀송 빨래 중...' },
+  4: { icon: '🍔', name: '패스트푸드', action: '버거 냠냠 먹는 중...' },
+  5: { icon: '🛒', name: '다이소', action: '다이소 털러 가는 중...' },
+  6: { icon: '💄', name: '올리브영', action: '올영 세일 구경 중...' },
+  7: { icon: '🏢', name: '대형마트', action: '카트 끌고 장보는 중...' },
+};
+const activeAmenityIcons = computed(() => {
+  const list =
+    props.activeAmenityFilters && props.activeAmenityFilters.length
+      ? props.activeAmenityFilters
+      : appliedQuickFilters.value?.selectedAmenities || [];
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((item) => {
+      const type = typeof item === 'object' ? item.amenityType : item;
+      return AMENITY_INFO_MAP[type];
+    })
+    .filter(Boolean);
+});
+const lastClickedType = ref(null);
+watch(
+  () => props.activeAmenityFilters,
+  (newFilters, oldFilters) => {
+    if (!newFilters || !newFilters.length) {
+      lastClickedType.value = null;
+      return;
+    }
+    const newTypes = newFilters.map((item) =>
+      typeof item === 'object' ? item.amenityType : item,
+    );
+    const oldTypes = (oldFilters || []).map((item) =>
+      typeof item === 'object' ? item.amenityType : item,
+    );
+    const addedType = newTypes.find((t) => !oldTypes.includes(t));
+    if (addedType) {
+      lastClickedType.value = addedType;
+    } else if (newTypes.length > 0) {
+      lastClickedType.value = newTypes[newTypes.length - 1];
+    }
+  },
+  { deep: true, immediate: true },
+);
+const amenityLoadingText = computed(() => {
+  if (lastClickedType.value && AMENITY_INFO_MAP[lastClickedType.value]) {
+    const item = AMENITY_INFO_MAP[lastClickedType.value];
+    return `${item.icon} ${item.action}`;
+  }
+  const list = activeAmenityIcons.value;
+  if (list.length > 0) {
+    const item = list[list.length - 1];
+    return `${item.icon} ${item.action}`;
+  }
+  return '🔍 주변 매물 탐색 중...';
+});
+*/
 
 const activeAmenityIcons = computed(() => []);
 
