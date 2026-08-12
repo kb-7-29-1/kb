@@ -47,6 +47,7 @@ public class SafetyRouteClient {
 
         this.restTemplate = new RestTemplate(requestFactory);
         this.objectMapper = new ObjectMapper();
+        this.objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
         this.tmapApiKey = tmapApiKey;
     }
 
@@ -145,7 +146,9 @@ public class SafetyRouteClient {
             return null;
         }
 
-        JsonNode root = objectMapper.readTree(responseBody);
+        // TMap API 응답 텍스트에 포함된 Null Byte(\u0000) 등 비표준 제어 문자 정제
+        String cleanedResponseBody = responseBody.replace("\u0000", "");
+        JsonNode root = objectMapper.readTree(cleanedResponseBody);
         JsonNode features = root.path("features");
         if (!features.isArray() || features.size() == 0) {
             return null;
