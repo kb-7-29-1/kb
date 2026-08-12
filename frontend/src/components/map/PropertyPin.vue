@@ -20,6 +20,15 @@ const safetyScore = computed(() => {
 });
 
 const safetyPinTheme = computed(() => {
+  if (props.property.isSafetyLoading) {
+    return {
+      border: 'border-blue-400 animate-pulse',
+      badge: 'bg-blue-50 text-blue-600 animate-pulse',
+      background: 'bg-blue-500',
+      pointer: 'bg-blue-500',
+    };
+  }
+
   if (safetyScore.value === null) {
     return {
       border: 'border-slate-400',
@@ -85,7 +94,7 @@ const priceText = computed(() => {
         class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
         :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
       >
-        {{ safetyScore === null ? '점수 없음' : `${safetyScore}점` }}
+        {{ property.isSafetyLoading ? '계산 중...' : (safetyScore === null ? '점수 없음' : `${safetyScore}점`) }}
       </span>
     </div>
     <div class="-mt-1.5 h-2.5 w-2.5 rotate-45" :class="safetyPinTheme.pointer"></div>
