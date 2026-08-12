@@ -14,6 +14,9 @@ public interface CommentMapper {
     // 댓글 목록 조회
     List<CommentResponseDTO> findByPropertyId(PropertyCommentVO comment);
 
+    // 내가 작성한 댓글 목록 조회
+    List<CommentResponseDTO> findByUserId(Long userId);
+
     // 댓글 등록
     int insertComment(PropertyCommentVO comment);
 

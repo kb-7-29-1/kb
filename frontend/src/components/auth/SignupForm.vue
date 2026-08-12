@@ -1,6 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router';
-import { ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 import { ko } from 'date-fns/locale';
@@ -24,6 +24,56 @@ const maxBirthDate = new Date();
 const idChecked = ref(false);
 const idCheckMessage = ref('');
 const errorMessage = ref('');
+const emailLocal = ref('');
+const emailDomain = ref('');
+const selectedEmailDomain = ref('SELECT');
+const isCustomEmailDomain = computed(() => selectedEmailDomain.value === 'CUSTOM');
+const customEmailDomainInput = ref(null);
+const isEmailDomainMenuOpen = ref(false);
+const emailDomainMenuRef = ref(null);
+const emailDomainOptions = ['naver.com', 'gmail.com', 'daum.net', 'nate.com', 'hanmail.net'];
+
+const emailAddress = computed(() => {
+  const local = emailLocal.value.trim();
+  const domain = emailDomain.value.trim();
+  return local && domain ? `${local}@${domain}` : '';
+});
+
+const handleEmailDomainChange = async () => {
+  emailDomain.value =
+    selectedEmailDomain.value === 'SELECT' || isCustomEmailDomain.value
+      ? ''
+      : selectedEmailDomain.value;
+
+  if (isCustomEmailDomain.value) {
+    await nextTick();
+    customEmailDomainInput.value?.focus();
+  }
+};
+
+const showEmailDomainOptions = () => {
+  selectedEmailDomain.value = 'SELECT';
+  emailDomain.value = '';
+};
+
+const toggleEmailDomainMenu = () => {
+  isEmailDomainMenuOpen.value = !isEmailDomainMenuOpen.value;
+};
+
+const selectEmailDomain = async (domain) => {
+  selectedEmailDomain.value = domain;
+  isEmailDomainMenuOpen.value = false;
+  await handleEmailDomainChange();
+};
+
+const closeEmailDomainMenuOnOutsideClick = (event) => {
+  if (!emailDomainMenuRef.value?.contains(event.target)) {
+    isEmailDomainMenuOpen.value = false;
+  }
+};
+
+onMounted(() => document.addEventListener('click', closeEmailDomainMenuOnOutsideClick));
+onBeforeUnmount(() => document.removeEventListener('click', closeEmailDomainMenuOnOutsideClick));
 
 const NAME_REGEX = /^[가-힣a-zA-Z\s]{2,20}$/;
 const LOGIN_ID_REGEX = /^[a-zA-Z0-9]{4,20}$/;
@@ -38,12 +88,22 @@ watch(
 );
 
 const handleCheckId = async () => {
-  if (!form.value.loginId) {
+  const loginId = form.value.loginId.trim();
+
+  if (!loginId) {
     idCheckMessage.value = '아이디를 입력해주세요.';
+    idChecked.value = false;
     return;
   }
+
+  if (!LOGIN_ID_REGEX.test(loginId)) {
+    idCheckMessage.value = '아이디는 영문·숫자 4~20자로 입력해주세요.';
+    idChecked.value = false;
+    return;
+  }
+
   try {
-    const response = await checkId(form.value.loginId);
+    const response = await checkId(loginId);
     if (response.data === true) {
       idCheckMessage.value = '사용 가능한 아이디 입니다.';
       idChecked.value = true;
@@ -58,6 +118,7 @@ const handleCheckId = async () => {
 
 const handleSignup = async () => {
   errorMessage.value = '';
+  form.value.email = emailAddress.value;
 
   if (!NAME_REGEX.test(form.value.name)) {
     errorMessage.value = '이름은 한글/영문 2~20자로 입력해주세요.';
@@ -159,17 +220,82 @@ const handleSignup = async () => {
       </p>
     </div>
 
-    <div>
+    <div class="signup-email-field">
       <label class="block text-sm text-gray-600 mb-1">이메일</label>
       <i class="signup-field-icon fa-regular fa-envelope" aria-hidden="true"></i>
-      <input
-        v-model="form.email"
-        type="email"
-        placeholder="example@email.com"
-        class="w-full border rounded-lg px-4 py-3"
-        maxlength="100"
-        required
-      />
+      <div class="email-input-row">
+        <i class="fa-regular fa-envelope email-envelope-icon" aria-hidden="true"></i>
+        <input
+          v-model="emailLocal"
+          type="text"
+          inputmode="email"
+          autocomplete="email"
+          placeholder="이메일 입력"
+          class="email-local-input border rounded-lg px-4 py-3"
+          maxlength="64"
+          required
+        />
+        <span class="email-at" aria-hidden="true">@</span>
+        <span ref="emailDomainMenuRef" class="email-domain-select-wrap">
+          <template v-if="isCustomEmailDomain">
+            <input
+              ref="customEmailDomainInput"
+              v-model="emailDomain"
+              type="text"
+              inputmode="url"
+              placeholder="직접 입력"
+              class="email-domain-input"
+              maxlength="100"
+              required
+            />
+            <button
+              type="button"
+              class="email-domain-options-button"
+              aria-label="이메일 도메인 목록 열기"
+              @click="toggleEmailDomainMenu"
+            >
+              <i class="fa-solid fa-chevron-down email-domain-chevron" aria-hidden="true"></i>
+            </button>
+          </template>
+          <button
+            v-else
+            class="email-domain-select"
+            type="button"
+            :aria-expanded="isEmailDomainMenuOpen"
+            @click="toggleEmailDomainMenu"
+          >
+            {{ selectedEmailDomain === 'SELECT' ? '선택' : selectedEmailDomain }}
+          </button>
+          <i
+            v-if="!isCustomEmailDomain"
+            class="fa-solid fa-chevron-down email-domain-chevron"
+            :class="{ 'is-open': isEmailDomainMenuOpen }"
+            aria-hidden="true"
+          ></i>
+          <Transition name="email-domain-menu">
+            <div v-if="isEmailDomainMenuOpen" class="email-domain-menu">
+              <button
+                v-for="domain in emailDomainOptions"
+                :key="domain"
+                type="button"
+                class="email-domain-option"
+                :class="{ 'is-selected': selectedEmailDomain === domain }"
+                @click="selectEmailDomain(domain)"
+              >
+                {{ domain }}
+              </button>
+              <button
+                type="button"
+                class="email-domain-option"
+                :class="{ 'is-selected': isCustomEmailDomain }"
+                @click="selectEmailDomain('CUSTOM')"
+              >
+                직접 입력
+              </button>
+            </div>
+          </Transition>
+        </span>
+      </div>
     </div>
 
     <div class="signup-birth-gender-row flex gap-4">
@@ -255,6 +381,180 @@ const handleSignup = async () => {
   width: 100%;
 }
 
+.signup-email-field > .signup-field-icon {
+  display: none;
+}
+
+.email-input-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+  min-height: 48px;
+  overflow: visible;
+  border: 1px solid #dce1e9;
+  border-radius: 12px;
+  background: #fff;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.email-input-row:focus-within {
+  border-color: #4058f5;
+  box-shadow: 0 0 0 3px rgb(64 88 245 / 12%);
+}
+
+.signup-email-field .email-local-input,
+.signup-email-field .email-domain-select,
+.signup-email-field .email-domain-input {
+  height: 46px;
+  min-height: 46px;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  outline: 0;
+}
+
+.signup-email-field .email-local-input {
+  grid-column: 1;
+  padding-left: 38px;
+}
+
+.signup-email-field .email-local-input,
+.signup-email-field .email-domain-select,
+.signup-email-field .email-domain-input {
+  color: #475569;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.email-envelope-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  z-index: 1;
+  color: #8b9ab5;
+  font-size: 13px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.email-domain-select-wrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  grid-column: 3;
+  align-items: center;
+}
+
+.signup-email-field .email-domain-select {
+  width: 100%;
+  padding: 0 34px 0 10px;
+  color: #475569;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.signup-email-field .email-domain-input {
+  width: 100%;
+  padding: 0 34px 0 10px;
+}
+
+.email-domain-chevron {
+  position: absolute;
+  right: 13px;
+  color: #8b9ab5;
+  font-size: 11px;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.email-domain-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.email-domain-options-button {
+  position: absolute;
+  right: 0;
+  display: inline-flex;
+  width: 36px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #8b9ab5;
+  cursor: pointer;
+}
+
+.email-domain-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  padding: 5px;
+  border: 1px solid #dbe3f4;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgb(30 41 59 / 14%);
+}
+
+.email-domain-option {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.email-domain-option:hover,
+.email-domain-option:focus-visible {
+  outline: 0;
+  background: #eef1ff;
+  color: #4058f5;
+}
+
+.email-domain-option.is-selected {
+  background: #e8edff;
+  color: #4058f5;
+  font-weight: 700;
+}
+
+.email-domain-menu-enter-active,
+.email-domain-menu-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.email-domain-menu-enter-from,
+.email-domain-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.email-at {
+  grid-column: 2;
+  justify-self: center;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 @media (min-width: 481px) {
   .signup-form {
     gap: 16px;
@@ -283,6 +583,31 @@ const handleSignup = async () => {
     min-height: 48px;
     padding-left: 38px;
     border-radius: 12px;
+    font-size: 14px;
+  }
+
+  .signup-email-field .signup-field-icon {
+    top: 49px;
+  }
+
+  .email-input-row input {
+    min-width: 0;
+    padding-left: 14px;
+  }
+
+  .email-domain-input {
+    flex: 1.15;
+  }
+
+  .email-at {
+    color: #64748b;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .email-domain-select {
+    min-width: 0;
+    font-family: inherit;
     font-size: 14px;
   }
 
@@ -341,6 +666,36 @@ const handleSignup = async () => {
     border-color: #e0e5f5;
     border-radius: 10px;
     background: #fff;
+    font-size: 14px;
+  }
+
+  .signup-email-field .signup-field-icon {
+    top: 43px;
+    bottom: auto;
+  }
+
+  .email-input-row input {
+    min-width: 0;
+    padding-left: 13px;
+  }
+
+  .email-local-input {
+    flex: 1;
+  }
+
+  .email-domain-input {
+    flex: 1.12;
+  }
+
+  .email-at {
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .email-domain-select {
+    min-width: 0;
+    font-family: inherit;
     font-size: 14px;
   }
 

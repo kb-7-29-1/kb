@@ -6,6 +6,7 @@ import { changePassword, withdraw } from '@/api/authService';
 import onboardingApi from '@/api/onboardingApi';
 import ProfileCard from '@/components/mypage/ProfileCard.vue';
 import BookmarkList from '@/components/mypage/BookmarkList.vue';
+import MyCommentList from '@/components/mypage/MyCommentList.vue';
 import OnboardingPanel from '@/components/mypage/OnboardingPanel.vue';
 import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
 
@@ -259,7 +260,10 @@ onMounted(loadOnboarding);
         @edit="goEditOnboarding"
       />
 
-      <BookmarkList @open-property="openBookmarkDetail" />
+      <section class="mypage-activity-grid" aria-label="관심 매물 및 작성 댓글">
+        <BookmarkList @open-property="openBookmarkDetail" />
+        <MyCommentList />
+      </section>
 
       <section class="mypage-actions" aria-labelledby="account-actions-title">
         <h2 id="account-actions-title">계정 관리</h2>
@@ -487,6 +491,18 @@ onMounted(loadOnboarding);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.mypage-activity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .mypage-activity-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .mypage-actions {
