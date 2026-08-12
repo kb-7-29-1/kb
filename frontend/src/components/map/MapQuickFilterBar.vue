@@ -258,6 +258,7 @@ const selectDestination = (destination) => {
   destinationSearchKeyword.value = destination.destName;
   destinationSearchResults.value = [];
   destinationSearchError.value = '';
+  saveRecentDestination(destination);
   finishDestinationSelection();
 };
 
@@ -310,7 +311,6 @@ const scheduleDestinationSearch = (value) => {
     return;
   }
 
-  selectedDestination.value = null;
   isDestinationSearching.value = true;
   destinationSearchTimer = setTimeout(async () => {
     try {
@@ -974,7 +974,14 @@ const activeAmenityIcons = computed(() => []);
           </label>
 
           <!-- 🕒 최근 검색 목적지 기록 (유저 ID 결합, 세로 미니멀 리스트, 최대 10개) -->
-          <div v-if="recentDestinations?.length > 0" class="mt-3">
+          <div
+            v-if="
+              recentDestinations?.length > 0 &&
+              !destinationSearchKeyword.trim() &&
+              !isDestinationSearching
+            "
+            class="mt-3"
+          >
             <div
               class="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1.5 px-0.5"
             >
@@ -1018,8 +1025,18 @@ const activeAmenityIcons = computed(() => []);
           <p v-else-if="destinationSearchError" class="mt-3 text-center text-xs text-red-500">
             {{ destinationSearchError }}
           </p>
+          <p
+            v-else-if="
+              destinationSearchKeyword.trim().length >= 2 &&
+              !destinationSearchResults.length &&
+              selectedDestination?.destName !== destinationSearchKeyword
+            "
+            class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
+          >
+            검색 결과가 없어요.
+          </p>
           <ul
-            v-else-if="destinationSearchResults.length"
+            v-if="destinationSearchResults.length"
             class="mt-3 max-h-52 overflow-y-auto rounded-xl border border-slate-100"
           >
             <li
@@ -1046,17 +1063,13 @@ const activeAmenityIcons = computed(() => []);
               </button>
             </li>
           </ul>
-          <p
-            v-else-if="
-              destinationSearchKeyword.trim().length >= 2 &&
-              selectedDestination?.destName !== destinationSearchKeyword
-            "
-            class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
-          >
-            검색 결과가 없어요.
-          </p>
           <div
-            v-else
+            v-if="
+              !isDestinationSearching &&
+              !destinationSearchError &&
+              !destinationSearchResults.length &&
+              destinationSearchKeyword.trim().length < 2
+            "
             class="mt-3 rounded-xl bg-slate-50 px-3 py-4 text-center text-xs text-slate-400"
           >
             장소명 또는 주소를 입력하면<br />검색 결과가 표시됩니다.
