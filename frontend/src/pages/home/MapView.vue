@@ -680,7 +680,13 @@ const baseFilteredProperties = computed(() => {
     if (currentFilters.tradeType === 'MONTHLY') {
       const minRent = currentFilters.minRent || 0;
       const maxRent = currentFilters.maxRent;
-      if (p.monthlyRent < minRent || p.monthlyRent > maxRent) return false;
+      // 전세는 월세가 0인 매물이라 월세 단독 조건에서 제외한다.
+      if (
+        Number(p.monthlyRent || 0) <= 0 ||
+        p.monthlyRent < minRent ||
+        p.monthlyRent > maxRent
+      )
+        return false;
     }
 
     // 4. 안전 점수 필터 (null인 경우 미수집 매물이므로 필터 통과 처리)
