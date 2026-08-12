@@ -6,10 +6,34 @@ import { useRouter } from 'vue-router';
 import { getProfile } from '@/api/authService.js';
 
 const router = useRouter();
+const amenityFilterCacheKey = 'kb_applied_amenity_filters';
+
+const loadAppliedAmenityFilters = () => {
+  try {
+    const cached = localStorage.getItem(amenityFilterCacheKey);
+    const filters = cached ? JSON.parse(cached) : [];
+    return Array.isArray(filters) ? filters : [];
+  } catch (error) {
+    console.error('AMENITY FILTER CACHE LOAD ERROR: ', error);
+    return [];
+  }
+};
+
+const saveAppliedAmenityFilters = (filters) => {
+  try {
+    if (filters.length) {
+      localStorage.setItem(amenityFilterCacheKey, JSON.stringify(filters));
+    } else {
+      localStorage.removeItem(amenityFilterCacheKey);
+    }
+  } catch (error) {
+    console.error('AMENITY FILTER CACHE SAVE ERROR: ', error);
+  }
+};
 
 const isFilterOpen = ref(false);
 const appliedOnboardingFilters = ref(null);
-const appliedAmenityFilters = ref([]);
+const appliedAmenityFilters = ref(loadAppliedAmenityFilters());
 const filterResetVersion = ref(0);
 const isMovingToMyPage = ref(false);
 const profileImage = ref(null);
@@ -51,16 +75,19 @@ const applyOnboardingFilters = (onboarding) => {
 
   if (prevDestinationKey !== nextDestinationKey) {
     appliedAmenityFilters.value = [];
+    saveAppliedAmenityFilters([]);
   }
 };
 
 const applyAmenityFilters = (amenities) => {
   appliedAmenityFilters.value = Array.isArray(amenities) ? amenities : [];
+  saveAppliedAmenityFilters(appliedAmenityFilters.value);
 };
 
 const resetFilters = () => {
   appliedOnboardingFilters.value = null;
   appliedAmenityFilters.value = [];
+  saveAppliedAmenityFilters([]);
   filterResetVersion.value += 1;
 };
 

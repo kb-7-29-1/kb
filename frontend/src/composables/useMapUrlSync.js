@@ -60,6 +60,16 @@ export function useMapUrlSync() {
         filters.minTravelTime != null ? filters.minTravelTime : undefined,
       minSafety:
         filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
+      amenities: Array.isArray(filters.selectedAmenities)
+        ? filters.selectedAmenities
+            .map((amenity) =>
+              typeof amenity === 'object'
+                ? `${amenity.amenityType}:${amenity.walkTimeMinutes ?? amenity.timeLimit ?? ''}`
+                : amenity,
+            )
+            .filter((amenity) => amenity != null)
+            .join(',') || undefined
+        : undefined,
       propertyId: selectedPropertyId || undefined,
     };
     router.replace({ query }).catch(() => {});
@@ -70,7 +80,12 @@ export function useMapUrlSync() {
     const q = route.query;
     if (
       !q ||
-      (!q.destLat && !q.tradeType && !q.maxDeposit && !q.dest && !q.destName)
+      (!q.destLat &&
+        !q.tradeType &&
+        !q.maxDeposit &&
+        !q.dest &&
+        !q.destName &&
+        !q.amenities)
     )
       return false;
 
@@ -112,6 +127,21 @@ export function useMapUrlSync() {
       filterStateRef.value.minTravelTime = Number(q.minTravelTime);
     if (q.minSafety != null)
       filterStateRef.value.minSafetyScore = Number(q.minSafety);
+    if (q.amenities) {
+      filterStateRef.value.selectedAmenities = String(q.amenities)
+        .split(',')
+        .map((amenity) => {
+          const [amenityType, walkTimeMinutes] = amenity.split(':');
+          const type = Number(amenityType);
+          if (!Number.isFinite(type)) return null;
+
+          const walkTime = Number(walkTimeMinutes);
+          return Number.isFinite(walkTime)
+            ? { amenityType: type, walkTimeMinutes: walkTime }
+            : { amenityType: type };
+        })
+        .filter(Boolean);
+    }
 
     if (databaseDestination) {
       Object.assign(filterStateRef.value, databaseDestination);
