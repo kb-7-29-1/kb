@@ -34,7 +34,7 @@ export const DEPOSIT_MAX_LABEL = '10억원';
 export const RENT_MIN = 0; // 0이면 전세
 export const RENT_MAX = 200; // 200만원
 export const RENT_STEP = 5; // 5만원 단위
-export const RENT_MIN_LABEL = '전세';
+export const RENT_MIN_LABEL = '0원';
 export const RENT_MAX_LABEL = '200만원';
 
 export const DEFAULT_DEPOSIT = 5000;

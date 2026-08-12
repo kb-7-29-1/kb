@@ -1,10 +1,7 @@
 import { ref } from 'vue';
 import api from '@/api/api.js';
 import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
-import {
-  getSearchRadiusKm,
-  getMinSearchRadiusKm,
-} from '@/utils/isochroneFilter.js';
+import { getSearchRadiusKm, getMinSearchRadiusKm } from '@/utils/isochroneFilter.js';
 import { calculateDistanceKm } from '@/utils/geo.js';
 import safetyService from '@/api/safetyService.js';
 
@@ -35,9 +32,7 @@ export function usePropertySearch() {
     let maxDeposit = Number(filters.maxDeposit) || DEFAULT_DEPOSIT;
 
     if (filters.selectedLoanId && filters.selectedLoanId !== 'NONE') {
-      const loan = LOAN_PRODUCTS.find(
-        (item) => item.id === filters.selectedLoanId,
-      );
+      const loan = LOAN_PRODUCTS.find((item) => item.id === filters.selectedLoanId);
       if (loan?.ratio > 0) {
         maxDeposit = Math.round(maxDeposit * (1 + loan.ratio));
       }
@@ -65,7 +60,8 @@ export function usePropertySearch() {
     if (filters.tradeType === 'JEONSE') {
       params.maxMonthlyRent = 0;
     } else if (filters.tradeType === 'MONTHLY') {
-      params.minMonthlyRent = 1;
+      // 월세 단독 선택에서 전세 매물 제외
+      params.minMonthlyRent = Math.max(1, Number(filters.minRent) || 0);
       if (Number(filters.maxRent) < DEFAULT_RENT) {
         params.maxMonthlyRent = Number(filters.maxRent);
       }
@@ -99,7 +95,11 @@ export function usePropertySearch() {
     }
 
     try {
-      const searchParams = buildPropertySearchParams(appliedFilterState, destinationConfig, authStore);
+      const searchParams = buildPropertySearchParams(
+        appliedFilterState,
+        destinationConfig,
+        authStore,
+      );
       const propertyResponse = await api.get('/properties', {
         params: searchParams,
         timeout: 5000,
@@ -166,14 +166,13 @@ export function usePropertySearch() {
           .getScoresForProperties({
             propertyIds: uncachedPropertyIds,
             destinationId: appliedFilterState.value.destinationId || null,
-            destinationName:
-              dest.name || appliedFilterState.value.destination || '',
-            destinationAddress:
-              appliedFilterState.value.destinationAddress || '',
+            destinationName: dest.name || appliedFilterState.value.destination || '',
+            destinationAddress: appliedFilterState.value.destinationAddress || '',
             destinationLatitude: dest.lat,
             destinationLongitude: dest.lng,
           })
           .then((scoresMap) => {
+            if (requestId !== propertyRequestSequence || !scoresMap) return;
             properties.value = properties.value.map((prop) => {
               const score =
                 scoresMap?.[prop.propertyId] ?? scoresMap?.[String(prop.propertyId)];
@@ -210,13 +209,8 @@ export function usePropertySearch() {
     }
   };
 
-  const loadMoreProperties = async ({
-    appliedFilterState,
-    destinationConfig,
-    authStore,
-  }) => {
-    if (isMoreLoading.value || properties.value.length >= serverTotalCount.value)
-      return;
+  const loadMoreProperties = async ({ appliedFilterState, destinationConfig, authStore }) => {
+    if (isMoreLoading.value || properties.value.length >= serverTotalCount.value) return;
 
     isMoreLoading.value = true;
     try {
@@ -250,9 +244,7 @@ export function usePropertySearch() {
         const centerLat = searchParams.lat || destinationConfig.value.lat;
         const centerLng = searchParams.lng || destinationConfig.value.lng;
 
-        const existingIds = new Set(
-          properties.value.map((p) => Number(p.propertyId)),
-        );
+        const existingIds = new Set(properties.value.map((p) => Number(p.propertyId)));
 
         const filteredNewItems = newItems.filter((item) => {
           const id = Number(item.propertyId);
