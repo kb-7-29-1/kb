@@ -51,9 +51,13 @@ public class SafetyServiceImpl implements SafetyService {
             "은평구", "종로구", "중구", "중랑구"
     );
 
+    public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
+            "강남구", "강북구", "금천구", "마포구", "성북구", "영등포구", "용산구"
+    );
+
     public static boolean isSupportedDistrict(String... texts) {
         if (texts == null) {
-            return false;
+            return true;
         }
         for (String text : texts) {
             if (text == null || text.isBlank()) {
@@ -64,8 +68,19 @@ public class SafetyServiceImpl implements SafetyService {
                     return true;
                 }
             }
+            if (text.contains("성동구")) {
+                if (text.contains("송정동") || text.contains("용답동")) {
+                    return true;
+                }
+                return false;
+            }
+            for (String unsupported : UNSUPPORTED_DISTRICTS) {
+                if (text.contains(unsupported)) {
+                    return false;
+                }
+            }
         }
-        return false;
+        return true;
     }
 
     private final SafetyMapper safetyMapper;
@@ -322,34 +337,15 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
-            try {
-                CalculationResult calculation = calculateAndPersist(
-                        property,
-                        destination,
-                        property.getAddress()
-                );
-                items.add(createBatchItem(
-                        calculation.stored(),
-                        "CALCULATED",
-                        false,
-                        true,
-                        "대로 우선 경로를 계산해 DB에 저장했습니다."
-                ));
-                calculatedCount++;
-            } catch (RuntimeException exception) {
-                log.warn(
-                        "매물 안전점수 배치 계산 실패. propertyId={}, destinationId={}, message={}",
-                        propertyId,
-                        destination.getDestinationId(),
-                        exception.getMessage()
-                );
-                items.add(createFailedBatchItem(
-                        propertyId,
-                        destination.getDestinationId(),
-                        "대로 우선 보행자 경로 계산 및 저장 실패"
-                ));
-                failedCount++;
-            }
+            PropertySafetyVO fastCalculated = calculateFastLocalSafety(property, destination);
+            items.add(createBatchItem(
+                    fastCalculated,
+                    "CALCULATED",
+                    false,
+                    true,
+                    "로컬 공간 데이터 기준으로 안전점수를 즉시 반환했습니다."
+            ));
+            calculatedCount++;
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
@@ -361,6 +357,63 @@ public class SafetyServiceImpl implements SafetyService {
         response.setSuccessCount(cacheHitCount + calculatedCount);
         response.setItems(items);
         return response;
+    }
+
+    private PropertySafetyVO calculateFastLocalSafety(
+            SafetyPropertyCoordinateVO property,
+            SafetyDestinationVO destination
+    ) {
+        double pLat = property.getLatitude();
+        double pLng = property.getLongitude();
+        double dLat = destination.getLatitude().doubleValue();
+        double dLng = destination.getLongitude().doubleValue();
+
+        double minLat = Math.min(pLat, dLat) - 0.003;
+        double maxLat = Math.max(pLat, dLat) + 0.003;
+        double minLng = Math.min(pLng, dLng) - 0.003;
+        double maxLng = Math.max(pLng, dLng) + 0.003;
+
+        List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
+                minLat, maxLat, minLng, maxLng
+        );
+
+        int cctvCount = 0;
+        int streetLampCount = 0;
+        boolean hasPoliceStation = false;
+
+        if (facilities != null) {
+            for (SafetyFacilityVO facility : facilities) {
+                String type = facility.getFacilityType();
+                if (type != null) {
+                    if (type.contains("CCTV")) {
+                        cctvCount++;
+                    } else if (type.contains("보안등") || type.contains("가로등") || type.contains("LIGHT")) {
+                        streetLampCount++;
+                    } else if (type.contains("경찰서") || type.contains("파출소")) {
+                        hasPoliceStation = true;
+                    }
+                }
+            }
+        }
+
+        int rawScore = 55 + Math.min(25, cctvCount * 2) + Math.min(15, streetLampCount) + (hasPoliceStation ? 10 : 0);
+        int finalScore = Math.min(98, Math.max(35, rawScore));
+
+        PropertySafetyVO vo = new PropertySafetyVO();
+        vo.setPropertyId(property.getPropertyId());
+        vo.setDestinationId(destination.getDestinationId());
+        vo.setSafetyScore(finalScore);
+        vo.setCctvCount(cctvCount);
+        vo.setStreetLampCount(streetLampCount);
+        vo.setHasPoliceStation(hasPoliceStation);
+
+        try {
+            safetyMapper.upsertPropertySafety(vo);
+        } catch (Exception e) {
+            log.warn("Failed to persist fast local safety score: {}", e.getMessage());
+        }
+
+        return vo;
     }
 
     private CalculationResult calculateAndPersist(
@@ -604,21 +657,16 @@ public class SafetyServiceImpl implements SafetyService {
             SafetyDestinationVO stored =
                     safetyMapper.selectDestinationById(destinationId);
 
-            if (stored == null) {
-                throw new IllegalArgumentException(
-                        "destinations 테이블에 존재하지 않는 destinationId입니다: "
-                                + destinationId
+            if (stored != null) {
+                validateCoordinate(
+                        stored.getLatitude().doubleValue(),
+                        stored.getLongitude().doubleValue(),
+                        "목적지"
                 );
+                log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
+                        stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
+                return stored;
             }
-
-            validateCoordinate(
-                    stored.getLatitude().doubleValue(),
-                    stored.getLongitude().doubleValue(),
-                    "목적지"
-            );
-            log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
-                    stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
-            return stored;
         }
 
         validateCoordinate(
@@ -627,12 +675,23 @@ public class SafetyServiceImpl implements SafetyService {
                 "목적지"
         );
 
+        String name = defaultName(destinationName, "선택 목적지");
+        BigDecimal latBd = toDatabaseCoordinate(destinationLatitude);
+        BigDecimal lngBd = toDatabaseCoordinate(destinationLongitude);
+
+        SafetyDestinationVO matched = safetyMapper.selectDestinationByMatch(name, latBd, lngBd);
+        if (matched != null) {
+            log.info("[Safety] matched existing destination by name/coords: id={}, name={}, lat={}, lng={}",
+                    matched.getDestinationId(), matched.getName(), matched.getLatitude(), matched.getLongitude());
+            return matched;
+        }
+
         SafetyDestinationVO destination = new SafetyDestinationVO();
-        destination.setLatitude(toDatabaseCoordinate(destinationLatitude));
-        destination.setLongitude(toDatabaseCoordinate(destinationLongitude));
-        destination.setName(defaultName(destinationName, "선택 목적지"));
+        destination.setLatitude(latBd);
+        destination.setLongitude(lngBd);
+        destination.setName(name);
         destination.setAddress(destinationAddress);
-        log.warn("[Safety] destinationId is missing. Reusing or creating destination by name only: name={}, lat={}, lng={}",
+        log.warn("[Safety] Reusing or creating new destination: name={}, lat={}, lng={}",
                 destination.getName(), destination.getLatitude(), destination.getLongitude());
         safetyMapper.upsertDestination(destination);
 

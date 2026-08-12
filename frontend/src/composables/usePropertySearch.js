@@ -64,6 +64,11 @@ export function usePropertySearch() {
 
     if (filters.tradeType === 'JEONSE') {
       params.maxMonthlyRent = 0;
+    } else if (filters.tradeType === 'MONTHLY') {
+      params.minMonthlyRent = 1;
+      if (Number(filters.maxRent) < DEFAULT_RENT) {
+        params.maxMonthlyRent = Number(filters.maxRent);
+      }
     } else if (Number(filters.maxRent) < DEFAULT_RENT) {
       params.maxMonthlyRent = Number(filters.maxRent);
     }
@@ -142,23 +147,24 @@ export function usePropertySearch() {
 
       properties.value = candidates.map((item) => ({
         ...item,
-        isSafetyLoading: true,
+        isSafetyLoading: item.safetyScore == null,
       }));
       updateLastFetchedCenter(centerLat, centerLng);
 
       // 목적지별 안전점수를 백그라운드(non-blocking)로 일괄 준비 및 병합합니다.
       const dest = destinationConfig.value;
-      const targetPropertyIds = candidates
+      const uncachedPropertyIds = candidates
+        .filter((item) => item.safetyScore == null)
         .map((item) => Number(item.propertyId))
         .filter(Boolean);
 
       if (
-        targetPropertyIds.length > 0 &&
+        uncachedPropertyIds.length > 0 &&
         (dest.lat != null || appliedFilterState.value.destinationId != null)
       ) {
         safetyService
           .getScoresForProperties({
-            propertyIds: targetPropertyIds,
+            propertyIds: uncachedPropertyIds,
             destinationId: appliedFilterState.value.destinationId || null,
             destinationName:
               dest.name || appliedFilterState.value.destination || '',
@@ -168,13 +174,12 @@ export function usePropertySearch() {
             destinationLongitude: dest.lng,
           })
           .then((scoresMap) => {
-            if (requestId !== propertyRequestSequence || !scoresMap) return;
             properties.value = properties.value.map((prop) => {
               const score =
-                scoresMap[prop.propertyId] ?? scoresMap[String(prop.propertyId)];
+                scoresMap?.[prop.propertyId] ?? scoresMap?.[String(prop.propertyId)];
               return {
                 ...prop,
-                safetyScore: score ?? null,
+                safetyScore: score ?? prop.safetyScore ?? null,
                 isSafetyLoading: false,
               };
             });

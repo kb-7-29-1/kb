@@ -6,6 +6,7 @@ import com.salgosipo.safety.domain.SafetyPropertyCoordinateVO;
 import com.salgosipo.safety.domain.SafetyRouteCacheVO;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface SafetyMapper {
@@ -30,6 +31,12 @@ public interface SafetyMapper {
 
     SafetyDestinationVO selectDestinationById(
             @Param("destinationId") Integer destinationId
+    );
+
+    SafetyDestinationVO selectDestinationByMatch(
+            @Param("name") String name,
+            @Param("latitude") BigDecimal latitude,
+            @Param("longitude") BigDecimal longitude
     );
 
     int upsertDestination(SafetyDestinationVO destination);
