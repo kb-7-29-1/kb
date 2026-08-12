@@ -19,6 +19,9 @@ public interface DestinationMapper {
             @Param("minLongitude") BigDecimal minLongitude,
             @Param("maxLongitude") BigDecimal maxLongitude);
 
+    // 목적지 명 또는 주소 부분 검색 (DB 0순위 검색)
+    List<DestinationVO> searchByNameOrAddress(@Param("keyword") String keyword);
+
     // 목적지 명 검색
     DestinationVO findByName(@Param("destName") String destName);
 
