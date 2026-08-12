@@ -108,6 +108,8 @@ export function useOnboardingFilter() {
       const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
       if (maxRent !== undefined && maxRent !== null) {
         filterState.value.maxRent = Number(maxRent);
+        // 온보딩에는 거래유형이 없으므로 월세 0원을 전세로 해석
+        filterState.value.tradeType = Number(maxRent) === 0 ? 'JEONSE' : 'MONTHLY';
       }
       if (saved.minRent !== undefined && saved.minRent !== null) {
         filterState.value.minRent = Number(saved.minRent);
@@ -144,6 +146,8 @@ export function useOnboardingFilter() {
     const maxRent = saved.budgetRent ?? saved.maxRent ?? saved.monthlyRent;
     if (maxRent != null) {
       filterState.value.maxRent = Number(maxRent);
+      // 초기화 시 온보딩의 월세 0원 설정을 전세로 유지
+      filterState.value.tradeType = Number(maxRent) === 0 ? 'JEONSE' : 'MONTHLY';
     }
 
     if (saved.safety || saved.minSafetyScore !== undefined) {
@@ -156,9 +160,8 @@ export function useOnboardingFilter() {
       }
     }
 
-    // 온보딩에는 최대 예산만 저장하므로 초기화 시 월세 탭과 최소 예산을 기본값으로 되돌린다.
+    // 온보딩에는 최대 예산만 저장하므로 초기화 시 최소 예산만 기본값으로 되돌림
     if (resetDestination) {
-      filterState.value.tradeType = 'MONTHLY';
       filterState.value.minDeposit = 0;
       filterState.value.minRent = 0;
     }

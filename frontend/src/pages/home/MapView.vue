@@ -486,8 +486,12 @@ const applyMobileOnboardingFilters = (filters) => {
     filterState.value.maxDeposit = Number(filters.budgetDeposit);
   if (filters.budgetRentMin != null)
     filterState.value.minRent = Number(filters.budgetRentMin);
-  if (filters.budgetRent != null)
-    filterState.value.maxRent = Number(filters.budgetRent);
+  const onboardingRent = filters.budgetRent ?? filters.maxRent ?? filters.monthlyRent;
+  if (onboardingRent != null) {
+    filterState.value.maxRent = Number(onboardingRent);
+    // 온보딩의 월세 0원은 전세 설정을 뜻한다.
+    filterState.value.tradeType = Number(onboardingRent) === 0 ? 'JEONSE' : 'MONTHLY';
+  }
   if (filters.minSafetyScore != null) {
     filterState.value.minSafetyScore = Number(filters.minSafetyScore);
   }
