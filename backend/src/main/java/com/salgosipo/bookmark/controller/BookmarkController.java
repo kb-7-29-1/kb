@@ -21,7 +21,7 @@ public class BookmarkController {
     @PostMapping
     public ResponseEntity<?> addBookmark(@AuthenticationPrincipal CustomUser customUser,
                                          @RequestBody BookmarkRequestDto dto){
-        bookmarkService.addBookmark(customUser.getUsername(),dto.getPropertyId());
+        bookmarkService.addBookmark(customUser.getUsername(),dto.getPropertyId(),dto.getDestinationId());
         return ResponseEntity.ok().build();
     }
 

@@ -206,7 +206,7 @@
             CASE WHEN p.building_type = 3 THEN '업무시설(오피스텔)' ELSE '공동주택(다세대/연립)' END AS mainPurposeName,
             '1' AS earthquakeProofYn,
             COALESCE(p.deal_count, 1) AS dealCount,
-            CASE WHEN b.bookmark_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
+            CASE WHEN b.property_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
         LEFT JOIN (
             SELECT property_id,

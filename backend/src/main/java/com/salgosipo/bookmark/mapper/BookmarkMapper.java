@@ -8,7 +8,8 @@ import java.util.List;
 
 @Mapper
 public interface BookmarkMapper {
-    void addBookmark(@Param("userId") Long userId, @Param("propertyId") Long propertyId);
+    void addBookmark(@Param("userId") Long userId, @Param("propertyId") Long propertyId,
+                      @Param("destinationId") Integer destinationId);
 
     void removeBookmark(@Param("userId") Long userId, @Param("propertyId") Long propertyId);
 
