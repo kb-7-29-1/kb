@@ -18,6 +18,12 @@ import {
   renderDestinationPinHTML,
 } from '@/utils/mapClustering';
 import { isTouchEvent, isMousePointer } from '@/utils/deviceUtils';
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import onboardingApi from '@/api/onboardingApi.js';
+import {
+  getRecentDestinations,
+  findMatchingDestination,
+} from '@/utils/recentDestinations.js';
 
 const props = defineProps({
   properties: {
@@ -602,13 +608,19 @@ const initMap = () => {
           if (bounds && center) {
             const sw = bounds.getSW();
             const ne = bounds.getNE();
+            const centerLat = center.lat();
+            const centerLng = center.lng();
+            // 백엔드 DB 재호출 없이 프론트엔드 카메라 뷰포트 필터링 조건만 완화하는 1.2배 버퍼 좌표 계산
+            const latSpan = (ne.lat() - sw.lat()) * 1.2;
+            const lngSpan = (ne.lng() - sw.lng()) * 1.2;
+
             emit('bounds-change', {
-              swLat: sw.lat(),
-              swLng: sw.lng(),
-              neLat: ne.lat(),
-              neLng: ne.lng(),
-              centerLat: center.lat(),
-              centerLng: center.lng(),
+              swLat: centerLat - latSpan / 2,
+              swLng: centerLng - lngSpan / 2,
+              neLat: centerLat + latSpan / 2,
+              neLng: centerLng + lngSpan / 2,
+              centerLat: centerLat,
+              centerLng: centerLng,
             });
           }
         }
@@ -796,6 +808,8 @@ const clearPendingDestinationOverlay = () => {
   }
 };
 
+const authStore = useAuthStore();
+
 const handleMapRightClick = async (e) => {
   if (!e || !e.coord || !window.naver || !window.naver.maps) return;
   const lat = e.coord.lat();
@@ -805,7 +819,50 @@ const handleMapRightClick = async (e) => {
 
   try {
     const geoResult = await reverseGeocodeCoord(lat, lng);
-    const placeName = geoResult.name;
+    let placeName = geoResult.name;
+    const roadOrJibunAddress =
+      geoResult.roadAddress || geoResult.jibunAddress || placeName;
+
+    // 0. 우클릭 시 구/행정동 단위 키워드로 백엔드 DB (/api/destinations/search) 0순위 최우선 탐색 호출
+    let dbMatch = null;
+    try {
+      // 주소에서 '구' 또는 '동/로' 추출하여 DB 등록 장소 전체 탐색
+      const guMatch = (placeName || roadOrJibunAddress).match(
+        /([가-휘]+구|[가-휘]+시|[가-휘]+동)/,
+      );
+      const searchKeyword = guMatch ? guMatch[1] : placeName;
+      const dbResults = await onboardingApi.searchPlaces(searchKeyword);
+      if (dbResults && dbResults.length > 0) {
+        dbMatch = findMatchingDestination(
+          placeName,
+          roadOrJibunAddress,
+          dbResults,
+          lat,
+          lng,
+        );
+      }
+    } catch (err) {
+      console.warn(
+        'DB destination search failed, fallback to local/geocode:',
+        err,
+      );
+    }
+
+    // 1. 유저 별칭/최근 목적지(recentList) 1순위 -> 백엔드 DB 장소(dbMatch) 2순위 통합 판단
+    const userId = authStore.user?.userId || authStore.user?.id;
+    const recentList = getRecentDestinations(userId) || [];
+    const matched =
+      findMatchingDestination(
+        placeName,
+        roadOrJibunAddress,
+        recentList,
+        lat,
+        lng,
+      ) || dbMatch;
+
+    if (matched?.destName) {
+      placeName = matched.destName;
+    }
 
     const pendingLatLng = new window.naver.maps.LatLng(lat, lng);
 
@@ -839,6 +896,21 @@ const handleMapRightClick = async (e) => {
       <div>
         <div class="text-[11px] text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
         <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${placeName}</div>
+        ${(() => {
+          const normPlace = (placeName || '').replace(/\s+/g, ' ').trim();
+          const normAddr = (roadOrJibunAddress || '')
+            .replace(/\s+/g, ' ')
+            .trim();
+          if (
+            !normAddr ||
+            normPlace === normAddr ||
+            normPlace.includes(normAddr) ||
+            normAddr.includes(normPlace)
+          ) {
+            return '';
+          }
+          return `<div class="text-[11px] text-slate-400 font-normal mt-0.5 break-all">${roadOrJibunAddress}</div>`;
+        })()}
       </div>
       <div class="flex items-center gap-1.5 pt-1">
         <button type="button" class="btn-confirm flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black py-2 text-xs transition-all shadow-md">
