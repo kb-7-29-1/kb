@@ -1795,20 +1795,8 @@ const amenityLoadingText = computed(() => {
         </template>
         <template v-else>
           <span>🏠</span>
-          <span v-if="props.baseCount && props.baseCount !== props.totalCount"
-            >{{ props.totalCount }}/{{ props.baseCount }}개</span
-          >
-          <span v-else>{{ props.totalCount }}개</span>
+          <span>{{ props.totalCount }}개</span>
           <template v-if="activeAmenityIcons.length">
-            <span class="opacity-40 text-[10px]">|</span>
-            <span class="flex items-center gap-0.5">
-              <span
-                v-for="(item, idx) in activeAmenityIcons"
-                :key="idx"
-                class="text-[11px]"
-                >{{ item.icon }}</span
-              >
-            </span>
           </template>
         </template>
       </div>
