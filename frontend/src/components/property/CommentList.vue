@@ -29,12 +29,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits([
-  'close',
-  'submit-comment',
-  'update-comment',
-  'delete-comment',
-]);
+const emit = defineEmits(['close', 'submit-comment', 'update-comment', 'delete-comment']);
 
 const content = ref('');
 const editingCommentId = ref(null);
@@ -42,15 +37,13 @@ const editingContent = ref('');
 
 const propertyAddress = computed(() => {
   return (
-      props.property?.roadAddress ||
-      props.property?.address ||
-      props.property?.jibunAddress ||
-      ''
+    props.property?.roadAddress || props.property?.address || props.property?.jibunAddress || ''
   );
 });
 
 const propertyName = computed(
-  () => props.property?.title || props.property?.propertyName || props.property?.name || '매물 정보',
+  () =>
+    props.property?.title || props.property?.propertyName || props.property?.name || '매물 정보',
 );
 
 const formatDateTime = (dateTime) => {
@@ -98,22 +91,23 @@ const submitEdit = (commentId) => {
 <template>
   <section class="resident-report">
     <header class="report-header">
-      <button
-          type="button"
-          class="back-button"
-          aria-label="뒤로 가기"
-          @click="emit('close')"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="back-icon">
+      <button type="button" class="back-button" aria-label="뒤로 가기" @click="emit('close')">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="back-icon"
+        >
           <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
       </button>
 
       <div class="property-information">
         <div class="property-title-row">
-          <h2 class="property-name">
-            💬 실거주 리포트
-          </h2>
+          <h2 class="property-name">💬 실거주 리포트</h2>
         </div>
 
         <p class="property-address">
@@ -128,7 +122,6 @@ const submitEdit = (commentId) => {
 
     <!-- 댓글 목록 -->
     <section class="comment-list">
-
       <!-- 빈 상태(Empty State) 디자인 -->
       <div v-if="!comments.length" class="empty-comment">
         <div class="empty-comment-icon">💬</div>
@@ -136,11 +129,7 @@ const submitEdit = (commentId) => {
         <p>이 매물의 첫 번째 의견을 남겨보세요.</p>
       </div>
 
-      <article
-          v-for="comment in comments"
-          :key="comment.commentId"
-          class="comment-card"
-      >
+      <article v-for="comment in comments" :key="comment.commentId" class="comment-card">
         <div class="comment-header">
           <div class="nickname-wrapper">
             <span class="comment-avatar" aria-hidden="true">
@@ -151,9 +140,7 @@ const submitEdit = (commentId) => {
               />
               <i v-else class="fa-solid fa-circle-user comment-avatar-icon" aria-hidden="true"></i>
             </span>
-            <strong class="comment-nickname"
-            >{{ comment.nickname || '익명 사용자' }}</strong
-            >
+            <strong class="comment-nickname">{{ comment.nickname || '익명 사용자' }}</strong>
             <span v-if="comment.isMine" class="my-badge">MY</span>
           </div>
           <div class="comment-meta">
@@ -161,17 +148,11 @@ const submitEdit = (commentId) => {
             <template v-if="comment.isMine">
               <span class="action-separator" aria-hidden="true">|</span>
               <div class="comment-actions">
+                <button type="button" class="edit-button" @click="startEdit(comment)">수정</button>
                 <button
-                    type="button"
-                    class="edit-button"
-                    @click="startEdit(comment)"
-                >
-                  수정
-                </button>
-                <button
-                    type="button"
-                    class="delete-button"
-                    @click="emit('delete-comment', comment.commentId)"
+                  type="button"
+                  class="delete-button"
+                  @click="emit('delete-comment', comment.commentId)"
                 >
                   삭제
                 </button>
@@ -180,24 +161,14 @@ const submitEdit = (commentId) => {
           </div>
         </div>
         <template v-if="editingCommentId === comment.commentId">
-          <textarea
-              v-model="editingContent"
-              class="inline-edit-input"
-              maxlength="255"
-          ></textarea>
+          <textarea v-model="editingContent" class="inline-edit-input" maxlength="255"></textarea>
           <div class="inline-edit-actions">
+            <button type="button" class="cancel-edit-button" @click="cancelEdit">취소</button>
             <button
-                type="button"
-                class="cancel-edit-button"
-                @click="cancelEdit"
-            >
-              취소
-            </button>
-            <button
-                type="button"
-                class="save-edit-button"
-                :disabled="isSubmitting || !editingContent.trim()"
-                @click="submitEdit(comment.commentId)"
+              type="button"
+              class="save-edit-button"
+              :disabled="isSubmitting || !editingContent.trim()"
+              @click="submitEdit(comment.commentId)"
             >
               저장
             </button>
@@ -208,11 +179,7 @@ const submitEdit = (commentId) => {
     </section>
 
     <!-- 실거주 댓글 작성 -->
-    <form
-        v-if="isLoggedIn"
-        class="comment-form"
-        @submit.prevent="submitComment"
-    >
+    <form v-if="isLoggedIn" class="comment-form" @submit.prevent="submitComment">
       <div class="form-title">
         <span>✏️</span>
         <strong>실거주 댓글 작성</strong>
@@ -220,20 +187,26 @@ const submitEdit = (commentId) => {
 
       <div class="input-row">
         <textarea
-            v-model="content"
-            class="comment-input"
-            rows="1"
-            maxlength="255"
-            placeholder="실거주 후기 및 의견을 입력하세요..."
-            @keydown.enter.exact.prevent="submitComment"
+          v-model="content"
+          class="comment-input"
+          rows="1"
+          maxlength="255"
+          placeholder="실거주 후기 및 의견을 입력하세요..."
+          :disabled="isSubmitting"
+          @keydown.enter.exact.prevent="submitComment"
         />
 
         <button
-            type="submit"
-            class="submit-button"
-            :disabled="!content.trim()"
+          type="submit"
+          class="submit-button"
+          :class="{ 'is-submitting': isSubmitting }"
+          :disabled="isSubmitting || !content.trim()"
         >
-          등록
+          <template v-if="isSubmitting">
+            <i class="fa-solid fa-spinner submit-spinner" aria-hidden="true"></i>
+            <span>등록 중</span>
+          </template>
+          <span v-else>등록</span>
         </button>
       </div>
     </form>
@@ -362,8 +335,13 @@ const submitEdit = (commentId) => {
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .empty-comment strong {
@@ -617,6 +595,11 @@ const submitEdit = (commentId) => {
   box-shadow: 0 0 0 3px rgb(41 58 140 / 10%);
 }
 
+.comment-input:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .submit-button {
   width: 74px;
   height: 48px;
@@ -628,16 +611,36 @@ const submitEdit = (commentId) => {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    opacity 0.2s;
 }
 
 .submit-button:hover:not(:disabled) {
   background: #1e2c70;
 }
 
+.submit-button.is-submitting {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.submit-spinner {
+  animation: comment-spin 0.8s linear infinite;
+}
+
 .submit-button:disabled {
   background: #cbd0dc;
   cursor: not-allowed;
+}
+
+@keyframes comment-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 480px) {
