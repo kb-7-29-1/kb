@@ -1,5 +1,13 @@
 <script setup>
-import { createApp, ref, shallowRef, computed, onMounted, onUnmounted, watch } from 'vue';
+import {
+  createApp,
+  ref,
+  shallowRef,
+  computed,
+  onMounted,
+  onUnmounted,
+  watch,
+} from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
 import { reverseGeocodeCoord } from '@/utils/geo';
@@ -71,7 +79,11 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['select-property', 'change-destination', 'bounds-change']);
+const emit = defineEmits([
+  'select-property',
+  'change-destination',
+  'bounds-change',
+]);
 
 const mapInstance = shallowRef(null);
 const zoomLevel = ref(15);
@@ -165,7 +177,12 @@ const getSelectedContextFitMargin = () => {
 };
 
 const fitToSelectedPropertyContext = () => {
-  if (!mapInstance.value || !window.naver || !window.naver.maps || !props.selectedProperty) {
+  if (
+    !mapInstance.value ||
+    !window.naver ||
+    !window.naver.maps ||
+    !props.selectedProperty
+  ) {
     return;
   }
 
@@ -259,7 +276,9 @@ const renderSafetyRoute = () => {
     safetyRoutePolyline.setMap(null);
   }
 
-  const path = points.map((point) => new window.naver.maps.LatLng(point.lat, point.lng));
+  const path = points.map(
+    (point) => new window.naver.maps.LatLng(point.lat, point.lng),
+  );
 
   safetyRoutePolyline = new window.naver.maps.Polyline({
     map: mapInstance.value,
@@ -321,9 +340,15 @@ const renderMarkers = () => {
   const selectedPropertyId = Number(props.selectedProperty?.propertyId);
   const hasSelectedProperty = Number.isFinite(selectedPropertyId);
   const propertiesForClustering = hasSelectedProperty
-    ? props.properties.filter((property) => Number(property.propertyId) !== selectedPropertyId)
+    ? props.properties.filter(
+        (property) => Number(property.propertyId) !== selectedPropertyId,
+      )
     : props.properties;
-  const clusteredNodes = getClusteredMarkers(propertiesForClustering, currentZoom, bounds);
+  const clusteredNodes = getClusteredMarkers(
+    propertiesForClustering,
+    currentZoom,
+    bounds,
+  );
 
   if (
     hasSelectedProperty &&
@@ -347,8 +372,9 @@ const renderMarkers = () => {
       }
     } else {
       const prop = node.item;
-      const isSelected = Number(props.selectedProperty?.propertyId) === Number(prop.propertyId);
-      const propKey = `prop_${prop.propertyId}_${isSelected ? 'selected' : hasSelectedProperty ? 'dimmed' : 'normal'}`;
+      const isSelected =
+        Number(props.selectedProperty?.propertyId) === Number(prop.propertyId);
+      const propKey = `prop_${prop.propertyId}_${prop.safetyScore ?? 'null'}_${isSelected ? 'selected' : hasSelectedProperty ? 'dimmed' : 'normal'}`;
       nextMarkerKeys.add(propKey);
 
       if (!activePropertyMarkersMap.has(propKey)) {
@@ -377,11 +403,17 @@ const renderMarkers = () => {
       if (task.type === 'cluster') {
         if (!activePropertyMarkersMap.has(task.key)) {
           const clusterMarker = new window.naver.maps.Marker({
-            position: new window.naver.maps.LatLng(task.node.lat, task.node.lng),
+            position: new window.naver.maps.LatLng(
+              task.node.lat,
+              task.node.lng,
+            ),
             map: mapInstance.value,
             zIndex: 8,
             icon: {
-              content: renderClusterPinHTML(task.node.count, hasSelectedProperty),
+              content: renderClusterPinHTML(
+                task.node.count,
+                hasSelectedProperty,
+              ),
             },
           });
 
@@ -411,12 +443,19 @@ const renderMarkers = () => {
 
         if (!activePropertyMarkersMap.has(key)) {
           const propMarker = new window.naver.maps.Marker({
-            position: new window.naver.maps.LatLng(prop.latitude, prop.longitude),
+            position: new window.naver.maps.LatLng(
+              prop.latitude,
+              prop.longitude,
+            ),
             map: mapInstance.value,
             // 선택한 매물만 강조, 나머지 매물은 경로 아래에 둠
             zIndex: isSelected ? 40 : 10,
             icon: {
-              content: renderPropertyPinHTML(prop, isSelected, hasSelectedProperty),
+              content: renderPropertyPinHTML(
+                prop,
+                isSelected,
+                hasSelectedProperty,
+              ),
             },
           });
 
@@ -469,19 +508,26 @@ const renderAmenityMarkers = () => {
 
   const nextKeys = new Set();
   props.amenities.forEach((amenity) => {
-    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null) return;
+    if (amenity.amenityLatitude == null || amenity.amenityLongitude == null)
+      return;
 
     const key = getAmenityMarkerKey(amenity);
     nextKeys.add(key);
     if (amenityMarkers.has(key)) return;
 
     const amenityMarker = new window.naver.maps.Marker({
-      position: new window.naver.maps.LatLng(amenity.amenityLatitude, amenity.amenityLongitude),
+      position: new window.naver.maps.LatLng(
+        amenity.amenityLatitude,
+        amenity.amenityLongitude,
+      ),
       map: mapInstance.value,
       // 선택 매물에 가려지지 않도록 편의시설을 위에 표시
       zIndex: 50,
       icon: {
-        content: renderAmenityPin(amenity, expandedAmenityMarkerKeys.value.has(key)),
+        content: renderAmenityPin(
+          amenity,
+          expandedAmenityMarkerKeys.value.has(key),
+        ),
         anchor: new window.naver.maps.Point(0, 0),
       },
     });
@@ -549,6 +595,7 @@ const initMap = () => {
       window.naver.maps.Event.addListener(mapInstance.value, 'idle', () => {
         renderMarkers();
         checkDistanceToDestination();
+        renderDebugViewportRectangle();
         if (mapInstance.value) {
           const bounds = mapInstance.value.getBounds();
           const center = mapInstance.value.getCenter();
@@ -566,34 +613,60 @@ const initMap = () => {
           }
         }
       });
-      window.naver.maps.Event.addListener(mapInstance.value, 'zoom_changed', () => {
-        if (mapInstance.value) {
-          zoomLevel.value = mapInstance.value.getZoom();
-        }
-      });
-      window.naver.maps.Event.addListener(mapInstance.value, 'center_changed', () => {
-        checkDistanceToDestination();
-      });
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'zoom_changed',
+        () => {
+          if (mapInstance.value) {
+            zoomLevel.value = mapInstance.value.getZoom();
+          }
+          renderDebugViewportRectangle();
+        },
+      );
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'center_changed',
+        () => {
+          checkDistanceToDestination();
+          renderDebugViewportRectangle();
+        },
+      );
 
       // PC 마우스 우클릭 (Right Click) 시 역지오코딩 & 목적지 확인 카드 팝업 (PC 마우스 전용)
-      window.naver.maps.Event.addListener(mapInstance.value, 'rightclick', (e) => {
-        if (!isMousePointer(e)) return;
-        handleMapRightClick(e);
-      });
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'rightclick',
+        (e) => {
+          if (!isMousePointer(e)) return;
+          handleMapRightClick(e);
+        },
+      );
 
       // 모바일 손가락 터치 롱프레스 (~500ms 꾹 누르기 & 햅틱 진동 피드백 - 모바일 터치 전용)
-      window.naver.maps.Event.addListener(mapInstance.value, 'mousedown', (e) => {
-        handleLongPressStart(e);
-      });
-      window.naver.maps.Event.addListener(mapInstance.value, 'mousemove', (e) => {
-        handleLongPressMove(e);
-      });
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'mousedown',
+        (e) => {
+          handleLongPressStart(e);
+        },
+      );
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'mousemove',
+        (e) => {
+          handleLongPressMove(e);
+        },
+      );
       window.naver.maps.Event.addListener(mapInstance.value, 'mouseup', () => {
         handleLongPressEnd();
       });
-      window.naver.maps.Event.addListener(mapInstance.value, 'dragstart', () => {
-        handleLongPressEnd();
-      });
+      window.naver.maps.Event.addListener(
+        mapInstance.value,
+        'dragstart',
+        () => {
+          handleLongPressEnd();
+        },
+      );
 
       window.naver.maps.Event.addListener(mapInstance.value, 'click', () => {
         handleLongPressEnd();
@@ -603,6 +676,7 @@ const initMap = () => {
       renderMarkers();
       renderAmenityMarkers();
       renderSafetyRoute();
+      renderDebugViewportRectangle();
       setupResizeObserver();
       checkDistanceToDestination();
     } catch (e) {
@@ -782,15 +856,17 @@ const handleMapRightClick = async (e) => {
     cardContainer.querySelector('.btn-cancel').addEventListener('click', () => {
       clearPendingDestinationOverlay();
     });
-    cardContainer.querySelector('.btn-confirm').addEventListener('click', () => {
-      emit('change-destination', {
-        name: placeName,
-        address: geoResult.roadAddress || geoResult.jibunAddress || placeName,
-        lat,
-        lng,
+    cardContainer
+      .querySelector('.btn-confirm')
+      .addEventListener('click', () => {
+        emit('change-destination', {
+          name: placeName,
+          address: geoResult.roadAddress || geoResult.jibunAddress || placeName,
+          lat,
+          lng,
+        });
+        clearPendingDestinationOverlay();
       });
-      clearPendingDestinationOverlay();
-    });
 
     pendingDestInfoWindow = new window.naver.maps.InfoWindow({
       content: cardContainer,
@@ -807,7 +883,11 @@ const handleMapRightClick = async (e) => {
 };
 
 watch(
-  [() => props.properties, () => props.destination, () => props.selectedProperty],
+  [
+    () => props.properties,
+    () => props.destination,
+    () => props.selectedProperty,
+  ],
   () => {
     renderMarkers();
     checkDistanceToDestination();
@@ -842,7 +922,10 @@ watch(
 watch(
   () => props.selectedProperty?.propertyId,
   (currentPropertyId, previousPropertyId) => {
-    if (currentPropertyId === previousPropertyId || expandedAmenityMarkerKeys.value.size === 0)
+    if (
+      currentPropertyId === previousPropertyId ||
+      expandedAmenityMarkerKeys.value.size === 0
+    )
       return;
 
     expandedAmenityMarkerKeys.value = new Set();
@@ -886,7 +969,8 @@ const fitToIsochroneRadius = () => {
     return;
 
   const filter = props.liveFilter || props.appliedFilter;
-  if (!filter || filter.showIsochrone === false || props.selectedProperty) return;
+  if (!filter || filter.showIsochrone === false || props.selectedProperty)
+    return;
 
   let radiusMeters = 900;
   if (filter.transportMode === 'WALK') {
@@ -899,13 +983,19 @@ const fitToIsochroneRadius = () => {
   }
 
   const earthRadius = 6378137;
-  const centerLat = Number(props.destination.lat || props.destination.destLatitude);
-  const centerLng = Number(props.destination.lng || props.destination.destLongitude);
+  const centerLat = Number(
+    props.destination.lat || props.destination.destLatitude,
+  );
+  const centerLng = Number(
+    props.destination.lng || props.destination.destLongitude,
+  );
   const latRad = (centerLat * Math.PI) / 180;
 
   // 15% 여유 공간 마진
   const latOffset = (radiusMeters / earthRadius) * (180 / Math.PI) * 1.15;
-  const lngOffset = (((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI) * 1.15;
+  const lngOffset =
+    (((radiusMeters / (earthRadius * Math.cos(latRad))) * 180) / Math.PI) *
+    1.15;
 
   const bounds = new window.naver.maps.LatLngBounds(
     new window.naver.maps.LatLng(centerLat - latOffset, centerLng - lngOffset),
@@ -966,6 +1056,10 @@ onUnmounted(() => {
   clearAmenityMarkers();
   clearSafetyRoutePolyline();
   clearPendingDestinationOverlay();
+  if (debugViewportRectangleInstance) {
+    debugViewportRectangleInstance.setMap(null);
+    debugViewportRectangleInstance = null;
+  }
   if (resizeObserver) {
     resizeObserver.disconnect();
     resizeObserver = null;
@@ -974,14 +1068,79 @@ onUnmounted(() => {
 const isFarFromDestination = ref(false);
 
 const destinationName = computed(() => {
-  const raw = props.destination?.name || props.destination?.destName || '내 목적지';
+  const raw =
+    props.destination?.name || props.destination?.destName || '내 목적지';
   return raw.replace(/\s*\(주 목적지\)$/, '');
 });
 
+// 🧪 디버그/시각화용: 카메라 뷰포트 사각형 (Bounding Box) 실시간 지도 가시화 ON/OFF 토글 (true: 켜기, false: 끄기)
+const SHOW_DEBUG_VIEWPORT_RECTANGLE = ref(false);
+let debugViewportRectangleInstance = null;
+
+const renderDebugViewportRectangle = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  if (!SHOW_DEBUG_VIEWPORT_RECTANGLE.value) {
+    if (debugViewportRectangleInstance) {
+      debugViewportRectangleInstance.setMap(null);
+      debugViewportRectangleInstance = null;
+    }
+    return;
+  }
+
+  const bounds = mapInstance.value.getBounds();
+  if (!bounds) return;
+
+  const sw = bounds.getSW();
+  const ne = bounds.getNE();
+
+  // 화면 브라우저 가장자리에 겹쳐서 안 보이는 현상을 방지하기 위해 3% 내측 인셋(Inset) 사각형 선명 표기
+  const latSpan = ne.lat() - sw.lat();
+  const lngSpan = ne.lng() - sw.lng();
+  const insetSw = new window.naver.maps.LatLng(
+    sw.lat() + latSpan * 0.03,
+    sw.lng() + lngSpan * 0.03,
+  );
+  const insetNe = new window.naver.maps.LatLng(
+    ne.lat() - latSpan * 0.03,
+    ne.lng() - lngSpan * 0.03,
+  );
+  const insetBounds = new window.naver.maps.LatLngBounds(insetSw, insetNe);
+
+  if (!debugViewportRectangleInstance) {
+    debugViewportRectangleInstance = new window.naver.maps.Rectangle({
+      map: mapInstance.value,
+      bounds: insetBounds,
+      strokeColor: '#ef4444',
+      strokeWeight: 3,
+      strokeOpacity: 0.95,
+      strokeStyle: 'dash',
+      fillColor: '#ef4444',
+      fillOpacity: 0.1,
+      clickable: false,
+      zIndex: 200,
+    });
+  } else {
+    debugViewportRectangleInstance.setBounds(insetBounds);
+    if (!debugViewportRectangleInstance.getMap()) {
+      debugViewportRectangleInstance.setMap(mapInstance.value);
+    }
+  }
+};
+
 const checkDistanceToDestination = () => {
-  if (!mapInstance.value || !props.destination || !window.naver || !window.naver.maps) return;
-  const targetLat = Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
-  const targetLng = Number(props.destination.lng || props.destination.destLongitude) || 127.0731;
+  if (
+    !mapInstance.value ||
+    !props.destination ||
+    !window.naver ||
+    !window.naver.maps
+  )
+    return;
+  const targetLat =
+    Number(props.destination.lat || props.destination.destLatitude) || 37.5502;
+  const targetLng =
+    Number(props.destination.lng || props.destination.destLongitude) ||
+    127.0731;
 
   const bounds = mapInstance.value.getBounds();
   const destLatLng = new window.naver.maps.LatLng(targetLat, targetLng);
