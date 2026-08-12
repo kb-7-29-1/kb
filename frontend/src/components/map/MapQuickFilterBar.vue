@@ -1098,7 +1098,7 @@ const activeAmenityIcons = computed(() => []);
         >
           <!-- 헤더 및 실시간 점수 배지 -->
           <div class="flex items-center justify-between">
-            <span class="text-xs font-black text-slate-800">🛡️ 최소 안전 점수</span>
+            <span class="text-sm font-black text-slate-800">최소 안전 점수</span>
             <div class="flex items-center gap-2">
               <span
                 class="text-xs font-black px-2.5 py-1 rounded-full border"
@@ -1218,6 +1218,10 @@ const activeAmenityIcons = computed(() => []);
           </div>
 
           <!-- 🏠 전체 | 월세 | 전세 3개 탭 -->
+          <div class="!mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-400">
+            <i class="fa-solid fa-circle-info text-[10px] text-blue-500" aria-hidden="true"></i>
+            <span>월세·전세 중복 선택 가능</span>
+          </div>
           <div class="flex gap-2">
             <template
               v-for="t in [
@@ -1246,27 +1250,27 @@ const activeAmenityIcons = computed(() => []);
           <!-- 전세금/보증금 슬라이더 (vue-3-slider-component - 자유 무제한 교차) -->
           <div class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>{{
-                filters.tradeType === 'JEONSE'
-                  ? '전세 보증금'
-                  : filters.tradeType === 'MONTHLY'
-                    ? '보증금'
-                    : '보증금/전세금'
-              }}</span>
+              <span>보증금</span>
               <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
-            <div class="py-2">
+            <div>
               <VueSlider
                 v-model="depositRange"
                 :min="0"
                 :max="DEPOSIT_OPTIONS.length - 1"
                 :step="1"
-                :height="8"
+                :height="10"
+                :dot-size="18"
+                :dot-style="{
+                  backgroundColor: '#3b82f6',
+                  border: '2px solid #ffffff',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+                }"
                 :order="false"
                 :enable-cross="true"
                 :tooltip="'none'"
                 :process-style="{
-                  backgroundColor: '#2563eb',
+                  backgroundColor: '#3b82f6',
                   borderRadius: '9999px',
                 }"
                 :rail-style="{
@@ -1289,18 +1293,24 @@ const activeAmenityIcons = computed(() => []);
               <span>월세</span>
               <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
             </div>
-            <div class="py-2">
+            <div>
               <VueSlider
                 v-model="rentRange"
                 :min="RENT_MIN"
                 :max="RENT_MAX"
                 :step="RENT_STEP"
-                :height="8"
+                :height="10"
+                :dot-size="18"
+                :dot-style="{
+                  backgroundColor: '#3b82f6',
+                  border: '2px solid #ffffff',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+                }"
                 :order="false"
                 :enable-cross="true"
                 :tooltip="'none'"
                 :process-style="{
-                  backgroundColor: '#2563eb',
+                  backgroundColor: '#3b82f6',
                   borderRadius: '9999px',
                 }"
                 :rail-style="{
