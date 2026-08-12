@@ -455,10 +455,14 @@ const handleChangeDestination = ({ name, lat, lng, address }) => {
   handleApplyFilters(true);
 };
 
-const handleApplyFilters = async (showOverlay = false) => {
+const handleApplyFilters = async (
+  showOverlay = false,
+  { preserveAmenities = false } = {},
+) => {
   if (
     getDestinationKey(appliedFilterState.value) !==
-    getDestinationKey(filterState.value)
+      getDestinationKey(filterState.value) &&
+    !preserveAmenities
   ) {
     clearAmenitiesForDestinationChange();
   }
@@ -557,7 +561,7 @@ const applyMobileOnboardingFilters = (filters) => {
     filterState.value.minSafetyScore = Number(filters.minSafetyScore);
   }
 
-  handleApplyFilters();
+  handleApplyFilters(false, { preserveAmenities: true });
 };
 
 watch(() => props.appliedOnboardingFilters, applyMobileOnboardingFilters, {

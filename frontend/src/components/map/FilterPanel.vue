@@ -54,15 +54,13 @@ const handleApply = async () => {
   const selectedAmenities = amenityFilterRef.value?.getFilters?.();
   const amenities = Array.isArray(selectedAmenities) ? selectedAmenities : [];
 
-  const shouldApplyOnboarding = activeTab.value === 'all';
-  const filters =
-    shouldApplyOnboarding && onboardingFilterRef.value
-      ? onboardingFilterRef.value.getFilters()
-      : {};
+  const filters = onboardingFilterRef.value
+    ? onboardingFilterRef.value.getFilters()
+    : {};
   const { selectedDestination, ...onboardingFilters } = filters;
 
   try {
-    if (shouldApplyOnboarding && selectedDestination) {
+    if (selectedDestination) {
       await onboardingApi.saveDestination(selectedDestination);
     }
 
@@ -75,9 +73,7 @@ const handleApply = async () => {
     } catch (error) {
       console.error('AMENITY FILTER CACHE SAVE ERROR: ', error);
     }
-    if (shouldApplyOnboarding) {
-      emit('apply-onboarding', onboardingFilters);
-    }
+    emit('apply-onboarding', onboardingFilters);
     emit('apply-amenities', amenities);
     emit('close');
   } catch (error) {
