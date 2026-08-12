@@ -400,7 +400,6 @@ watch(
 const handleResetFilters = async () => {
   showFilterAnalysisLoading();
   await loadOnboardingDefaultFilters({ resetDestination: true });
-  clearAmenitiesForDestinationChange();
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   saveQuickFilterToCache(appliedFilterState.value);
