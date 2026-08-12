@@ -265,6 +265,12 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
+            /*
+             * [배치 조회 TMAP API 과금 방지 주석 처리]
+             * 목록 일괄 배치 조회 시 TMAP 보행자 API 호출을 100% 차단하기 위해 주석 처리하였습니다.
+             * TMAP API는 오로지 매물 단 1개 상세 클릭 시(POST /safety/routes/recommend)에만 호출됩니다.
+             */
+            /*
             try {
                 CalculationResult calculation = calculateAndPersist(
                         property,
@@ -289,10 +295,18 @@ public class SafetyServiceImpl implements SafetyService {
                 items.add(createFailedBatchItem(
                         propertyId,
                         destination.getDestinationId(),
-                        exception.getMessage()
+                        "대로 우선 보행자 경로 계산 및 저장 실패"
                 ));
                 failedCount++;
             }
+            */
+
+            items.add(createFailedBatchItem(
+                    propertyId,
+                    destination.getDestinationId(),
+                    "DB 미캐시 매물입니다. 단건 클릭 시 계산됩니다."
+            ));
+            failedCount++;
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();

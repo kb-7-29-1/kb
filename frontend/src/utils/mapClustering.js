@@ -4,28 +4,44 @@
 
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
 export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = false) => {
-  const safetyScore = prop.safetyScore;
+  const rawScore = prop.safetyScore;
+  const hasScore =
+    rawScore !== null &&
+    rawScore !== undefined &&
+    rawScore !== '' &&
+    !isNaN(Number(rawScore));
+  const numericScore = hasScore ? Number(rawScore) : null;
+
   let theme = {
-    border: 'border-emerald-500',
-    badge: 'bg-emerald-500/10 text-emerald-600',
-    background: 'bg-emerald-500',
-    pointer: 'bg-emerald-500',
+    border: 'border-slate-300',
+    badge: 'bg-slate-100 text-slate-500',
+    background: 'bg-slate-700',
+    pointer: 'bg-slate-700',
   };
 
-  if (safetyScore < 60) {
-    theme = {
-      border: 'border-rose-500',
-      badge: 'bg-rose-500/10 text-rose-600',
-      background: 'bg-rose-500',
-      pointer: 'bg-rose-500',
-    };
-  } else if (safetyScore < 80) {
-    theme = {
-      border: 'border-amber-500',
-      badge: 'bg-amber-500/10 text-amber-600',
-      background: 'bg-amber-500',
-      pointer: 'bg-amber-500',
-    };
+  if (hasScore) {
+    if (numericScore >= 80) {
+      theme = {
+        border: 'border-emerald-500',
+        badge: 'bg-emerald-500/10 text-emerald-600',
+        background: 'bg-emerald-500',
+        pointer: 'bg-emerald-500',
+      };
+    } else if (numericScore >= 60) {
+      theme = {
+        border: 'border-amber-500',
+        badge: 'bg-amber-500/10 text-amber-600',
+        background: 'bg-amber-500',
+        pointer: 'bg-amber-500',
+      };
+    } else {
+      theme = {
+        border: 'border-rose-500',
+        badge: 'bg-rose-500/10 text-rose-600',
+        background: 'bg-rose-500',
+        pointer: 'bg-rose-500',
+      };
+    }
   }
 
   const deposit = Number(prop.deposit || 0);
@@ -40,6 +56,7 @@ export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = fa
     ? `${theme.background} text-white z-30`
     : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
   const badgeStyle = isSelected ? 'bg-white/20 text-white' : theme.badge;
+  const badgeText = hasScore ? `${numericScore}점` : '점수 없음';
   // 선택하지 않은 매물은 경로를 가리지 않도록 흐리게 두고, hover 시 선명하게 표시
   const opacityStyle =
     hasSelectedProperty && !isSelected ? 'opacity-60 hover:opacity-100' : 'opacity-100';
@@ -49,7 +66,7 @@ export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = fa
       <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}">
         <span class="shrink-0">${priceText}</span>
         <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}">
-          ${safetyScore}점
+          ${badgeText}
         </span>
       </div>
       <div class="-mt-1.5 h-2.5 w-2.5 rotate-45 ${theme.pointer}"></div>
