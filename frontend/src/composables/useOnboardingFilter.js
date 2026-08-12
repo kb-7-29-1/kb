@@ -9,8 +9,8 @@ export function useOnboardingFilter() {
   const authStore = useAuthStore();
   const filterState = ref({
     destinationId: null,
-    destination: '세종대학교',
-    destinationAddress: '서울특별시 광진구 능동로 209',
+    destination: null,
+    destinationAddress: null,
     destinationLat: null,
     destinationLng: null,
     tradeType: 'MONTHLY',
@@ -20,7 +20,7 @@ export function useOnboardingFilter() {
     maxRent: DEFAULT_RENT,
     minSafetyScore: 0,
     transportMode: 'WALK',
-    minTravelTime: 5,
+    minTravelTime: 0,
     travelTime: 15,
     walkPace: 'NORMAL',
     showIsochrone: true,
