@@ -26,13 +26,13 @@ public class BookmarkService {
         @CacheEvict(value = "propertyList", allEntries = true),
         @CacheEvict(value = "propertyDetail", allEntries = true)
     })
-    public void addBookmark(String loginId, Long propertyId){
+    public void addBookmark(String loginId, Long propertyId, Integer destinationId){
         Long userId = getUserId(loginId);
         if(bookmarkMapper.countByUserIdAndPropertyId(userId, propertyId)>0){
             throw new IllegalArgumentException("이미 찜한 매물입니다.");
         }
         try {
-            bookmarkMapper.addBookmark(userId,propertyId);
+            bookmarkMapper.addBookmark(userId,propertyId,destinationId);
         } catch (DataIntegrityViolationException e) {
             // 연속 클릭 등으로 두 요청이 거의 동시에 들어와 중복 체크를 함께 통과한 경우,
             // bookmarks 테이블의 PK(user_id, property_id) 제약으로 두 번째 INSERT가 여기서 걸림

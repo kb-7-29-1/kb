@@ -245,7 +245,7 @@ public class LoanService {
         if(matcher.find()){
             return Double.parseDouble(matcher.group(1)) / 100.0;
         }
-        log.warn("대출한도 텍스트 파싱 실패, 형식 확인 필요: {}", loanLimit);
+        log.debug("대출한도 텍스트에 비율(%) 표기 없음, 원문 그대로 사용: {}", loanLimit);
         return null;
     }
 
@@ -263,7 +263,7 @@ public class LoanService {
 
         Matcher matcher = Pattern.compile("([\\d.]+)\\s*백만원").matcher(loanLimit);
         if(!matcher.find()) {
-            log.warn("대출한도 금액 표기 정규화 실패, 형식 확인 필요: {}", loanLimit);
+            log.debug("대출한도 텍스트가 이미 원하는 형식이라 정규화 생략: {}", loanLimit);
             return loanLimit;
         }
 

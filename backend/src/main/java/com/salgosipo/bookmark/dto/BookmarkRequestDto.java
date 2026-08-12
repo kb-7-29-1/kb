@@ -9,4 +9,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class BookmarkRequestDto {
     private Long propertyId;
+    private Integer destinationId;
 }
