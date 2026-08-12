@@ -906,7 +906,6 @@ const amenityLoadingText = computed(() => {
 
 const activeAmenityIcons = computed(() => []);
 
-const amenityLoadingText = computed(() => '편의시설 조건 적용 중...');
 </script>
 
 <template>
@@ -1687,7 +1686,6 @@ const amenityLoadingText = computed(() => '편의시설 조건 적용 중...');
             class="fa-solid fa-spinner animate-spin text-[10px]"
             aria-hidden="true"
           ></i>
-          <span>{{ amenityLoadingText }}</span>
         </template>
         <template v-else>
           <span>🏠</span>
@@ -1789,7 +1787,6 @@ const amenityLoadingText = computed(() => '편의시설 조건 적용 중...');
             class="fa-solid fa-spinner animate-spin text-[10px]"
             aria-hidden="true"
           ></i>
-          <span>{{ amenityLoadingText }}</span>
         </template>
         <template v-else>
           <span>🏠</span>
