@@ -57,6 +57,18 @@ public class DestinationServiceImpl implements DestinationService {
         List<DestinationDTO> resultList = new ArrayList<>();
         String cleanKeyword = keyword.trim();
 
+        // 0. DB (destinations 테이블) 0순위 최우선 조회
+        try {
+            List<DestinationVO> dbResults = destinationMapper.searchByNameOrAddress(cleanKeyword);
+            if (dbResults != null && !dbResults.isEmpty()) {
+                for (DestinationVO vo : dbResults) {
+                    resultList.add(DestinationDTO.fromVO(vo));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("DB destination search failed: {}", e.getMessage());
+        }
+
         // 1. 네이버 장소(POI) 검색 API 호출
         try {
             validateApiKey();

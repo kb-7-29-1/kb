@@ -35,6 +35,14 @@
         LIMIT 1
     </select>
 
+    <select id="searchByNameOrAddress" resultMap="DestinationResultMap">
+        SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
+        FROM destinations
+        WHERE dest_name LIKE CONCAT('%', #{keyword}, '%')
+           OR dest_address LIKE CONCAT('%', #{keyword}, '%')
+        LIMIT 10
+    </select>
+
     <insert id="insertDestination"
             parameterType="com.salgosipo.destination.domain.DestinationVO">
         INSERT INTO destinations (
