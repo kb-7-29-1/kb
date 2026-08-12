@@ -857,6 +857,7 @@ watch(
   },
 );
 
+/*
 const AMENITY_INFO_MAP = {
   1: { icon: '🏪', name: '편의점', action: '삼김 사러 가는 중...' },
   2: { icon: '☕', name: '카페', action: '커피 마시는 중...' },
@@ -866,7 +867,6 @@ const AMENITY_INFO_MAP = {
   6: { icon: '💄', name: '올리브영', action: '올영 세일 구경 중...' },
   7: { icon: '🏢', name: '대형마트', action: '카트 끌고 장보는 중...' },
 };
-
 const activeAmenityIcons = computed(() => {
   const list =
     props.activeAmenityFilters && props.activeAmenityFilters.length
@@ -880,9 +880,7 @@ const activeAmenityIcons = computed(() => {
     })
     .filter(Boolean);
 });
-
 const lastClickedType = ref(null);
-
 watch(
   () => props.activeAmenityFilters,
   (newFilters, oldFilters) => {
@@ -896,8 +894,6 @@ watch(
     const oldTypes = (oldFilters || []).map((item) =>
       typeof item === 'object' ? item.amenityType : item,
     );
-
-    // 가장 최근에 클릭하여 추가된 편의시설 유형 감지
     const addedType = newTypes.find((t) => !oldTypes.includes(t));
     if (addedType) {
       lastClickedType.value = addedType;
@@ -907,21 +903,22 @@ watch(
   },
   { deep: true, immediate: true },
 );
-
 const amenityLoadingText = computed(() => {
   if (lastClickedType.value && AMENITY_INFO_MAP[lastClickedType.value]) {
     const item = AMENITY_INFO_MAP[lastClickedType.value];
     return `${item.icon} ${item.action}`;
   }
-
   const list = activeAmenityIcons.value;
   if (list.length > 0) {
     const item = list[list.length - 1];
     return `${item.icon} ${item.action}`;
   }
-
   return '🔍 주변 매물 탐색 중...';
 });
+*/
+
+const activeAmenityIcons = computed(() => []);
+
 </script>
 
 <template>
@@ -1702,7 +1699,6 @@ const amenityLoadingText = computed(() => {
             class="fa-solid fa-spinner animate-spin text-[10px]"
             aria-hidden="true"
           ></i>
-          <span>{{ amenityLoadingText }}</span>
         </template>
         <template v-else>
           <span>🏠</span>
@@ -1804,24 +1800,11 @@ const amenityLoadingText = computed(() => {
             class="fa-solid fa-spinner animate-spin text-[10px]"
             aria-hidden="true"
           ></i>
-          <span>{{ amenityLoadingText }}</span>
         </template>
         <template v-else>
           <span>🏠</span>
-          <span v-if="props.baseCount && props.baseCount !== props.totalCount"
-            >{{ props.totalCount }}/{{ props.baseCount }}개</span
-          >
-          <span v-else>{{ props.totalCount }}개</span>
+          <span>{{ props.totalCount }}개</span>
           <template v-if="activeAmenityIcons.length">
-            <span class="opacity-40 text-[10px]">|</span>
-            <span class="flex items-center gap-0.5">
-              <span
-                v-for="(item, idx) in activeAmenityIcons"
-                :key="idx"
-                class="text-[11px]"
-                >{{ item.icon }}</span
-              >
-            </span>
           </template>
         </template>
       </div>
