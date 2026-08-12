@@ -41,8 +41,8 @@ export function useMapUrlSync() {
     const query = {
       ...route.query,
       dest: filters.destination || filters.destinationName || undefined,
-      destName: filters.destination || filters.destinationName || undefined,
-      destAddress: filters.destinationAddress || undefined,
+      destName: undefined,
+      destAddress: undefined,
       destLat: filters.destinationLat
         ? Number(filters.destinationLat).toFixed(4)
         : undefined,
