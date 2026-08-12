@@ -32,7 +32,7 @@ const props = defineProps({
 });
 
 const minSafetyScore = ref(40);
-const leaseType = ref('monthly');
+const selectedTradeTypes = ref(['MONTHLY']);
 const depositOptions = DEPOSIT_OPTIONS;
 const depositMinIndex = ref(0);
 const depositMaxIndex = ref(depositOptions.length - 1);
@@ -52,9 +52,7 @@ const searchError = ref('');
 const isComposing = ref(false);
 const isSelectingDestination = ref(false);
 const authStore = useAuthStore();
-const currentUserId = computed(
-  () => authStore.user?.userId || authStore.user?.id || 'guest',
-);
+const currentUserId = computed(() => authStore.user?.userId || authStore.user?.id || 'guest');
 const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 let searchTimer;
 let searchRequestId = 0;
@@ -66,17 +64,11 @@ watch(currentUserId, (userId) => {
 });
 
 const saveRecentDestination = (destination) => {
-  recentDestinations.value = saveRecentDestinationGlobal(
-    destination,
-    currentUserId.value,
-  );
+  recentDestinations.value = saveRecentDestinationGlobal(destination, currentUserId.value);
 };
 
 const removeRecentDestination = (destName) => {
-  recentDestinations.value = removeRecentDestinationGlobal(
-    destName,
-    currentUserId.value,
-  );
+  recentDestinations.value = removeRecentDestinationGlobal(destName, currentUserId.value);
 };
 
 const beginDestinationSelection = () => {
@@ -138,20 +130,19 @@ const dualRangeStyle = (minVal, maxVal, min, max, color = '#3d55f6') => {
 const minDeposit = computed(() => depositOptions[depositMinIndex.value]);
 const maxDeposit = computed(() => depositOptions[depositMaxIndex.value]);
 const depositRangeLabel = computed(
-  () =>
-    `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
+  () => `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
 );
-const rentRangeLabel = computed(() =>
-  leaseType.value === 'jeonse'
-    ? '해당 없음'
-    : `${minRentStart.value}만원 ~ ${maxRent.value}만원`,
-);
+const hasMonthly = computed(() => selectedTradeTypes.value.includes('MONTHLY'));
+const hasJeonse = computed(() => selectedTradeTypes.value.includes('JEONSE'));
+const tradeType = computed(() => {
+  if (hasMonthly.value && hasJeonse.value) return 'ALL';
+  return hasJeonse.value ? 'JEONSE' : 'MONTHLY';
+});
+const rentRangeLabel = computed(() => `${minRentStart.value}만원 ~ ${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
   () =>
-    selectedDestination.value?.destName ??
-    props.onboarding?.destination?.destName ??
-    '세종대학교',
+    selectedDestination.value?.destName ?? props.onboarding?.destination?.destName ?? '세종대학교',
 );
 
 const selectDestination = (destination) => {
@@ -195,8 +186,7 @@ const scheduleSearch = (value) => {
     } catch (error) {
       if (requestId !== searchRequestId) return;
       searchResults.value = [];
-      searchError.value =
-        '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('FILTER DESTINATION SEARCH ERROR: ', error);
     } finally {
       if (requestId === searchRequestId) isSearching.value = false;
@@ -204,11 +194,24 @@ const scheduleSearch = (value) => {
   }, 300);
 };
 
-const selectLeaseType = (type) => {
-  leaseType.value = type;
-  if (type === 'jeonse') {
-    minRentStart.value = 0;
-    maxRent.value = 0;
+const syncSelectedTradeTypes = (value) => {
+  if (value === 'JEONSE') {
+    selectedTradeTypes.value = ['JEONSE'];
+  } else if (value === 'ALL') {
+    selectedTradeTypes.value = ['MONTHLY', 'JEONSE'];
+  } else {
+    selectedTradeTypes.value = ['MONTHLY'];
+  }
+};
+
+const toggleTradeType = (type) => {
+  const index = selectedTradeTypes.value.indexOf(type);
+  if (index >= 0) {
+    // 거래유형은 하나 이상 선택된 상태로 유지
+    if (selectedTradeTypes.value.length === 1) return;
+    selectedTradeTypes.value.splice(index, 1);
+  } else {
+    selectedTradeTypes.value.push(type);
   }
 };
 
@@ -246,9 +249,7 @@ watch(
 
     selectedDestination.value = appliedFilters?.destination ?? null;
 
-    const savedMinIndex = depositOptions.indexOf(
-      Number(filters.budgetDepositMin),
-    );
+    const savedMinIndex = depositOptions.indexOf(Number(filters.budgetDepositMin));
     if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
 
     const savedMaxIndex = depositOptions.indexOf(Number(filters.budgetDeposit));
@@ -256,10 +257,11 @@ watch(
 
     minRentStart.value = Number(filters.budgetRentMin ?? RENT_MIN);
     maxRent.value = Number(filters.budgetRent);
-    leaseType.value = Number(filters.budgetRent) === 0 ? 'jeonse' : 'monthly';
+    syncSelectedTradeTypes(
+      filters.tradeType ?? (Number(filters.budgetRent) === 0 ? 'JEONSE' : 'MONTHLY'),
+    );
     minSafetyScore.value = Number(filters.minSafetyScore);
-    transportMode.value =
-      filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+    transportMode.value = filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
     travelTime.value = Number(filters.maxTravelTime);
     flexTime.value = normalizeTransitMinTime(
       filters.minTravelTime ?? filters.flexTime,
@@ -279,45 +281,40 @@ const resetFilters = () => {
 
   if (!onboarding) return;
 
-  const savedMinIndex = depositOptions.indexOf(
-    Number(onboarding.budgetDepositMin),
-  );
+  const savedMinIndex = depositOptions.indexOf(Number(onboarding.budgetDepositMin));
   if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
   else depositMinIndex.value = 0;
 
-  const savedMaxIndex = depositOptions.indexOf(
-    Number(onboarding.budgetDeposit),
-  );
+  const savedMaxIndex = depositOptions.indexOf(Number(onboarding.budgetDeposit));
   if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
 
   minRentStart.value = Number(onboarding.budgetRentMin ?? RENT_MIN);
   maxRent.value = Number(onboarding.budgetRent);
-  leaseType.value = Number(onboarding.budgetRent) === 0 ? 'jeonse' : 'monthly';
+  syncSelectedTradeTypes(
+    onboarding.tradeType ?? (Number(onboarding.budgetRent) === 0 ? 'JEONSE' : 'MONTHLY'),
+  );
   minSafetyScore.value = Number(onboarding.minSafetyScore);
-  transportMode.value =
-    onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+  transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
   flexTime.value = normalizeTransitMinTime(
     onboarding.minTravelTime ?? onboarding.flexTime,
     travelTime.value,
   );
-  if (onboarding.selectedLoanId)
-    selectedLoanId.value = onboarding.selectedLoanId;
+  if (onboarding.selectedLoanId) selectedLoanId.value = onboarding.selectedLoanId;
 };
 
 const getFilters = () => ({
-  destination:
-    selectedDestination.value ?? props.onboarding?.destination ?? null,
+  destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
   maxTravelTime: travelTime.value,
   minTravelTime: transportMode.value === 'transit' ? flexTime.value : 0,
   flexTime: transportMode.value === 'transit' ? flexTime.value : 0,
-  leaseType: leaseType.value,
+  tradeType: tradeType.value,
   budgetDepositMin: minDeposit.value,
   budgetDeposit: maxDeposit.value,
-  budgetRentMin: leaseType.value === 'jeonse' ? 0 : minRentStart.value,
-  budgetRent: leaseType.value === 'jeonse' ? 0 : maxRent.value,
+  budgetRentMin: hasMonthly.value ? minRentStart.value : 0,
+  budgetRent: hasMonthly.value ? maxRent.value : 0,
   minSafetyScore: minSafetyScore.value,
   selectedLoanId: selectedLoanId.value,
 });
@@ -360,17 +357,12 @@ onBeforeUnmount(() => {
         </button>
       </label>
       <div
-        v-if="
-          recentDestinations.length && !searchKeyword.trim() && !isSearching
-        "
+        v-if="recentDestinations.length && !searchKeyword.trim() && !isSearching"
         class="recent-destination-section"
       >
         <p class="recent-destination-title">🕒 최근 검색 목적지</p>
         <ul class="recent-destination-list">
-          <li
-            v-for="item in recentDestinations.slice(0, 3)"
-            :key="item.destName"
-          >
+          <li v-for="item in recentDestinations.slice(0, 3)" :key="item.destName">
             <button
               type="button"
               class="recent-destination-item"
@@ -408,14 +400,8 @@ onBeforeUnmount(() => {
         검색 결과가 없어요.
       </p>
       <ul v-if="searchResults.length" class="search-result-list">
-        <li
-          v-for="item in searchResults"
-          :key="`${item.destName}-${item.destAddress}`"
-        >
-          <button
-            type="button"
-            @pointerdown.capture.prevent="selectDestination(item)"
-          >
+        <li v-for="item in searchResults" :key="`${item.destName}-${item.destAddress}`">
+          <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
             <span>
               <strong>{{ item.destName }}</strong>
@@ -426,8 +412,6 @@ onBeforeUnmount(() => {
         </li>
       </ul>
     </div>
-
-
 
     <!-- 🛡️ 최소 안전 점수 섹션 (목적지 검색 바로 아래 배치) -->
     <div class="filter-section">
@@ -448,23 +432,16 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="filter-section budget-section">
-      <!-- 🏠 거래유형(월세/전세) 토글 -->
+      <!-- 🏠 거래유형(월세/전세) 다중 선택 -->
       <div class="section-heading">
         <p>거래유형</p>
       </div>
+      <p class="trade-type-guide">월세·전세 중복 선택 가능</p>
       <div class="transport-options">
-        <button
-          type="button"
-          :class="{ active: leaseType === 'monthly' }"
-          @click="selectLeaseType('monthly')"
-        >
+        <button type="button" :class="{ active: hasMonthly }" @click="toggleTradeType('MONTHLY')">
           <span>🏠</span> 월세
         </button>
-        <button
-          type="button"
-          :class="{ active: leaseType === 'jeonse' }"
-          @click="selectLeaseType('jeonse')"
-        >
+        <button type="button" :class="{ active: hasJeonse }" @click="toggleTradeType('JEONSE')">
           <span>🏢</span> 전세
         </button>
       </div>
@@ -478,14 +455,7 @@ onBeforeUnmount(() => {
       <div class="dual-range-track">
         <div
           class="dual-range-track__fill"
-          :style="
-            dualRangeStyle(
-              depositMinIndex,
-              depositMaxIndex,
-              0,
-              depositOptions.length - 1,
-            )
-          "
+          :style="dualRangeStyle(depositMinIndex, depositMaxIndex, 0, depositOptions.length - 1)"
         ></div>
         <input
           v-model.number="depositMinIndex"
@@ -511,8 +481,8 @@ onBeforeUnmount(() => {
         ><span>{{ DEPOSIT_MAX_LABEL }}</span>
       </div>
 
-      <!-- 월세 (월세 선택 시에만 노출) -->
-      <div v-if="leaseType === 'monthly'" class="sub-block">
+      <!-- 월세 (월세가 선택된 경우에만 노출) -->
+      <div v-if="hasMonthly" class="sub-block">
         <div class="section-heading sub-heading">
           <p>
             월세 <strong>{{ rentRangeLabel }}</strong>
@@ -554,8 +524,7 @@ onBeforeUnmount(() => {
         <p>
           시간
           <strong
-            >{{ transportMode === 'walk' ? '도보' : '대중교통' }}
-            {{ travelTime }}분 이내</strong
+            >{{ transportMode === 'walk' ? '도보' : '대중교통' }} {{ travelTime }}분 이내</strong
           >
         </p>
       </div>
@@ -606,10 +575,7 @@ onBeforeUnmount(() => {
               transportMode === 'walk' ? 40 : 60,
             )
           "
-          @input="
-            if (transportMode === 'transit' && flexTime > travelTime)
-              flexTime = travelTime;
-          "
+          @input="if (transportMode === 'transit' && flexTime > travelTime) flexTime = travelTime;"
         />
         <div class="range-labels">
           <span>{{ transportMode === 'walk' ? '5분' : '15분' }}</span
@@ -958,6 +924,13 @@ input[type='range']::-moz-range-thumb {
 
 .sub-block {
   margin-top: 4px;
+}
+
+.trade-type-guide {
+  margin: -2px 0 8px;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .transport-options {
