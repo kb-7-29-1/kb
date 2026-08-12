@@ -282,15 +282,17 @@ onMounted(async () => {
   const hasUrlQuery = parseUrlQueryToFilters({ includeDestination: true });
 
   // 1. URL 쿼리가 없는 경우에만 유저 직전 퀵 필터 로컬 캐시 적용
+  let hasCachedDestination = false;
   if (!hasUrlQuery) {
     const cachedFilters = loadQuickFilterFromCache();
     if (cachedFilters) {
       Object.assign(filterState.value, cachedFilters);
+      hasCachedDestination = !!(cachedFilters.destinationLat && cachedFilters.destinationLng);
     }
   }
 
-  // 2. 기본 DB 온보딩 값 로드 (URL에 목적지가 이미 존재하는 경우 덮어쓰기 차단)
-  await loadOnboardingDefaultFilters({ resetDestination: !hasUrlQuery });
+  // 2. 기본 DB 온보딩 값 로드 (URL 또는 캐시에 목적지가 이미 존재하는 경우 덮어쓰기 차단)
+  await loadOnboardingDefaultFilters({ resetDestination: !hasUrlQuery && !hasCachedDestination });
 
   // 3. URL 주소창 Query 파라미터 100% 최우선 보장
   parseUrlQueryToFilters({ includeDestination: true });

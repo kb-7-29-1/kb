@@ -1,6 +1,7 @@
 <script setup>
 import api from '@/api/api.js';
 import { onMounted, ref } from 'vue';
+import { formatDeposit } from '@/utils/priceFormatter.js';
 
 const bookmarks = ref([]);
 const isLoading = ref(true);
@@ -23,18 +24,10 @@ const fetchBookmarks = async () => {
 
 const toggleBookmark = async (item) => {
   const propertyId = item.propertyId;
-  const wasBookmarked = item.isBookmarked !== false;
 
   try {
-    if (wasBookmarked) {
-      await api.delete(`/bookmark/${propertyId}`);
-    } else {
-      await api.post('/bookmark', { propertyId });
-    }
-
-    // 해제해도 목록은 유지하고, 하트 상태만 바꿈
-    // 페이지 재진입/새로고침 시 목록 재조회
-    item.isBookmarked = !wasBookmarked;
+    await api.delete(`/bookmark/${propertyId}`);
+    bookmarks.value = bookmarks.value.filter((b) => b.propertyId !== propertyId);
   } catch (error) {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
   }
@@ -91,7 +84,11 @@ onMounted(fetchBookmarks);
             <span v-if="item.isIllegalBuilding" class="warning-tag">⚠️ 위반 건축물</span>
           </div>
           <p class="bookmark-item__address">{{ item.address }}</p>
-          <p class="bookmark-item__details">보증금 {{ item.deposit }}만 · {{ item.area }}㎡</p>
+          <p class="bookmark-item__details">
+            {{ item.monthlyRent > 0 ? '보증금' : '전세' }} {{ formatDeposit(item.deposit) }}
+            <template v-if="item.monthlyRent > 0"> · 월세 {{ item.monthlyRent }}만</template>
+            · {{ item.area }}㎡
+          </p>
         </div>
 
         <div class="bookmark-item__actions">
