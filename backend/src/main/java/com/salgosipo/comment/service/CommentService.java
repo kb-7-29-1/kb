@@ -10,6 +10,8 @@ public interface CommentService {
 
     List<CommentResponseDTO> getCommentsByPropertyId(Long propertyId, String loginId);
 
+    List<CommentResponseDTO> getMyComments(String loginId);
+
     void createComment(Long propertyId, String loginId, CommentRequestDTO request);
 
     void updateComment(Long propertyId, Long commentId, String loginId, CommentRequestDTO request);

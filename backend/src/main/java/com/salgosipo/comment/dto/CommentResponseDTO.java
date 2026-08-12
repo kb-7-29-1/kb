@@ -11,6 +11,8 @@ public class CommentResponseDTO {
 
     private Long propertyId;
 
+    private String propertyAddress;
+
     private Long userId;
 
     private String nickname;
