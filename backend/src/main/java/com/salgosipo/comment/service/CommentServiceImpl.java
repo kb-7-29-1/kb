@@ -28,6 +28,11 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
+    public List<CommentResponseDTO> getMyComments(String loginId) {
+        return commentMapper.findByUserId(getUserId(loginId));
+    }
+
+    @Override
     @Transactional
     public void createComment(Long propertyId, String loginId, CommentRequestDTO request) {
         commentMapper.insertComment(createCommentVO(propertyId, null, loginId, getContent(request)));
