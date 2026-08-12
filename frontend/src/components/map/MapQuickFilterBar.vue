@@ -1,12 +1,5 @@
 <script setup>
-import {
-  ref,
-  computed,
-  nextTick,
-  watch,
-  onMounted,
-  onBeforeUnmount,
-} from 'vue';
+import { ref, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue';
 import VueSlider from 'vue-3-slider-component';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import {
@@ -91,6 +84,47 @@ const filters = ref({
   ...props.modelValue,
 });
 
+// 월세/전세/ALL 선택
+const selectedTradeTypes = ref([]);
+
+const syncSelectedTradeTypes = (tradeType) => {
+  if (tradeType === 'MONTHLY') {
+    selectedTradeTypes.value = ['MONTHLY'];
+  } else if (tradeType === 'JEONSE') {
+    selectedTradeTypes.value = ['JEONSE'];
+  } else {
+    selectedTradeTypes.value = ['MONTHLY', 'JEONSE'];
+  }
+};
+
+const applyTradeTypeSelection = () => {
+  const hasMonthly = selectedTradeTypes.value.includes('MONTHLY');
+  const hasJeonse = selectedTradeTypes.value.includes('JEONSE');
+
+  if (hasMonthly && !hasJeonse) {
+    filters.value.tradeType = 'MONTHLY';
+  } else if (!hasMonthly && hasJeonse) {
+    filters.value.tradeType = 'JEONSE';
+  } else {
+    // 둘 다 선택한 경우는 전체 매물 조회
+    filters.value.tradeType = 'ALL';
+  }
+};
+
+const toggleTradeType = (type) => {
+  const index = selectedTradeTypes.value.indexOf(type);
+  if (index >= 0) {
+    // 거래 유형은 최소 하나가 선택된 상태로 유지한다.
+    if (selectedTradeTypes.value.length === 1) return;
+    selectedTradeTypes.value.splice(index, 1);
+  } else {
+    selectedTradeTypes.value.push(type);
+  }
+  applyTradeTypeSelection();
+};
+
+syncSelectedTradeTypes(filters.value.tradeType);
+
 // 팝오버 안에서 조절 중인 filters와, 실제 적용된 modelValue를 분리한다.
 // 퀵버튼 라벨은 적용된 값만 보여 주고, 팝오버 안에서는 임시값을 자유롭게 조절한다.
 const appliedQuickFilters = computed(() => props.modelValue);
@@ -169,9 +203,7 @@ const destinationList = computed(() => {
 });
 
 const authStore = useAuthStore();
-const currentUserId = computed(
-  () => authStore.user?.userId || authStore.user?.id || 'guest',
-);
+const currentUserId = computed(() => authStore.user?.userId || authStore.user?.id || 'guest');
 
 const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 
@@ -180,17 +212,11 @@ watch(currentUserId, (newUserId) => {
 });
 
 const saveRecentDestination = (destObj) => {
-  recentDestinations.value = saveRecentDestinationGlobal(
-    destObj,
-    currentUserId.value,
-  );
+  recentDestinations.value = saveRecentDestinationGlobal(destObj, currentUserId.value);
 };
 
 const removeRecentDestination = (destName) => {
-  recentDestinations.value = removeRecentDestinationGlobal(
-    destName,
-    currentUserId.value,
-  );
+  recentDestinations.value = removeRecentDestinationGlobal(destName, currentUserId.value);
 };
 
 const selectRecentDestination = (item) => {
@@ -199,9 +225,7 @@ const selectRecentDestination = (item) => {
 };
 
 const selectDestinationOption = async (dest) => {
-  const matched = (recentDestinations.value || []).find(
-    (item) => item.destName === dest,
-  );
+  const matched = (recentDestinations.value || []).find((item) => item.destName === dest);
   filters.value.destinationId = matched?.destinationId || null;
   filters.value.destination = dest;
   if (matched && matched.destLatitude != null && matched.destLongitude != null) {
@@ -253,9 +277,7 @@ const applyDestination = async () => {
   if (selectedDestination.value) {
     isDestinationSaving.value = true;
     try {
-      const savedDestination = await onboardingApi.saveDestination(
-        selectedDestination.value,
-      );
+      const savedDestination = await onboardingApi.saveDestination(selectedDestination.value);
       filters.value.destinationId = savedDestination.destinationId;
       filters.value.destination = savedDestination.destName;
       filters.value.destinationAddress = savedDestination.destAddress;
@@ -263,8 +285,7 @@ const applyDestination = async () => {
       filters.value.destinationLng = Number(savedDestination.destLongitude);
       saveRecentDestination(savedDestination);
     } catch (error) {
-      destinationSearchError.value =
-        '목적지 저장에 실패했어요. 다시 시도해 주세요.';
+      destinationSearchError.value = '목적지 저장에 실패했어요. 다시 시도해 주세요.';
       console.error('QUICK FILTER DESTINATION SAVE ERROR:', error);
       return;
     } finally {
@@ -299,12 +320,10 @@ const scheduleDestinationSearch = (value) => {
     } catch (error) {
       if (requestId !== destinationSearchRequestId) return;
       destinationSearchResults.value = [];
-      destinationSearchError.value =
-        '목적지 검색에 실패했어요. 다시 시도해 주세요.';
+      destinationSearchError.value = '목적지 검색에 실패했어요. 다시 시도해 주세요.';
       console.error('QUICK FILTER DESTINATION SEARCH ERROR:', error);
     } finally {
-      if (requestId === destinationSearchRequestId)
-        isDestinationSearching.value = false;
+      if (requestId === destinationSearchRequestId) isDestinationSearching.value = false;
     }
   }, 300);
 };
@@ -353,6 +372,7 @@ watch(
       flexTime: 10,
       ...newVal,
     };
+    syncSelectedTradeTypes(filters.value.tradeType);
   },
   { deep: true },
 );
@@ -412,32 +432,6 @@ const togglePopover = (name) => {
   activePopover.value = activePopover.value === name ? null : name;
 };
 
-const selectTradeType = (type) => {
-  filters.value.tradeType = type;
-  if (type === 'ALL') {
-    depositValA.value = 0;
-    depositValB.value = DEPOSIT_OPTIONS.length - 1;
-    rentValA.value = 0;
-    rentValB.value = RENT_MAX;
-    filters.value.minDeposit = 0;
-    filters.value.maxDeposit = DEPOSIT_MAX;
-    filters.value.minRent = 0;
-    filters.value.maxRent = RENT_MAX;
-  } else if (type === 'JEONSE') {
-    rentValA.value = 0;
-    rentValB.value = 0;
-    filters.value.minRent = 0;
-    filters.value.maxRent = 0;
-  } else if (type === 'MONTHLY') {
-    if (rentValA.value === 0 && rentValB.value === 0) {
-      rentValA.value = 0;
-      rentValB.value = RENT_MAX;
-      filters.value.minRent = 0;
-      filters.value.maxRent = RENT_MAX;
-    }
-  }
-};
-
 // 이소크론 영역 토글 (ON <-> OFF - 순수 지도 오버레이 보이기/가리기)
 const toggleIsochrone = () => {
   filters.value.showIsochrone = !filters.value.showIsochrone;
@@ -455,6 +449,7 @@ const handleReset = () => {
     minDeposit: 0,
     minRent: 0,
   };
+  syncSelectedTradeTypes('MONTHLY');
   depositValA.value = 0;
   rentValA.value = 0;
 
@@ -608,12 +603,8 @@ watch(
   { immediate: true },
 );
 
-const minTravelTimeVal = computed(() =>
-  Math.min(travelValA.value, travelValB.value),
-);
-const maxTravelTimeVal = computed(() =>
-  Math.max(travelValA.value, travelValB.value),
-);
+const minTravelTimeVal = computed(() => Math.min(travelValA.value, travelValB.value));
+const maxTravelTimeVal = computed(() => Math.max(travelValA.value, travelValB.value));
 
 // external modelValue 또는 reset 시 핸들 위치 맞춤 동기화
 watch(
@@ -918,7 +909,6 @@ const amenityLoadingText = computed(() => {
 */
 
 const activeAmenityIcons = computed(() => []);
-
 </script>
 
 <template>
@@ -926,9 +916,7 @@ const activeAmenityIcons = computed(() => []);
     <!-- ======================================================== -->
     <!-- 1. PC 전용 상단 6종 부유형(Floating) 퀵버튼 바 (md:inline-flex w-fit) -->
     <!-- ======================================================== -->
-    <div
-      class="hidden xl:inline-flex w-fit items-center gap-2 text-slate-800 z-30"
-    >
+    <div class="hidden xl:inline-flex w-fit items-center gap-2 text-slate-800 z-30">
       <!-- 📍 퀵버튼 1: 목적지 (고정 너비 min-w-[115px]) -->
       <div class="relative order-1 group">
         <button
@@ -938,9 +926,7 @@ const activeAmenityIcons = computed(() => []);
         >
           <span class="flex items-center gap-1">
             <span class="text-blue-600">📍</span>
-            <span class="whitespace-nowrap"
-              >목적지: {{ appliedQuickFilters.destination }}</span
-            >
+            <span class="whitespace-nowrap">목적지: {{ appliedQuickFilters.destination }}</span>
           </span>
           <span class="text-[10px] text-slate-400">▼</span>
         </button>
@@ -1004,9 +990,7 @@ const activeAmenityIcons = computed(() => []);
                 @click="selectRecentDestination(item)"
               >
                 <div class="flex items-center gap-2 min-w-0 flex-1">
-                  <i
-                    class="fa-solid fa-clock-rotate-left text-[10px] text-blue-500 shrink-0"
-                  ></i>
+                  <i class="fa-solid fa-clock-rotate-left text-[10px] text-blue-500 shrink-0"></i>
                   <span class="font-bold text-slate-800 truncate text-[12px]">{{
                     item.destName
                   }}</span>
@@ -1028,16 +1012,10 @@ const activeAmenityIcons = computed(() => []);
             </ul>
           </div>
 
-          <p
-            v-if="isDestinationSearching"
-            class="mt-3 text-center text-xs text-slate-400"
-          >
+          <p v-if="isDestinationSearching" class="mt-3 text-center text-xs text-slate-400">
             검색 중이에요.
           </p>
-          <p
-            v-else-if="destinationSearchError"
-            class="mt-3 text-center text-xs text-red-500"
-          >
+          <p v-else-if="destinationSearchError" class="mt-3 text-center text-xs text-red-500">
             {{ destinationSearchError }}
           </p>
           <ul
@@ -1054,14 +1032,9 @@ const activeAmenityIcons = computed(() => []);
                 class="flex w-full items-center gap-2 px-3 py-3 text-left transition-colors hover:bg-blue-50"
                 @pointerdown.capture.prevent="selectDestination(item)"
               >
-                <i
-                  class="fa-solid fa-location-dot text-blue-500"
-                  aria-hidden="true"
-                ></i>
+                <i class="fa-solid fa-location-dot text-blue-500" aria-hidden="true"></i>
                 <span class="min-w-0 flex-1">
-                  <strong class="block truncate text-xs text-slate-800">{{
-                    item.destName
-                  }}</strong>
+                  <strong class="block truncate text-xs text-slate-800">{{ item.destName }}</strong>
                   <small class="block truncate text-[11px] text-slate-400">{{
                     item.destAddress
                   }}</small>
@@ -1125,9 +1098,7 @@ const activeAmenityIcons = computed(() => []);
         >
           <!-- 헤더 및 실시간 점수 배지 -->
           <div class="flex items-center justify-between">
-            <span class="text-xs font-black text-slate-800"
-              >🛡️ 최소 안전 점수</span
-            >
+            <span class="text-xs font-black text-slate-800">🛡️ 최소 안전 점수</span>
             <div class="flex items-center gap-2">
               <span
                 class="text-xs font-black px-2.5 py-1 rounded-full border"
@@ -1138,9 +1109,7 @@ const activeAmenityIcons = computed(() => []);
                 "
               >
                 {{
-                  filters.minSafetyScore === 0
-                    ? '전체 보기'
-                    : `${filters.minSafetyScore}점 이상`
+                  filters.minSafetyScore === 0 ? '전체 보기' : `${filters.minSafetyScore}점 이상`
                 }}
               </span>
               <button
@@ -1171,9 +1140,7 @@ const activeAmenityIcons = computed(() => []);
                     : '#e2e8f0',
               }"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>0점</span>
               <span>90점</span>
             </div>
@@ -1220,8 +1187,7 @@ const activeAmenityIcons = computed(() => []);
           type="button"
           class="flex items-center justify-between gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold transition-all border shadow-sm min-w-[122px]"
           :class="[
-            appliedQuickFilters.maxDeposit < DEPOSIT_MAX ||
-            appliedQuickFilters.maxRent < RENT_MAX
+            appliedQuickFilters.maxDeposit < DEPOSIT_MAX || appliedQuickFilters.maxRent < RENT_MAX
               ? 'bg-blue-50 text-blue-600 border-blue-300 font-extrabold'
               : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200',
           ]"
@@ -1240,9 +1206,7 @@ const activeAmenityIcons = computed(() => []);
           class="absolute top-full left-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-40 space-y-4"
         >
           <div class="flex items-center justify-between">
-            <span class="text-sm font-black text-slate-800"
-              >가격 (보증금&월세)</span
-            >
+            <span class="text-sm font-black text-slate-800">거래유형</span>
             <button
               type="button"
               class="flex h-7 w-7 items-center justify-center rounded-full text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
@@ -1253,26 +1217,30 @@ const activeAmenityIcons = computed(() => []);
             </button>
           </div>
 
-          <!-- 🏠 모두 | 월세 | 전세 3개 탭 -->
-          <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
-            <button
+          <!-- 🏠 전체 | 월세 | 전세 3개 탭 -->
+          <div class="flex gap-2">
+            <template
               v-for="t in [
-                { key: 'ALL', label: '🏡 모두' },
+                { key: 'ALL', label: '🏡 전체' },
                 { key: 'MONTHLY', label: '🏠 월세' },
                 { key: 'JEONSE', label: '🏢 전세' },
               ]"
               :key="t.key"
-              type="button"
-              class="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all text-center"
-              :class="
-                filters.tradeType === t.key
-                  ? 'bg-white text-blue-600 shadow-sm font-black'
-                  : 'text-slate-500 hover:text-slate-700'
-              "
-              @click="selectTradeType(t.key)"
             >
-              {{ t.label }}
-            </button>
+              <button
+                v-if="t.key !== 'ALL'"
+                type="button"
+                class="flex-1 rounded-xl border py-2 text-xs font-bold transition-all"
+                :class="
+                  selectedTradeTypes.includes(t.key)
+                    ? 'border-blue-600 bg-blue-50 text-blue-600 font-black shadow-sm'
+                    : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                "
+                @click="toggleTradeType(t.key)"
+              >
+                {{ t.label }}
+              </button>
+            </template>
           </div>
 
           <!-- 전세금/보증금 슬라이더 (vue-3-slider-component - 자유 무제한 교차) -->
@@ -1280,14 +1248,12 @@ const activeAmenityIcons = computed(() => []);
             <div class="flex justify-between text-xs font-bold text-slate-700">
               <span>{{
                 filters.tradeType === 'JEONSE'
-                  ? '전세 보증금 범위'
+                  ? '전세 보증금'
                   : filters.tradeType === 'MONTHLY'
-                    ? '월세 보증금 범위'
-                    : '보증금 / 전세금 전체 범위'
+                    ? '보증금'
+                    : '보증금/전세금'
               }}</span>
-              <span class="text-blue-600 font-extrabold">{{
-                depositAmountLabel
-              }}</span>
+              <span class="text-blue-600 font-extrabold">{{ depositAmountLabel }}</span>
             </div>
             <div class="py-2">
               <VueSlider
@@ -1311,21 +1277,17 @@ const activeAmenityIcons = computed(() => []);
                 @change="handleDepositSliderUpdate"
               />
             </div>
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>{{ DEPOSIT_MIN_LABEL }}</span>
               <span>{{ DEPOSIT_MAX_LABEL }}</span>
             </div>
           </div>
 
           <!-- 월세 슬라이더 (vue-3-slider-component - 자유 무제한 교차) -->
-          <div v-if="filters.tradeType === 'MONTHLY'" class="space-y-1.5">
+          <div v-if="filters.tradeType !== 'JEONSE'" class="space-y-1.5">
             <div class="flex justify-between text-xs font-bold text-slate-700">
-              <span>월세 금액 범위</span>
-              <span class="text-blue-600 font-extrabold">{{
-                rentAmountLabel
-              }}</span>
+              <span>월세</span>
+              <span class="text-blue-600 font-extrabold">{{ rentAmountLabel }}</span>
             </div>
             <div class="py-2">
               <VueSlider
@@ -1349,9 +1311,7 @@ const activeAmenityIcons = computed(() => []);
                 @change="handleRentSliderUpdate"
               />
             </div>
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>{{ RENT_MIN_LABEL }}</span>
               <span>{{ RENT_MAX_LABEL }}</span>
             </div>
@@ -1472,9 +1432,7 @@ const activeAmenityIcons = computed(() => []);
 
           <!-- 🚶‍♂️ [도보 모드]: 단일 슬라이더 (핸들 1개) -->
           <div v-if="filters.transportMode === 'WALK'" class="space-y-1.5 pt-1">
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🎯 원하는 이동 시간</span>
               <span class="text-blue-600 font-extrabold text-sm"
                 >{{ filters.travelTime }}분 이내</span
@@ -1494,9 +1452,7 @@ const activeAmenityIcons = computed(() => []);
               @touchend="handleSliderEnd"
               @input="updateFilters"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>5분</span>
               <span>40분</span>
             </div>
@@ -1504,9 +1460,7 @@ const activeAmenityIcons = computed(() => []);
 
           <!-- 🚌 [대중교통 모드]: 단일 슬라이더 (최대 이동시간) -->
           <div v-else class="space-y-1.5 pt-1">
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>🎯 최대 이동 시간</span>
               <span class="text-blue-600 font-extrabold text-sm"
                 >{{ filters.travelTime }}분 이내</span
@@ -1526,9 +1480,7 @@ const activeAmenityIcons = computed(() => []);
               @touchend="handleSliderEnd"
               @input="updateFilters"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>10분</span>
               <span>60분</span>
             </div>
@@ -1580,17 +1532,11 @@ const activeAmenityIcons = computed(() => []);
 
           <!-- 🚌 [대중교통 모드]: 최소 이동시간 -->
           <!-- 🚌 [대중교통 모드]: 최소 이동시간 슬라이더 -->
-          <div
-            v-if="filters.transportMode === 'TRANSIT'"
-            class="space-y-1.5 pt-1"
-          >
-            <div
-              class="flex items-center justify-between text-xs font-bold text-slate-800"
-            >
+          <div v-if="filters.transportMode === 'TRANSIT'" class="space-y-1.5 pt-1">
+            <div class="flex items-center justify-between text-xs font-bold text-slate-800">
               <span>⏳ 최소 이동시간</span>
               <span class="text-amber-500 font-extrabold text-sm"
-                >{{ filters.minTravelTime || filters.flexTime || 5 }}분
-                이상</span
+                >{{ filters.minTravelTime || filters.flexTime || 5 }}분 이상</span
               >
             </div>
             <input
@@ -1621,17 +1567,15 @@ const activeAmenityIcons = computed(() => []);
               @pointerup="handleSliderEnd"
               @touchend="handleSliderEnd"
             />
-            <div
-              class="flex justify-between text-[11px] font-bold text-slate-400"
-            >
+            <div class="flex justify-between text-[11px] font-bold text-slate-400">
               <span>5분</span>
               <span>{{ Math.min(30, filters.travelTime || 40) }}분</span>
             </div>
             <p
               class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
             >
-              {{ filters.minTravelTime || filters.flexTime || 5 }}분 미만(너무
-              가까운 지역) 매물은 제외하고 표시해요.
+              {{ filters.minTravelTime || filters.flexTime || 5 }}분 미만(너무 가까운 지역) 매물은
+              제외하고 표시해요.
             </p>
           </div>
 
@@ -1679,9 +1623,7 @@ const activeAmenityIcons = computed(() => []);
     <!-- ======================================================== -->
     <!-- 1-2. PC 전용 2열 (퀵바 바로 아래): 슬림 매물 카운트 + 편의시설 조건 태그 (Slim Capsule) -->
     <!-- ======================================================== -->
-    <div
-      class="mt-1.5 hidden xl:flex flex-wrap items-center gap-1.5 z-20 pointer-events-auto"
-    >
+    <div class="mt-1.5 hidden xl:flex flex-wrap items-center gap-1.5 z-20 pointer-events-auto">
       <div
         class="inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold shadow-sm transition-all select-none backdrop-blur-md"
         :class="[
@@ -1695,10 +1637,7 @@ const activeAmenityIcons = computed(() => []);
         ]"
       >
         <template v-if="props.isLoading">
-          <i
-            class="fa-solid fa-spinner animate-spin text-[10px]"
-            aria-hidden="true"
-          ></i>
+          <i class="fa-solid fa-spinner animate-spin text-[10px]" aria-hidden="true"></i>
         </template>
         <template v-else>
           <span>🏠</span>
@@ -1736,34 +1675,14 @@ const activeAmenityIcons = computed(() => []);
         title="필터"
         @click="emit('open-filter')"
       >
-        <svg
-          class="filter-icon"
-          viewBox="0 0 32 32"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            d="M5 8H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+        <svg class="filter-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M5 8H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="20" cy="8" r="3.2" fill="currentColor" />
 
-          <path
-            d="M5 16H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+          <path d="M5 16H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="11" cy="16" r="3.2" fill="currentColor" />
 
-          <path
-            d="M5 24H27"
-            stroke="currentColor"
-            stroke-width="2.8"
-            stroke-linecap="round"
-          />
+          <path d="M5 24H27" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
           <circle cx="22" cy="24" r="3.2" fill="currentColor" />
         </svg>
       </button>
@@ -1796,16 +1715,12 @@ const activeAmenityIcons = computed(() => []);
         ]"
       >
         <template v-if="props.isLoading">
-          <i
-            class="fa-solid fa-spinner animate-spin text-[10px]"
-            aria-hidden="true"
-          ></i>
+          <i class="fa-solid fa-spinner animate-spin text-[10px]" aria-hidden="true"></i>
         </template>
         <template v-else>
           <span>🏠</span>
           <span>{{ props.totalCount }}개</span>
-          <template v-if="activeAmenityIcons.length">
-          </template>
+          <template v-if="activeAmenityIcons.length"> </template>
         </template>
       </div>
     </div>
