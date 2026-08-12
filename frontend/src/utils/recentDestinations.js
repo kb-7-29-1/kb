@@ -1,3 +1,5 @@
+import { calculateDistanceKm } from '@/utils/geo.js';
+
 /**
  * 로그인 유저아이디 결합 최근 목적지 저장 및 로드 유틸리티
  */
@@ -60,4 +62,88 @@ export const removeRecentDestinationGlobal = (destName, userId) => {
     localStorage.setItem(key, JSON.stringify(updated));
   } catch (e) {}
   return updated;
+};
+
+/**
+ * 목적지 명칭, 주소 및 좌표 기반 4단계 유연(Fuzzy) 매칭 공통 유틸리티 (실제 DB/저장 목적지 전용)
+ */
+export const findMatchingDestination = (
+  name,
+  address,
+  recentList = [],
+  lat = null,
+  lng = null,
+) => {
+  if (!recentList || recentList.length === 0) return null;
+
+  // 0차: 좌표(위경도) 근접 거리 최우선 매칭 (250m 이내에 DB/저장 목적지가 있으면 지오코딩 텍스트 무시하고 최우선 반영)
+  if (lat != null && lng != null) {
+    const inputLat = Number(lat);
+    const inputLng = Number(lng);
+    if (!isNaN(inputLat) && !isNaN(inputLng)) {
+      let minDistance = Infinity;
+      let closestItem = null;
+
+      for (const item of recentList) {
+        const itemLat = Number(item.destLatitude ?? item.lat);
+        const itemLng = Number(item.destLongitude ?? item.lng);
+        if (!isNaN(itemLat) && !isNaN(itemLng)) {
+          const distKm = calculateDistanceKm(
+            inputLat,
+            inputLng,
+            itemLat,
+            itemLng,
+          );
+          if (distKm <= 0.25 && distKm < minDistance) {
+            minDistance = distKm;
+            closestItem = item;
+          }
+        }
+      }
+      if (closestItem) return closestItem;
+    }
+  }
+
+  const cleanInputName = (name || '').trim().toLowerCase();
+  const cleanInputAddress = (address || '').trim().toLowerCase();
+
+  const extractNumbers = (str) =>
+    (str.match(/\d+(?:-\d+)?/g) || []).sort().join(',');
+  const inputNums = extractNumbers(cleanInputAddress);
+
+  // 1차: 주소 완전 일치
+  let matched = recentList.find(
+    (item) =>
+      item.destAddress &&
+      cleanInputAddress &&
+      item.destAddress.trim().toLowerCase() === cleanInputAddress,
+  );
+
+  // 2차: 목적지 명칭(destName) 부분/포함 일치
+  if (!matched && cleanInputName) {
+    matched = recentList.find((item) => {
+      if (!item.destName) return false;
+      const targetName = item.destName.trim().toLowerCase();
+      return (
+        targetName.includes(cleanInputName) ||
+        cleanInputName.includes(targetName)
+      );
+    });
+  }
+
+  // 3차: 주소(destAddress) 부분/포함 일치 (단, 번지수 숫자는 완전 일치)
+  if (!matched && cleanInputAddress) {
+    matched = recentList.find((item) => {
+      if (!item.destAddress) return false;
+      const targetAddr = item.destAddress.trim().toLowerCase();
+      const targetNums = extractNumbers(targetAddr);
+      if (inputNums !== targetNums) return false;
+      return (
+        targetAddr.includes(cleanInputAddress) ||
+        cleanInputAddress.includes(targetAddr)
+      );
+    });
+  }
+
+  return matched || null;
 };
