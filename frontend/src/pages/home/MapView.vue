@@ -21,7 +21,11 @@ import { useMapUrlSync } from '@/composables/useMapUrlSync.js';
 import { usePropertySearch } from '@/composables/usePropertySearch.js';
 import { useMapStore } from '@/stores/useMapStore.js';
 import { useAuthStore } from '@/stores/useAuthStore.js';
-import { saveRecentDestinationGlobal } from '@/utils/recentDestinations.js';
+import {
+  saveRecentDestinationGlobal,
+  getRecentDestinations,
+  findMatchingDestination,
+} from '@/utils/recentDestinations.js';
 import {
   DEFAULT_DEPOSIT,
   DEFAULT_RENT,
@@ -339,24 +343,36 @@ const authStore = useAuthStore();
 
 const handleChangeDestination = ({ name, lat, lng, address }) => {
   if (!name || lat == null || lng == null) return;
-  const destName = name || address || '선택한 위치';
   const destAddress = address || '';
 
-  filterState.value.destination = destName;
+  const userId = authStore.user?.userId || authStore.user?.id;
+  const recentList = getRecentDestinations(userId) || [];
+  const matched = findMatchingDestination(
+    name,
+    destAddress,
+    recentList,
+    lat,
+    lng,
+  );
+
+  const finalDestName =
+    matched?.destName || name || destAddress || '선택한 위치';
+
+  filterState.value.destination = finalDestName;
   filterState.value.destinationAddress = destAddress;
   filterState.value.destinationLat = Number(lat);
   filterState.value.destinationLng = Number(lng);
-  filterState.value.destinationId = null;
+  filterState.value.destinationId = matched?.destinationId || null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
     {
-      destName,
+      destName: finalDestName,
       destAddress,
       destLatitude: Number(lat),
       destLongitude: Number(lng),
     },
-    authStore.user?.userId || authStore.user?.id,
+    userId,
   );
 
   handleApplyFilters(true);
@@ -643,8 +659,9 @@ const baseFilteredProperties = computed(() => {
       if (p.monthlyRent < minRent || p.monthlyRent > maxRent) return false;
     }
 
-    // 4. 안전 점수 필터
-    if (p.safetyScore < currentFilters.minSafetyScore) return false;
+    // 4. 안전 점수 필터 (null인 경우 미수집 매물이므로 필터 통과 처리)
+    if (p.safetyScore != null && p.safetyScore < currentFilters.minSafetyScore)
+      return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터 (최소 ~ 최대 시간)
     if (!isWithinReachDistance(p, currentFilters, destLat, destLng))

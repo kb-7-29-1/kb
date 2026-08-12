@@ -198,17 +198,30 @@ const selectRecentDestination = (item) => {
   applyDestination();
 };
 
-const selectDestinationOption = (dest) => {
-  const matched = (recentDestinations.value || []).find((item) => item.destName === dest);
+const selectDestinationOption = async (dest) => {
+  const matched = (recentDestinations.value || []).find(
+    (item) => item.destName === dest,
+  );
   filters.value.destinationId = matched?.destinationId || null;
   filters.value.destination = dest;
-  if (matched) {
+  if (matched && matched.destLatitude != null && matched.destLongitude != null) {
     filters.value.destinationAddress = matched.destAddress || '';
-    filters.value.destinationLat = matched.destLatitude != null ? Number(matched.destLatitude) : null;
-    filters.value.destinationLng = matched.destLongitude != null ? Number(matched.destLongitude) : null;
+    filters.value.destinationLat = Number(matched.destLatitude);
+    filters.value.destinationLng = Number(matched.destLongitude);
   } else {
-    delete filters.value.destinationLat;
-    delete filters.value.destinationLng;
+    // 최근 기록에 좌표가 없는 경우 장소 검색 API로 위경도 보장
+    try {
+      const results = await onboardingApi.searchPlaces(dest);
+      if (results && results.length > 0) {
+        const top = results[0];
+        filters.value.destinationAddress = top.destAddress || '';
+        filters.value.destinationLat = Number(top.destLatitude);
+        filters.value.destinationLng = Number(top.destLongitude);
+        saveRecentDestination(top);
+      }
+    } catch (e) {
+      console.error('Failed to geocode destination option:', e);
+    }
   }
   updateFilters();
   activePopover.value = null;
