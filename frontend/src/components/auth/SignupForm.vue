@@ -88,12 +88,22 @@ watch(
 );
 
 const handleCheckId = async () => {
-  if (!form.value.loginId) {
+  const loginId = form.value.loginId.trim();
+
+  if (!loginId) {
     idCheckMessage.value = '아이디를 입력해주세요.';
+    idChecked.value = false;
     return;
   }
+
+  if (!LOGIN_ID_REGEX.test(loginId)) {
+    idCheckMessage.value = '아이디는 영문·숫자 4~20자로 입력해주세요.';
+    idChecked.value = false;
+    return;
+  }
+
   try {
-    const response = await checkId(form.value.loginId);
+    const response = await checkId(loginId);
     if (response.data === true) {
       idCheckMessage.value = '사용 가능한 아이디 입니다.';
       idChecked.value = true;
