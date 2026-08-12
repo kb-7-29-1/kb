@@ -91,6 +91,8 @@ watch(
 const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 const selectedPropertyDetailAmenities = ref([]);
+// 북마크/공유링크로 직접 연 매물은 현재 검색 목록에 없어도 자동으로 닫히지 않도록 예외 처리
+const externallyOpenedPropertyId = ref(null);
 
 // 선택 매물의 TMAP 안전 경로 상태
 // selectedSafetyRoute.routePoints를 NaverMap에 전달해 실제 폴리라인을 그립니다.
@@ -344,6 +346,7 @@ const clearAmenitiesForDestinationChange = () => {
   safetyRouteError.value = '';
   isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
+  externallyOpenedPropertyId.value = null;
 
   emit('apply-amenity-filters', []);
 };
@@ -818,12 +821,20 @@ const clearSelectedProperty = () => {
   isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
   mobileSidebarTab.value = 'list';
+  externallyOpenedPropertyId.value = null;
 };
 
 watch(
   [visibleProperties, selectedProperty, isMapAnalysisLoading],
   ([nextProperties, currentProperty, isLoading]) => {
     if (!currentProperty || isLoading) return;
+
+    if (
+      externallyOpenedPropertyId.value != null &&
+      Number(currentProperty.propertyId) === Number(externallyOpenedPropertyId.value)
+    ) {
+      return;
+    }
 
     const isStillVisible = nextProperties.some(
       (property) =>
@@ -963,8 +974,9 @@ const loadSafetyRouteForProperty = async (property) => {
 };
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
-const handleSelectProperty = async (property) => {
+const handleSelectProperty = async (property, { skipVisibilityCheck = false } = {}) => {
   selectedProperty.value = property;
+  externallyOpenedPropertyId.value = skipVisibilityCheck ? property.propertyId : null;
   isPanelOpen.value = true;
   mobileSidebarTab.value = 'detail';
   if (mobilePanelHeight.value === 'COLLAPSED') {
@@ -997,6 +1009,29 @@ const handleSelectProperty = async (property) => {
 };
 
 // 마이페이지 관심 매물 카드에서 전달한 propertyId로 기존 상세 패널을 열기
+// 북마크에 저장된 목적지 정보를 현재 필터 상태에 반영 (안전 경로 계산이 이 목적지 기준으로 이뤄지게 함)
+const applyBookmarkDestinationContext = (bookmarked) => {
+  if (!bookmarked || bookmarked.destinationId == null) return;
+
+  const patch = {
+    destinationId: Number(bookmarked.destinationId),
+    destination: bookmarked.destinationName || filterState.value.destination,
+    destinationAddress:
+      bookmarked.destinationAddress || filterState.value.destinationAddress,
+    destinationLat:
+      bookmarked.destinationLat != null
+        ? Number(bookmarked.destinationLat)
+        : filterState.value.destinationLat,
+    destinationLng:
+      bookmarked.destinationLng != null
+        ? Number(bookmarked.destinationLng)
+        : filterState.value.destinationLng,
+  };
+
+  Object.assign(filterState.value, patch);
+  Object.assign(appliedFilterState.value, patch);
+};
+
 const openPropertyDetailFromQuery = async (propertyId) => {
   if (!propertyId) return;
 
@@ -1016,12 +1051,20 @@ const openPropertyDetailFromQuery = async (propertyId) => {
     console.warn('BOOKMARK PROPERTY SESSION PARSE ERROR:', error);
   }
 
+  const isBookmarkedTarget =
+    Number(bookmarkedProperty?.propertyId) === numericPropertyId;
+
+  // onMounted의 목적지 로딩(캐시/온보딩)이 비동기로 filterState를 되돌려놓을 수 있어서,
+  // handleSelectProperty 직전에 매번 다시 적용해 항상 마지막에 반영되게 함
+  if (isBookmarkedTarget) applyBookmarkDestinationContext(bookmarkedProperty);
+
   const listedProperty = properties.value.find(
     (property) => Number(property.propertyId) === numericPropertyId,
   );
 
   if (listedProperty) {
-    handleSelectProperty(listedProperty);
+    if (isBookmarkedTarget) applyBookmarkDestinationContext(bookmarkedProperty);
+    handleSelectProperty(listedProperty, { skipVisibilityCheck: true });
     sessionStorage.removeItem('selectedBookmarkProperty');
     return;
   }
@@ -1034,7 +1077,8 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       },
     });
     if (data) {
-      handleSelectProperty({ ...data, isBookmarked: true });
+      if (isBookmarkedTarget) applyBookmarkDestinationContext(bookmarkedProperty);
+      handleSelectProperty({ ...data, isBookmarked: true }, { skipVisibilityCheck: true });
       sessionStorage.removeItem('selectedBookmarkProperty');
       return;
     }
@@ -1043,8 +1087,9 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   // 네트워크 오류 시 목록용 요약 데이터를 마지막 대안으로 사용
-  if (Number(bookmarkedProperty?.propertyId) === numericPropertyId) {
-    handleSelectProperty({ ...bookmarkedProperty, isBookmarked: true });
+  if (isBookmarkedTarget) {
+    applyBookmarkDestinationContext(bookmarkedProperty);
+    handleSelectProperty({ ...bookmarkedProperty, isBookmarked: true }, { skipVisibilityCheck: true });
     sessionStorage.removeItem('selectedBookmarkProperty');
   }
 };
@@ -1086,7 +1131,10 @@ const handleToggleBookmark = async (id) => {
   try {
     const response = item.isBookmarked
       ? await api.delete(`/bookmark/${id}`)
-      : await api.post('/bookmark', { propertyId: id });
+      : await api.post('/bookmark', {
+          propertyId: id,
+          destinationId: appliedFilterState.value.destinationId || undefined,
+        });
 
     if (response.data && response.data.success === false) {
       console.error('BOOKMARK TOGGLE ERROR: ', response.data.message);

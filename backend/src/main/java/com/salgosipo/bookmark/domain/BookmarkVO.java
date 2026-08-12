@@ -15,5 +15,6 @@ public class BookmarkVO {
     private Long bookmarkId;
     private Long userId;
     private Long propertyId;
+    private Integer destinationId;
     private Date createAt;
 }

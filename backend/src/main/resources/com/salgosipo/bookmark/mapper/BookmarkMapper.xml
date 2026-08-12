@@ -6,7 +6,7 @@
 <mapper namespace="com.salgosipo.bookmark.mapper.BookmarkMapper">
 
     <insert id="addBookmark">
-        insert into bookmarks (user_id, property_id) values (#{userId}, #{propertyId})
+        insert into bookmarks (user_id, property_id, destination_id) values (#{userId}, #{propertyId}, #{destinationId})
     </insert>
 
     <delete id="removeBookmark">
@@ -23,6 +23,7 @@
                COALESCE(
                        (SELECT ps.safety_score FROM property_safety ps
                         WHERE ps.property_id = p.property_id
+                          AND (b.destination_id IS NULL OR ps.destination_id = b.destination_id)
                         ORDER BY ps.updated_at DESC
                        LIMIT 1), 0
              ) AS safety_score,
@@ -32,8 +33,15 @@
                    WHEN p.room_type = 2 THEN '투룸'
                    WHEN p.room_type = 1 THEN '원룸'
                    ELSE '빌라/주택'
-                   END AS building_type_tag
-        from bookmarks b join properties p on b.property_id = p.property_id
+                   END AS building_type_tag,
+               b.destination_id AS destination_id,
+               d.dest_name AS destination_name,
+               d.dest_address AS destination_address,
+               d.dest_latitude AS destination_lat,
+               d.dest_longitude AS destination_lng
+        from bookmarks b
+                 join properties p on b.property_id = p.property_id
+                 left join destinations d on b.destination_id = d.destination_id
         where b.user_id = #{userId}
           AND p.del_yn = 'N' ORDER BY b.created_at DESC
     </select>

@@ -86,6 +86,24 @@
         LIMIT 1
     </select>
 
+    <!-- 이름이나 근접 좌표(약 100m 이내)로 기존에 저장/시드된 목적지를 매칭하여 캐시적중률 100% 보장 -->
+    <select id="selectDestinationByMatch"
+            resultType="com.salgosipo.safety.domain.SafetyDestinationVO">
+        SELECT
+            destination_id AS destinationId,
+            dest_latitude AS latitude,
+            dest_longitude AS longitude,
+            dest_name AS name,
+            dest_address AS address
+        FROM destinations
+        WHERE (dest_name = #{name} OR dest_name LIKE CONCAT('%', #{name}, '%'))
+           OR (ABS(dest_latitude - #{latitude}) &lt; 0.001 AND ABS(dest_longitude - #{longitude}) &lt; 0.001)
+        ORDER BY
+            CASE WHEN dest_name = #{name} THEN 0 ELSE 1 END,
+            destination_id ASC
+        LIMIT 1
+    </select>
+
     <!--
         destinationId가 없는 요청은 좌표 기준으로 목적지를 저장합니다.
         동일 좌표가 이미 있으면 기존 destination_id를 LAST_INSERT_ID로 돌려받습니다.

@@ -16,7 +16,7 @@ export function useMapBounds() {
    */
   const handleBoundsChange = (bounds) => {
     if (!bounds || bounds.centerLat == null || bounds.centerLng == null) return;
-
+    /*
     if (
       lastFetchedCenter.value.lat != null &&
       lastFetchedCenter.value.lng != null
@@ -27,11 +27,12 @@ export function useMapBounds() {
         bounds.centerLat,
         bounds.centerLng,
       );
-      if (distKm > 0.8) {
+      if (distKm > 0.05) {
         isMapMoved.value = true;
         pendingBounds.value = bounds;
       }
     }
+    */
   };
 
   /**
