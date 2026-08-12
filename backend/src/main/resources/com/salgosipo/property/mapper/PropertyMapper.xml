@@ -22,11 +22,12 @@
             p.address AS address,
             p.property_latitude AS latitude,
             p.property_longitude AS longitude,
-            COALESCE(ps.safety_score, 85) AS safetyScore,
+            ps.safety_score AS safetyScore,
             CASE 
-                WHEN COALESCE(ps.safety_score, 85) >= 80 THEN 'SAFE'
-                WHEN COALESCE(ps.safety_score, 85) >= 60 THEN 'WARNING'
-                ELSE 'DANGER'
+                WHEN ps.safety_score >= 80 THEN 'SAFE'
+                WHEN ps.safety_score >= 60 THEN 'WARNING'
+                WHEN ps.safety_score IS NOT NULL THEN 'DANGER'
+                ELSE NULL
             END AS safetyGrade,
             COALESCE(p.deal_count, 1) AS dealCount,
             (
@@ -161,6 +162,12 @@
                     POINT(p.property_longitude, p.property_latitude),
                     POINT(#{cond.lng}, #{cond.lat})
                 ) &lt;= (#{cond.radius} * 1000)
+                <if test="cond.minRadius != null and cond.minRadius > 0">
+                    AND ST_Distance_Sphere(
+                        POINT(p.property_longitude, p.property_latitude),
+                        POINT(#{cond.lng}, #{cond.lat})
+                    ) &gt;= (#{cond.minRadius} * 1000)
+                </if>
             </if>
         </if>
     </select>
