@@ -19,7 +19,11 @@ const showFindModal = ref(false);
         <span>대학생·사회초년생을 위한 안전한 주거 탐색</span>
       </div>
     </aside>
-    <main :key="mode" class="auth-card" :class="{ 'auth-card--login': mode === 'login' }">
+    <main
+      :key="mode"
+      class="auth-card"
+      :class="{ 'auth-card--login': mode === 'login' }"
+    >
       <div class="auth-heading">
         <button
           v-if="mode === 'signup'"
@@ -206,7 +210,7 @@ const showFindModal = ref(false);
   font-weight: 700;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 720px) {
   .auth-page {
     align-items: flex-start;
     padding: 0;
@@ -297,7 +301,7 @@ const showFindModal = ref(false);
   }
 }
 
-@media (min-width: 481px) {
+@media (min-width: 720px) {
   .auth-page {
     align-items: stretch;
     justify-content: flex-start;

@@ -16,13 +16,26 @@ import OnboardingSummary from '@/components/map/OnboardingSummary.vue';
 import { getHaversineDistance, calculateDistanceKm } from '@/utils/geo.js';
 import { useMobilePanelDrag } from '@/composables/useMobilePanelDrag.js';
 import { useOnboardingFilter } from '@/composables/useOnboardingFilter.js';
+import { useMapBounds } from '@/composables/useMapBounds.js';
+import { useMapUrlSync } from '@/composables/useMapUrlSync.js';
+import { usePropertySearch } from '@/composables/usePropertySearch.js';
 import { useMapStore } from '@/stores/useMapStore.js';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import { saveRecentDestinationGlobal } from '@/utils/recentDestinations.js';
-import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
+import {
+  DEFAULT_DEPOSIT,
+  DEFAULT_RENT,
+  RENT_MAX,
+  LOAN_PRODUCTS,
+} from '@/utils/budget';
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 import safetyService from '@/api/safetyService.js';
+import {
+  getSearchRadiusKm,
+  getMinSearchRadiusKm,
+  isWithinReachDistance,
+} from '@/utils/isochroneFilter.js';
 
 const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
 const route = useRoute();
@@ -84,11 +97,41 @@ const amenityFilterLoading = ref(false);
 let amenityRequestSequence = 0;
 let amenityFilterDebounceTimer = null;
 
-// 매물 목록 데이터 (백엔드 DB 연동)
-const properties = ref([]);
-const serverTotalCount = ref(0);
-const isPropertyApiError = ref(false);
-const isPropertyLoading = ref(true);
+// 매물 목록 데이터 (usePropertySearch 사용)
+const {
+  saveQuickFilterToCache,
+  loadQuickFilterFromCache,
+  syncFiltersToUrlQuery: rawSyncFiltersToUrlQuery,
+  parseUrlQueryToFilters: rawParseUrlQueryToFilters,
+} = useMapUrlSync();
+
+const {
+  properties,
+  serverTotalCount,
+  currentPage,
+  isPropertyLoading,
+  isPropertyApiError,
+  isMoreLoading,
+  showAllLoadedToast,
+  triggerAllLoadedToast,
+  buildPropertySearchParams: rawBuildPropertySearchParams,
+  doFetchPropertiesFromBackend: rawDoFetchPropertiesFromBackend,
+  loadMoreProperties: executeLoadMoreProperties,
+} = usePropertySearch();
+
+const syncFiltersToUrlQuery = (filters) => {
+  rawSyncFiltersToUrlQuery(
+    filters,
+    route,
+    router,
+    selectedProperty.value?.propertyId,
+  );
+};
+
+const parseUrlQueryToFilters = ({ includeDestination = true } = {}) => {
+  return rawParseUrlQueryToFilters(route, filterState, { includeDestination });
+};
+
 const isFilterAnalysisLoading = ref(false);
 let propertyRequestSequence = 0;
 let filterAnalysisTimer = null;
@@ -129,22 +172,6 @@ const currentDataSource = computed(() => {
   return properties.value[0]?.dataSource || 'PUBLIC_API';
 });
 
-const getSearchRadiusKm = () => {
-  const filters = appliedFilterState.value;
-  const minutes = Number(filters.travelTime) || 15;
-
-  if (filters.transportMode === 'WALK') {
-    let speedMetersPerMin = 75;
-    if (filters.walkPace === 'SLOW') speedMetersPerMin = 58;
-    if (filters.walkPace === 'FAST') speedMetersPerMin = 92;
-    const maxMeters = Math.max(200, minutes * speedMetersPerMin);
-    return (maxMeters / 1000) * 1.35;
-  }
-
-  const transitMaxRadius = Math.max(500, minutes * 180);
-  return (transitMaxRadius / 1000) * 1.35;
-};
-
 // 편의점 디폴트 도보 시간 (5분)
 const DEFAULT_CONVENIENCE_STORE_WALK_TIME = 5;
 
@@ -171,65 +198,22 @@ const getEffectiveMaxDeposit = (filters) => {
 };
 
 const buildPropertySearchParams = () => {
-  const filters = appliedFilterState.value;
-  const params = {
-    destinationId: filters.destinationId || undefined,
-    lat: destinationConfig.value.lat,
-    lng: destinationConfig.value.lng,
-    swLat: filters.swLat || undefined,
-    swLng: filters.swLng || undefined,
-    neLat: filters.neLat || undefined,
-    neLng: filters.neLng || undefined,
-    radius: getSearchRadiusKm(),
-    maxDeposit: getEffectiveMaxDeposit(filters),
-    userId: authStore.user?.userId || authStore.user?.id || undefined,
-  };
-
-  if (filters.tradeType === 'JEONSE') {
-    params.maxMonthlyRent = 0;
-  } else if (Number(filters.maxRent) < DEFAULT_RENT) {
-    params.maxMonthlyRent = Number(filters.maxRent);
-  }
-
-  return params;
+  return rawBuildPropertySearchParams(
+    appliedFilterState,
+    destinationConfig,
+    authStore,
+  );
 };
 
-const currentPage = ref(1);
-const isMoreLoading = ref(false);
-const isMapMoved = ref(false);
-const pendingBounds = ref(null);
-const lastFetchedCenter = ref({ lat: null, lng: null });
-
-const handleBoundsChange = (bounds) => {
-  if (!bounds || bounds.centerLat == null || bounds.centerLng == null) return;
-  if (
-    lastFetchedCenter.value.lat != null &&
-    lastFetchedCenter.value.lng != null
-  ) {
-    const distKm = calculateDistanceKm(
-      lastFetchedCenter.value.lat,
-      lastFetchedCenter.value.lng,
-      bounds.centerLat,
-      bounds.centerLng,
-    );
-    // 중심점에서 800m 이상 크게 이동했을 때만 재검색 모드로 전환
-    if (distKm > 0.8) {
-      isMapMoved.value = true;
-      pendingBounds.value = bounds;
-    }
-  }
-};
-
-const showAllLoadedToast = ref(false);
-let toastTimer = null;
-
-const triggerAllLoadedToast = () => {
-  showAllLoadedToast.value = true;
-  if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    showAllLoadedToast.value = false;
-  }, 2500);
-};
+const {
+  isMapMoved,
+  pendingBounds,
+  lastFetchedCenter,
+  handleBoundsChange,
+  applyPendingBoundsToFilters,
+  clearBoundsFromFilters,
+  updateLastFetchedCenter,
+} = useMapBounds();
 
 const handleLoadMoreClick = () => {
   if (isMapMoved.value) {
@@ -242,256 +226,33 @@ const handleLoadMoreClick = () => {
 };
 
 const handleSearchInThisArea = () => {
-  if (!pendingBounds.value) return;
-  appliedFilterState.value.swLat = pendingBounds.value.swLat;
-  appliedFilterState.value.swLng = pendingBounds.value.swLng;
-  appliedFilterState.value.neLat = pendingBounds.value.neLat;
-  appliedFilterState.value.neLng = pendingBounds.value.neLng;
-  // 목적지 중심 좌표는 고정 유지하여 가상의 원이 이동하는 현상을 차단합니다.
-
-  isMapMoved.value = false;
-  fetchPropertiesFromBackend(true, false);
+  if (applyPendingBoundsToFilters(appliedFilterState.value)) {
+    fetchPropertiesFromBackend(true, false);
+  }
 };
 
 const loadMoreProperties = async () => {
-  if (isMoreLoading.value || properties.value.length >= serverTotalCount.value)
-    return;
-  isMoreLoading.value = true;
-  try {
-    const nextPage = currentPage.value + 1;
-    const searchParams = {
-      ...buildPropertySearchParams(),
-      page: nextPage,
-      size: 200,
-    };
-    const response = await api.get('/properties', {
-      params: searchParams,
-      timeout: 5000,
-    });
-    const resData = response.data;
-    if (resData?.totalCount) {
-      serverTotalCount.value = Number(resData.totalCount);
-    }
-    const newItems = Array.isArray(resData?.items)
-      ? resData.items
-      : Array.isArray(resData)
-        ? resData
-        : [];
-
-    currentPage.value = nextPage;
-
-    if (newItems.length > 0) {
-      const searchRadiusKm = getSearchRadiusKm();
-      const centerLat = searchParams.lat || destinationConfig.value.lat;
-      const centerLng = searchParams.lng || destinationConfig.value.lng;
-
-      const existingIds = new Set(
-        properties.value.map((p) => Number(p.propertyId)),
-      );
-      const filteredNewItems = newItems.filter((item) => {
-        const id = Number(item.propertyId);
-        if (!id || existingIds.has(id)) return false;
-
-        if (
-          item.latitude != null &&
-          item.longitude != null &&
-          centerLat != null &&
-          centerLng != null &&
-          searchRadiusKm > 0
-        ) {
-          const dist = calculateDistanceKm(
-            centerLat,
-            centerLng,
-            Number(item.latitude),
-            Number(item.longitude),
-          );
-          if (dist > searchRadiusKm) return false;
-        }
-
-        existingIds.add(id);
-        return true;
-      });
-
-      if (filteredNewItems.length > 0) {
-        properties.value = [...properties.value, ...filteredNewItems];
-      }
-    }
-
-    // 백엔드 DB의 모든 페이지(797개) 조회가 끝났거나 신규 수신이 없으면
-    // 실제 도보/대중교통 원 내 수집 완료된 개수(303개)로 serverTotalCount를 맞추어 더보기 완결
-    if (nextPage * 200 >= serverTotalCount.value || newItems.length === 0) {
-      serverTotalCount.value = properties.value.length;
-    }
-  } catch (error) {
-    console.error('Failed to load more properties:', error);
-  } finally {
-    isMoreLoading.value = false;
-  }
+  return executeLoadMoreProperties({
+    appliedFilterState,
+    destinationConfig,
+    authStore,
+  });
 };
 
 let fetchPropertiesDebounceTimer = null;
 
 // 검색 조건에 맞는 매물을 조회한 뒤, 화면에 렌더링하기 전에 목적지별 안전점수를 일괄 준비합니다.
 const doFetchPropertiesFromBackend = async (isAppend = false) => {
-  const requestId = ++propertyRequestSequence;
-  isPropertyLoading.value = true;
-  isPropertyApiError.value = false;
-  if (!isAppend) {
-    properties.value = [];
-    currentPage.value = 1;
-  }
-
-  try {
-    const filters = appliedFilterState.value;
-
-    const searchParams = buildPropertySearchParams();
-    const propertyResponse = await api.get('/properties', {
-      params: searchParams,
-      timeout: 5000,
-    });
-
-    if (requestId !== propertyRequestSequence) return;
-
-    const resData = propertyResponse.data;
-    serverTotalCount.value = Number(resData?.totalCount) || 0;
-
-    const rawCandidates = Array.isArray(resData?.items)
-      ? resData.items
-      : Array.isArray(resData)
-        ? resData
-        : [];
-
-    const searchRadiusKm = getSearchRadiusKm();
-    // 실제 검색에 사용된 중심 위경도 좌표로 거리를 정밀 산출합니다.
-    const centerLat = searchParams.lat || destinationConfig.value.lat;
-    const centerLng = searchParams.lng || destinationConfig.value.lng;
-
-    const seenIds = new Set();
-    const candidates = rawCandidates.filter((item) => {
-      const id = Number(item.propertyId);
-      if (!id || seenIds.has(id)) return false;
-
-      // DB 대신 프론트엔드 메모리에서 원형 반경(Circle Radius) 정밀 거리를 초고속(0.0001ms) 필터링
-      if (
-        item.latitude != null &&
-        item.longitude != null &&
-        centerLat != null &&
-        centerLng != null &&
-        searchRadiusKm > 0
-      ) {
-        const dist = calculateDistanceKm(
-          centerLat,
-          centerLng,
-          Number(item.latitude),
-          Number(item.longitude),
-        );
-        if (dist > searchRadiusKm) return false;
-      }
-
-      seenIds.add(id);
-      return true;
-    });
-
-    // 매물 데이터 즉시 지도에 렌더링 (isAppend 모드에서는 기존 수집 매물을 유지하고 신규 추가만 통합)
-    if (isAppend) {
-      const existingIds = new Set(
-        properties.value.map((p) => Number(p.propertyId)),
-      );
-      const uniqueNewItems = candidates.filter(
-        (item) => !existingIds.has(Number(item.propertyId)),
-      );
-      properties.value = [...properties.value, ...uniqueNewItems];
-    } else {
-      properties.value = candidates;
-    }
-
-    isPropertyLoading.value = false;
-    isMapMoved.value = false;
-    if (centerLat != null && centerLng != null) {
-      lastFetchedCenter.value = {
-        lat: Number(centerLat),
-        lng: Number(centerLng),
-      };
-    }
-
-    // 백엔드 전체 개수(serverTotalCount)를 보존하여 '매물 더보기'가 다음 페이지(200개 단위)를 연속으로 불러올 수 있도록 보장
-    if (rawCandidates.length === 0) {
-      serverTotalCount.value = properties.value.length;
-    }
-
-    const targetCandidates =
-      candidates.length > 500 ? candidates.slice(0, 500) : candidates;
-    const propertyIds = targetCandidates
-      .map((property) => Number(property.propertyId))
-      .filter((propertyId) => Number.isFinite(propertyId) && propertyId > 0);
-
-    if (!propertyIds.length) return;
-
-    // 2차 안전점수 배치 조회를 지도가 블로킹(대기)하지 않고 백그라운드(Non-blocking)에서 보강합니다.
-    safetyService
-      .getScoresForProperties({
-        propertyIds,
-        destinationId: filters.destinationId,
-        destinationName: filters.destination,
-        destinationAddress: filters.destinationAddress,
-        destinationLatitude: destinationConfig.value.lat,
-        destinationLongitude: destinationConfig.value.lng,
-      })
-      .then((safetyBatch) => {
-        if (requestId !== propertyRequestSequence || !safetyBatch) return;
-
-        if (safetyBatch.destinationId) {
-          filterState.value.destinationId = Number(safetyBatch.destinationId);
-          appliedFilterState.value.destinationId = Number(
-            safetyBatch.destinationId,
-          );
-        }
-
-        const safetyByPropertyId = new Map(
-          (safetyBatch.items || []).map((item) => [
-            Number(item.propertyId),
-            item,
-          ]),
-        );
-
-        properties.value = properties.value.map((property) => {
-          const safety = safetyByPropertyId.get(Number(property.propertyId));
-          if (!safety) return property;
-
-          return {
-            ...property,
-            safetyScore: safety.safetyScore ?? property.safetyScore ?? null,
-            safetyGrade: safety.safetyGrade ?? property.safetyGrade ?? null,
-            cctvCount: safety.cctvCount ?? property.cctvCount ?? 0,
-            streetLampCount:
-              safety.streetLampCount ?? property.streetLampCount ?? 0,
-            streetlightCount:
-              safety.streetLampCount ?? property.streetlightCount ?? 0,
-            hasPoliceStation:
-              safety.hasPoliceStation ?? property.hasPoliceStation ?? false,
-            safetyStatus: safety.status ?? property.safetyStatus ?? 'FAILED',
-            safetyMessage: safety.message ?? property.safetyMessage ?? '',
-          };
-        });
-      })
-      .catch((err) => {
-        console.warn('BACKGROUND SAFETY BATCH LOAD WARN:', err);
-      });
-
-    isPropertyApiError.value = false;
-  } catch (error) {
-    if (requestId !== propertyRequestSequence) return;
-
-    console.error('PROPERTY/SAFETY BATCH LOAD ERROR:', error);
-    if (!isAppend) {
-      properties.value = [];
-    }
-    isPropertyApiError.value = true;
-  } finally {
-    if (requestId === propertyRequestSequence) {
-      isPropertyLoading.value = false;
-    }
-  }
+  return rawDoFetchPropertiesFromBackend({
+    appliedFilterState,
+    destinationConfig,
+    authStore,
+    isMapMoved,
+    pendingBounds,
+    clearBoundsFromFilters,
+    updateLastFetchedCenter,
+    isAppend,
+  });
 };
 
 // 짧은 시간(250ms) 내 연달아 발생하는 중복 API 호출을 단 1회로 통합 실행합니다.
@@ -514,133 +275,25 @@ const fetchPropertiesFromBackend = (immediate = false, isAppend = false) => {
   });
 };
 
-// URL 브라우저 주소창 Query 파라미터 양방향 실시간 동기화 유틸
-const syncFiltersToUrlQuery = (filters) => {
-  if (!filters) return;
-  const query = {
-    ...route.query,
-    dest: filters.destination || filters.destinationName || undefined,
-    destName: filters.destination || filters.destinationName || undefined,
-    destAddress: filters.destinationAddress || undefined,
-    destLat: filters.destinationLat
-      ? Number(filters.destinationLat).toFixed(4)
-      : undefined,
-    destLng: filters.destinationLng
-      ? Number(filters.destinationLng).toFixed(4)
-      : undefined,
-    tradeType: filters.tradeType || undefined,
-    minDeposit: filters.minDeposit != null ? filters.minDeposit : undefined,
-    maxDeposit: filters.maxDeposit != null ? filters.maxDeposit : undefined,
-    minRent: filters.minRent != null ? filters.minRent : undefined,
-    maxRent: filters.maxRent != null ? filters.maxRent : undefined,
-    mode: filters.transportMode || undefined,
-    travelTime: filters.travelTime != null ? filters.travelTime : undefined,
-    minTravelTime:
-      filters.minTravelTime != null ? filters.minTravelTime : undefined,
-    minSafety:
-      filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
-    propertyId: selectedProperty.value?.propertyId || undefined,
-  };
-  router.replace({ query }).catch(() => {});
-};
-
-const parseUrlQueryToFilters = ({ includeDestination = true } = {}) => {
-  const q = route.query;
-  if (
-    !q ||
-    (!q.destLat && !q.tradeType && !q.maxDeposit && !q.dest && !q.destName)
-  )
-    return false;
-
-  const databaseDestination = includeDestination
-    ? null
-    : {
-        destination: filterState.value.destination,
-        destinationName: filterState.value.destinationName,
-        destinationAddress: filterState.value.destinationAddress,
-        destinationLat: filterState.value.destinationLat,
-        destinationLng: filterState.value.destinationLng,
-        destinationId: filterState.value.destinationId,
-      };
-
-  const destNameVal = q.destName || q.dest;
-  if (destNameVal) {
-    filterState.value.destination = String(destNameVal);
-    filterState.value.destinationName = String(destNameVal);
-  }
-  if (q.destAddress) {
-    filterState.value.destinationAddress = String(q.destAddress);
-  }
-  if (q.destLat) filterState.value.destinationLat = Number(q.destLat);
-  if (q.destLng) filterState.value.destinationLng = Number(q.destLng);
-
-  // URL에 destLat/destLng만 있고 destName이 생략된 경우 세종대 이름으로 오인되는 현상 방지
-  if (q.destLat && q.destLng && !destNameVal) {
-    const lat = Number(q.destLat);
-    const lng = Number(q.destLng);
-    const distToSejong = calculateDistanceKm(37.5502, 127.0731, lat, lng);
-    if (distToSejong > 0.5) {
-      filterState.value.destination = '지정한 목적지';
-      filterState.value.destinationName = '지정한 목적지';
-    }
-  }
-
-  if (q.tradeType) filterState.value.tradeType = String(q.tradeType);
-  if (q.minDeposit != null) filterState.value.minDeposit = Number(q.minDeposit);
-  if (q.maxDeposit != null) filterState.value.maxDeposit = Number(q.maxDeposit);
-  if (q.minRent != null) filterState.value.minRent = Number(q.minRent);
-  if (q.maxRent != null) filterState.value.maxRent = Number(q.maxRent);
-  if (q.mode) filterState.value.transportMode = String(q.mode);
-  if (q.travelTime != null) filterState.value.travelTime = Number(q.travelTime);
-  if (q.minTravelTime != null)
-    filterState.value.minTravelTime = Number(q.minTravelTime);
-  if (q.minSafety != null)
-    filterState.value.minSafetyScore = Number(q.minSafety);
-
-  if (databaseDestination) {
-    Object.assign(filterState.value, databaseDestination);
-  }
-
-  return true;
-};
-
-// 유저 ID 기반 퀵필터 로컬 캐시 유틸
-const getQuickFilterCacheKey = () => {
-  const userId = authStore.user?.userId || authStore.user?.id || 'guest';
-  return `kb_quick_filter_state_${userId}`;
-};
-
-const saveQuickFilterToCache = (filters) => {
-  if (!filters) return;
-  try {
-    const key = getQuickFilterCacheKey();
-    localStorage.setItem(key, JSON.stringify(filters));
-  } catch (e) {
-    console.error('Failed to save quick filter cache:', e);
-  }
-};
-
-const loadQuickFilterFromCache = () => {
-  try {
-    const key = getQuickFilterCacheKey();
-    const cached = localStorage.getItem(key);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-  } catch (e) {
-    console.error('Failed to load quick filter cache:', e);
-  }
-  return null;
-};
+// URL 주소창 & 퀵필터 로컬 캐시 동기화 인터페이스
 
 onMounted(async () => {
-  // 목적지 좌표는 DB 온보딩 값을 기준으로 불러온다.
-  await loadOnboardingDefaultFilters({ resetDestination: true });
+  // 0. 비동기 통신(await) 전에 동기적으로 URL 주소창 쿼리를 0.001ms만에 즉시 파싱하여 0.2초 깜빡임 완전 제거!
+  const hasUrlQuery = parseUrlQueryToFilters({ includeDestination: true });
 
-  const hasUrlQuery = parseUrlQueryToFilters({ includeDestination: false });
-  if (hasUrlQuery) {
-    parseUrlQueryToFilters({ includeDestination: false });
+  // 1. URL 쿼리가 없는 경우에만 유저 직전 퀵 필터 로컬 캐시 적용
+  if (!hasUrlQuery) {
+    const cachedFilters = loadQuickFilterFromCache();
+    if (cachedFilters) {
+      Object.assign(filterState.value, cachedFilters);
+    }
   }
+
+  // 2. 기본 DB 온보딩 값 로드 (URL에 목적지가 이미 존재하는 경우 덮어쓰기 차단)
+  await loadOnboardingDefaultFilters({ resetDestination: !hasUrlQuery });
+
+  // 3. URL 주소창 Query 파라미터 100% 최우선 보장
+  parseUrlQueryToFilters({ includeDestination: true });
 
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
@@ -913,9 +566,15 @@ watch(
 
 // 동적 목적지 명칭 및 실시간 실제 좌표 (lat, lng) 매핑
 const destinationConfig = computed(() => {
-  const name = filterState.value.destination || '세종대학교';
-  const lat = filterState.value.destinationLat || 37.5502;
-  const lng = filterState.value.destinationLng || 127.0731;
+  const name = filterState.value.destination || '목적지 미선택';
+  const lat =
+    filterState.value.destinationLat != null
+      ? Number(filterState.value.destinationLat)
+      : null;
+  const lng =
+    filterState.value.destinationLng != null
+      ? Number(filterState.value.destinationLng)
+      : null;
 
   return {
     id: filterState.value.destinationId || null,
@@ -930,10 +589,12 @@ const destinationConfig = computed(() => {
 const baseFilteredProperties = computed(() => {
   const currentFilters = appliedFilterState.value;
   // 적용된 목적지 위경도 좌표
-  const destLat =
-    Number(currentFilters.destinationLat) || destinationConfig.value.lat;
-  const destLng =
-    Number(currentFilters.destinationLng) || destinationConfig.value.lng;
+  const destLat = Number(
+    currentFilters.destinationLat ?? destinationConfig.value.lat,
+  );
+  const destLng = Number(
+    currentFilters.destinationLng ?? destinationConfig.value.lng,
+  );
 
   // 이동 수단별 최대 도달 가능 거리 (km) 계산
   let maxReachKm = 1.2; // 기본 15분 도보 약 1.2km
@@ -985,53 +646,8 @@ const baseFilteredProperties = computed(() => {
     if (p.safetyScore < currentFilters.minSafetyScore) return false;
 
     // 5. 도보 / 대중교통 도달 범위 (Reach Distance) 도넛 링 필터 (최소 ~ 최대 시간)
-    const distKm = getHaversineDistance(
-      destLat,
-      destLng,
-      p.latitude,
-      p.longitude,
-    );
-    const distMeters = distKm * 1000;
-    const minTravelTime = currentFilters.minTravelTime || 0;
-
-    if (currentFilters.transportMode === 'WALK') {
-      let speedMetersPerMin = 75;
-      if (currentFilters.walkPace === 'SLOW') speedMetersPerMin = 58;
-      if (currentFilters.walkPace === 'FAST') speedMetersPerMin = 92;
-      const minReachMeters =
-        minTravelTime > 0 ? minTravelTime * speedMetersPerMin : 0;
-      const maxReachMeters = Math.max(
-        200,
-        currentFilters.travelTime * speedMetersPerMin,
-      );
-      if (distMeters < minReachMeters || distMeters > maxReachMeters)
-        return false;
-    } else {
-      // 대중교통 모드 (TRANSIT): 내접원(transitBaseRadius: minTime) 바깥 ~ 외접원(transitMaxRadius: travelTime) 안쪽 사이 도넛 영역 매물만 노출
-      const travelTime = currentFilters.travelTime || 15;
-      const flexTime =
-        currentFilters.flexTime != null ? currentFilters.flexTime : 10;
-
-      let minTime = 5;
-      if (
-        currentFilters.minTravelTime != null &&
-        currentFilters.minTravelTime > 0
-      ) {
-        minTime = currentFilters.minTravelTime;
-      } else if (
-        currentFilters.flexTime != null &&
-        currentFilters.flexTime > 0
-      ) {
-        minTime = currentFilters.flexTime;
-      }
-
-      const transitMaxRadius = Math.max(500, travelTime * 180);
-      const transitBaseRadius = Math.max(200, minTime * 180);
-
-      // 내접원 안쪽(minTime 미만) 및 외접원 바깥(travelTime 초과) 매물 엄격 제외 (도넛 링 이소크론 구간만 통과)
-      if (distMeters < transitBaseRadius || distMeters > transitMaxRadius)
-        return false;
-    }
+    if (!isWithinReachDistance(p, currentFilters, destLat, destLng))
+      return false;
 
     return true;
   });

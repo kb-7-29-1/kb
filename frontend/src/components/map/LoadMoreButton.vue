@@ -91,7 +91,8 @@ const subText = computed(() => {
           class="fa-solid fa-plus text-blue-600 group-hover:text-white text-xs"
           aria-hidden="true"
         ></i>
-        <span class="text-[12px] font-extrabold">
+
+        <span class="text-[12px] font-black tracking-tight">
           {{
             isLoading
               ? isMapMoved
@@ -99,10 +100,9 @@ const subText = computed(() => {
                 : '다음 매물 불러오는 중...'
               : isMapMoved
                 ? '이 위치에서 매물 재검색'
-                : baseCount && baseCount !== visibleCount
-                  ? `매물 더보기 (${visibleCount}/${baseCount}개)`
-                  : `매물 더보기 (${visibleCount}개)`
-            /* totalCount는 사각형 쿼리 개수이므로 미노출 주석 처리: /${totalCount}개 */
+                : totalCount && visibleCount < totalCount
+                  ? `매물 더보기 (${visibleCount.toLocaleString()} / ${totalCount.toLocaleString()}개)`
+                  : `매물 전체 수집 완료 (${visibleCount.toLocaleString()}개)`
           }}
         </span>
       </div>

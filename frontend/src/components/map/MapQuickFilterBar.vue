@@ -36,7 +36,7 @@ const props = defineProps({
     type: Object,
     required: true,
     default: () => ({
-      destination: '세종대학교',
+      destination: null,
       tradeType: 'MONTHLY', // 'MONTHLY' | 'JEONSE'
       minDeposit: 0, // 만원
       maxDeposit: 5000, // 만원
@@ -158,42 +158,14 @@ const handleDestinationSearchInput = (event) => {
 };
 const depositOptions = DEPOSIT_OPTIONS;
 
-const PRESET_COORDS = {
-  세종대학교: {
-    address: '서울특별시 광진구 능동로 209',
-    lat: 37.5502,
-    lng: 127.0731,
-  },
-  건국대학교: {
-    address: '서울특별시 광진구 능동로 120',
-    lat: 37.5408,
-    lng: 127.0793,
-  },
-  강남역: {
-    address: '서울특별시 강남구 강남대로 지하396',
-    lat: 37.4979,
-    lng: 127.0276,
-  },
-  역삼역: {
-    address: '서울특별시 강남구 테헤란로 지하156',
-    lat: 37.5006,
-    lng: 127.0365,
-  },
-  성수역: {
-    address: '서울특별시 성동구 아차산로 113',
-    lat: 37.5445,
-    lng: 127.0557,
-  },
-};
-
-// 기본 5종 목적지 및 온보딩 지정 목적지 통합 옵션 목록
+// 최근 검색/방문 목적지 통합 옵션 목록
 const destinationList = computed(() => {
-  const defaults = ['세종대학교', '건국대학교', '강남역', '역삼역', '성수역'];
   const current = filters.value.destination;
-  if (current && !defaults.includes(current)) {
-    return [current, ...defaults];
+  const list = (recentDestinations.value || []).map((item) => item.destName);
+  if (current && !list.includes(current)) {
+    return [current, ...list];
   }
-  return defaults;
+  return list;
 });
 
 const authStore = useAuthStore();
@@ -227,20 +199,14 @@ const selectRecentDestination = (item) => {
 };
 
 const selectDestinationOption = (dest) => {
-  filters.value.destinationId = null;
+  const matched = (recentDestinations.value || []).find((item) => item.destName === dest);
+  filters.value.destinationId = matched?.destinationId || null;
   filters.value.destination = dest;
-  if (PRESET_COORDS[dest]) {
-    filters.value.destinationAddress = PRESET_COORDS[dest].address;
-    filters.value.destinationLat = PRESET_COORDS[dest].lat;
-    filters.value.destinationLng = PRESET_COORDS[dest].lng;
-    saveRecentDestination({
-      destName: dest,
-      destAddress: PRESET_COORDS[dest].address,
-      destLatitude: PRESET_COORDS[dest].lat,
-      destLongitude: PRESET_COORDS[dest].lng,
-    });
+  if (matched) {
+    filters.value.destinationAddress = matched.destAddress || '';
+    filters.value.destinationLat = matched.destLatitude != null ? Number(matched.destLatitude) : null;
+    filters.value.destinationLng = matched.destLongitude != null ? Number(matched.destLongitude) : null;
   } else {
-    // 유저 지정 새 장소 시 기존 좌표 초기화 (지오코더가 주소 기반 자동 재생성)
     delete filters.value.destinationLat;
     delete filters.value.destinationLng;
   }
@@ -662,15 +628,15 @@ watch(
 
 // 보증금 팝오버 표시 라벨
 const depositAmountLabel = computed(() => {
-  const minVal = filters.value.minDeposit ?? 0;
+  const minVal = filters.value.minDeposit ?? 100;
   const maxVal = filters.value.maxDeposit ?? DEPOSIT_MAX;
-  const minLimit = DEPOSIT_OPTIONS[0] || 0;
+  const minLimit = DEPOSIT_OPTIONS[0] || 100;
 
   // 두 핸들이 동일한 위치일 때 -> 단일 금액 표시 (예: "10억원", "5,000만원")
   if (minVal === maxVal) return formatDepositAmount(minVal);
 
-  if (minVal <= minLimit && maxVal >= DEPOSIT_MAX) return '10억원 이하';
-  if (minVal <= minLimit) return `${formatDepositAmount(maxVal)} 이하`;
+  if (minVal <= minLimit && maxVal >= DEPOSIT_MAX) return '100만원 ~ 10억원';
+  if (minVal <= minLimit) return `100만원 ~ ${formatDepositAmount(maxVal)}`;
   if (maxVal >= DEPOSIT_MAX) return `${formatDepositAmount(minVal)} ~ 10억원`;
   return `${formatDepositAmount(minVal)} ~ ${formatDepositAmount(maxVal)}`;
 });
@@ -771,7 +737,7 @@ const handleRentTrackClick = (e) => {
 const priceSummaryText = computed(() => {
   const {
     tradeType,
-    minDeposit = 0,
+    minDeposit = 100,
     maxDeposit = DEPOSIT_MAX,
     minRent = 0,
     maxRent = RENT_MAX,
@@ -783,10 +749,10 @@ const priceSummaryText = computed(() => {
   let depStr = '';
   if (minDeposit === maxDeposit) {
     depStr = minDepShort;
-  } else if (minDeposit === 0 && maxDeposit >= DEPOSIT_MAX) {
-    depStr = '10억 이하';
-  } else if (minDeposit === 0) {
-    depStr = `${maxDepShort} 이하`;
+  } else if (minDeposit <= 100 && maxDeposit >= DEPOSIT_MAX) {
+    depStr = '100만~10억';
+  } else if (minDeposit <= 100) {
+    depStr = `100만~${maxDepShort}`;
   } else if (maxDeposit >= DEPOSIT_MAX) {
     depStr = `${minDepShort}~10억`;
   } else {
@@ -803,21 +769,19 @@ const priceSummaryText = computed(() => {
   } else if (minRent === maxRent) {
     rentStr = `${minRent}만`;
   } else if (minRent === 0 && maxRent >= RENT_MAX) {
-    rentStr = '200만 이하';
+    rentStr = '0~200만';
   } else if (minRent === 0) {
-    rentStr = `${maxRent}만 이하`;
+    rentStr = `0~${maxRent}만`;
   } else if (maxRent >= RENT_MAX) {
     rentStr = `${minRent}~200만`;
   } else {
     rentStr = `${minRent}~${maxRent}만`;
   }
 
-  if (
-    depStr === '10억 이하' &&
-    (rentStr === '200만 이하' || rentStr === '전체')
-  ) {
-    return '월세: 전체';
+  if (tradeType === 'ALL') {
+    return `보증금: ${depStr} / 월세: ${rentStr}`;
   }
+
   return `월세: ${depStr} / ${rentStr}`;
 });
 
@@ -1307,7 +1271,9 @@ const amenityLoadingText = computed(() => {
               <span>{{
                 filters.tradeType === 'JEONSE'
                   ? '전세 보증금 범위'
-                  : '월세 보증금 범위'
+                  : filters.tradeType === 'MONTHLY'
+                    ? '월세 보증금 범위'
+                    : '보증금 / 전세금 전체 범위'
               }}</span>
               <span class="text-blue-600 font-extrabold">{{
                 depositAmountLabel
