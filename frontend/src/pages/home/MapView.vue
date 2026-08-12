@@ -1491,35 +1491,12 @@ const {
             v-else
             class="h-full flex flex-col items-center justify-center p-6 text-center"
           >
-            <div
-              class="w-14 h-14 mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-200/60"
-            >
-              <svg
-                class="w-7 h-7 text-white animate-pulse"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0Z" />
-                <circle cx="12" cy="10" r="3" />
-                />
-              </svg>
-            </div>
             <p class="text-sm font-extrabold text-slate-700">
               편의시설 조건을 적용하고 있어요
             </p>
             <p class="text-xs text-slate-400 mt-1">
               주변 매물을 다시 확인하는 중입니다
             </p>
-            <div
-              class="mt-4 w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden"
-            >
-              <div
-                class="h-full w-1/2 rounded-full bg-indigo-500 animate-loading-bar"
-              ></div>
-            </div>
           </div>
         </div>
       </div>
