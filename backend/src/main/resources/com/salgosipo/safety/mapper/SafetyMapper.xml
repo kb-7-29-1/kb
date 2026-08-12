@@ -34,10 +34,12 @@
             <include refid="propertySafetyColumns"/>
         FROM property_safety
         WHERE destination_id = #{destinationId}
+        <if test="propertyIds != null and propertyIds.size() > 0">
           AND property_id IN
-        <foreach collection="propertyIds" item="propertyId" open="(" separator="," close=")">
-            #{propertyId}
-        </foreach>
+          <foreach collection="propertyIds" item="propertyId" open="(" separator="," close=")">
+              #{propertyId}
+          </foreach>
+        </if>
     </select>
 
     <!-- 안전경로 출발점으로 사용할 실제 매물 좌표 -->
