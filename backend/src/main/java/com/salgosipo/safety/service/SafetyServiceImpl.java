@@ -45,6 +45,29 @@ public class SafetyServiceImpl implements SafetyService {
 
     private static final double FACILITY_QUERY_MARGIN_METERS = 320.0;
 
+    public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
+            "강서구", "관악구", "광진구", "구로구", "도봉구",
+            "동대문구", "동작구", "서대문구", "서초구", "양천구",
+            "은평구", "종로구", "중구", "중랑구"
+    );
+
+    public static boolean isSupportedDistrict(String... texts) {
+        if (texts == null) {
+            return false;
+        }
+        for (String text : texts) {
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            for (String district : SUPPORTED_DISTRICTS) {
+                if (text.contains(district)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     private final SafetyMapper safetyMapper;
     private final SafetyRouteClient safetyRouteClient;
     private final SafetyFacilityRepository safetyFacilityRepository;
@@ -99,6 +122,19 @@ public class SafetyServiceImpl implements SafetyService {
                 request.getDestinationLongitude()
         );
 
+        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName(), request.getDestinationAddress(), request.getDestinationName())) {
+            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
+            uncalculated.setPropertyId(request.getPropertyId());
+            uncalculated.setDestinationId(destination.getDestinationId());
+            uncalculated.setCacheHit(false);
+            uncalculated.setPersisted(false);
+            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+            uncalculated.setSafetyScore(null);
+            uncalculated.setSafetyGrade(null);
+            uncalculated.setIsSupportedDistrict(false);
+            return uncalculated;
+        }
+
         PropertySafetyVO cached = safetyMapper.selectPropertySafety(
                 request.getPropertyId(),
                 destination.getDestinationId()
@@ -134,6 +170,17 @@ public class SafetyServiceImpl implements SafetyService {
         validateRequest(request);
 
         SafetyPropertyCoordinateVO property = resolveProperty(request.getPropertyId());
+
+        if (!isSupportedDistrict(property.getAddress(), request.getDestinationAddress(), request.getDestinationName())) {
+            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
+            uncalculated.setPropertyId(request.getPropertyId());
+            uncalculated.setDestinationId(request.getDestinationId());
+            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+            uncalculated.setSafetyScore(null);
+            uncalculated.setSafetyGrade(null);
+            uncalculated.setIsSupportedDistrict(false);
+            return uncalculated;
+        }
         SafetyDestinationVO destination = new SafetyDestinationVO();
         destination.setDestinationId(request.getDestinationId());
         destination.setLatitude(BigDecimal.valueOf(request.getDestinationLatitude()));
@@ -265,12 +312,16 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
-            /*
-             * [배치 조회 TMAP API 과금 방지 주석 처리]
-             * 목록 일괄 배치 조회 시 TMAP 보행자 API 호출을 100% 차단하기 위해 주석 처리하였습니다.
-             * TMAP API는 오로지 매물 단 1개 상세 클릭 시(POST /safety/routes/recommend)에만 호출됩니다.
-             */
-            /*
+            if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName())) {
+                items.add(createFailedBatchItem(
+                        propertyId,
+                        destination.getDestinationId(),
+                        "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다."
+                ));
+                failedCount++;
+                continue;
+            }
+
             try {
                 CalculationResult calculation = calculateAndPersist(
                         property,
@@ -299,14 +350,6 @@ public class SafetyServiceImpl implements SafetyService {
                 ));
                 failedCount++;
             }
-            */
-
-            items.add(createFailedBatchItem(
-                    propertyId,
-                    destination.getDestinationId(),
-                    "DB 미캐시 매물입니다. 단건 클릭 시 계산됩니다."
-            ));
-            failedCount++;
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
