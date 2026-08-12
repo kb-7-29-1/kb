@@ -23,6 +23,27 @@
         ORDER BY pc.created_at DESC
     </select>
 
+    <select id="findByUserId" resultType="com.salgosipo.comment.dto.CommentResponseDTO">
+        SELECT pc.comment_id AS commentId,
+               pc.property_id AS propertyId,
+               p.address AS propertyAddress,
+               pc.user_id AS userId,
+               u.name AS nickname,
+               u.profile_image AS profileImage,
+               pc.content,
+               pc.created_at AS createdAt,
+               pc.updated_at AS updatedAt,
+               TRUE AS isMine
+        FROM property_comment pc
+        JOIN users u ON u.user_id = pc.user_id
+        JOIN properties p ON p.property_id = pc.property_id
+        WHERE pc.user_id = #{userId}
+          AND pc.del_yn = 'N'
+          AND u.del_yn = 'N'
+          AND p.del_yn = 'N'
+        ORDER BY pc.created_at DESC
+    </select>
+
     <insert id="insertComment">
         INSERT INTO property_comment (property_id, user_id, content)
         VALUES (#{propertyId}, #{userId}, #{content})
