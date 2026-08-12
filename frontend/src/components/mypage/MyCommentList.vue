@@ -94,9 +94,9 @@ onMounted(fetchMyComments);
 }
 
 .my-comment-list__item:last-of-type { border-bottom: 0; }
-.my-comment-list__property, .my-comment-list__content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.my-comment-list__property { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .my-comment-list__property { color: #64748b; font-size: 11px; font-weight: 700; }
-.my-comment-list__content { color: #334155; font-size: 12px; }
+.my-comment-list__content { color: #334155; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
 @media (hover: hover) and (pointer: fine) {
   .my-comment-list__item:hover .my-comment-list__content { color: #4767f7; }
 }
