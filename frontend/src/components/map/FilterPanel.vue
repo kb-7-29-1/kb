@@ -23,6 +23,7 @@ const amenityFilterRef = ref(null);
 const onboardingFilterRef = ref(null);
 const onboarding = ref(null);
 const applyError = ref('');
+const amenityFilterCacheKey = 'kb_applied_amenity_filters';
 
 const emit = defineEmits(['close', 'apply-onboarding', 'apply-amenities', 'reset']);
 
@@ -61,6 +62,15 @@ const handleApply = async () => {
       await onboardingApi.saveDestination(selectedDestination);
     }
 
+    try {
+      if (amenities.length) {
+        localStorage.setItem(amenityFilterCacheKey, JSON.stringify(amenities));
+      } else {
+        localStorage.removeItem(amenityFilterCacheKey);
+      }
+    } catch (error) {
+      console.error('AMENITY FILTER CACHE SAVE ERROR: ', error);
+    }
     emit('apply-onboarding', onboardingFilters);
     emit('apply-amenities', amenities);
     emit('close');

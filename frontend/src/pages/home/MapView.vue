@@ -78,13 +78,37 @@ const amenityFilterRef = ref(null);
 const isAmenityDetailFilterOpen = ref(false);
 const amenityDetailFilters = ref([]);
 const activeAmenityFilters = ref([]);
+let isAmenityUrlSyncReady = false;
 
 watch(
   () => props.appliedAmenityFilters,
   (filters = []) => {
     activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+    if (isAmenityDetailFilterOpen.value) {
+      const filtersByAmenityType = new Map(
+        filters.map((filter) => [Number(filter.amenityType), filter]),
+      );
+      amenityDetailFilters.value = amenityDetailFilters.value
+        .filter((filter) => filtersByAmenityType.has(Number(filter.amenityType)))
+        .map((filter) => {
+          const applied = filtersByAmenityType.get(Number(filter.amenityType));
+          return {
+            ...filter,
+            timeLimit: Number(
+              applied.walkTimeMinutes ?? applied.timeLimit ?? filter.timeLimit,
+            ),
+            walkTimeMinutes: Number(
+              applied.walkTimeMinutes ?? applied.timeLimit ?? filter.timeLimit,
+            ),
+          };
+        });
+    }
+    filterState.value.selectedAmenities = filters.map(
+      (filter) => filter.amenityType,
+    );
+    if (isAmenityUrlSyncReady) syncFiltersToUrlQuery(filterState.value);
   },
-  { immediate: true, deep: true },
+  { immediate: true, deep: true, flush: 'sync' },
 );
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
@@ -132,7 +156,13 @@ const {
 
 const syncFiltersToUrlQuery = (filters) => {
   rawSyncFiltersToUrlQuery(
-    filters,
+    {
+      ...filters,
+      selectedAmenities:
+        activeAmenityFilters.value.length > 0
+          ? activeAmenityFilters.value
+          : filters.selectedAmenities,
+    },
     route,
     router,
     selectedProperty.value?.propertyId,
@@ -312,8 +342,43 @@ onMounted(async () => {
   // 3. URL 주소창 Query 파라미터 100% 최우선 보장
   parseUrlQueryToFilters({ includeDestination: true });
 
+  const restoredAmenityFilters =
+    route.query.amenities != null
+      ? filterState.value.selectedAmenities
+      : props.appliedAmenityFilters.length > 0
+        ? props.appliedAmenityFilters
+        : filterState.value.selectedAmenities;
+
+  if (Array.isArray(restoredAmenityFilters)) {
+    activeAmenityFilters.value = restoredAmenityFilters.map(
+      (amenity) => {
+        const amenityType = Number(
+          typeof amenity === 'object' ? amenity.amenityType : amenity,
+        );
+        const defaultWalkTime =
+          amenityType === 1
+            ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+            : DEFAULT_AMENITY_WALK_TIME;
+
+        return {
+          amenityType,
+          walkTimeMinutes: Number(
+            typeof amenity === 'object'
+              ? amenity.walkTimeMinutes ?? defaultWalkTime
+              : defaultWalkTime,
+          ),
+        };
+      },
+    );
+    filterState.value.selectedAmenities = activeAmenityFilters.value.map(
+      (filter) => filter.amenityType,
+    );
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
+  isAmenityUrlSyncReady = true;
+  emit('apply-amenity-filters', activeAmenityFilters.value);
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend(false, true);
 });
@@ -1158,6 +1223,7 @@ const handleApplyAmenities = (selectedList) => {
     (filter) => filter.amenityType,
   );
   emit('apply-amenity-filters', activeAmenityFilters.value);
+  syncFiltersToUrlQuery(filterState.value);
 };
 
 // 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
