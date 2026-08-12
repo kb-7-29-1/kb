@@ -140,7 +140,10 @@ export function usePropertySearch() {
         return true;
       });
 
-      properties.value = candidates;
+      properties.value = candidates.map((item) => ({
+        ...item,
+        isSafetyLoading: true,
+      }));
       updateLastFetchedCenter(centerLat, centerLng);
 
       // 목적지별 안전점수를 백그라운드(non-blocking)로 일괄 준비 및 병합합니다.
@@ -169,15 +172,25 @@ export function usePropertySearch() {
             properties.value = properties.value.map((prop) => {
               const score =
                 scoresMap[prop.propertyId] ?? scoresMap[String(prop.propertyId)];
-              if (score != null) {
-                return { ...prop, safetyScore: score };
-              }
-              return prop;
+              return {
+                ...prop,
+                safetyScore: score ?? null,
+                isSafetyLoading: false,
+              };
             });
           })
           .catch((err) => {
             console.warn('Background safety scores batch calculation error:', err);
+            properties.value = properties.value.map((prop) => ({
+              ...prop,
+              isSafetyLoading: false,
+            }));
           });
+      } else {
+        properties.value = properties.value.map((prop) => ({
+          ...prop,
+          isSafetyLoading: false,
+        }));
       }
     } catch (error) {
       if (requestId !== propertyRequestSequence) return;

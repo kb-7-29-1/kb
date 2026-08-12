@@ -4,8 +4,10 @@
 
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
 export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = false) => {
+  const isLoading = Boolean(prop.isSafetyLoading);
   const rawScore = prop.safetyScore;
   const hasScore =
+    !isLoading &&
     rawScore !== null &&
     rawScore !== undefined &&
     rawScore !== '' &&
@@ -19,7 +21,14 @@ export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = fa
     pointer: 'bg-slate-700',
   };
 
-  if (hasScore) {
+  if (isLoading) {
+    theme = {
+      border: 'border-blue-400 animate-pulse',
+      badge: 'bg-blue-50 text-blue-600 animate-pulse',
+      background: 'bg-blue-600',
+      pointer: 'bg-blue-600',
+    };
+  } else if (hasScore) {
     if (numericScore >= 80) {
       theme = {
         border: 'border-emerald-500',
@@ -56,7 +65,7 @@ export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = fa
     ? `${theme.background} text-white z-30`
     : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
   const badgeStyle = isSelected ? 'bg-white/20 text-white' : theme.badge;
-  const badgeText = hasScore ? `${numericScore}점` : '점수 없음';
+  const badgeText = isLoading ? '계산 중...' : (hasScore ? `${numericScore}점` : '점수 없음');
   // 선택하지 않은 매물은 경로를 가리지 않도록 흐리게 두고, hover 시 선명하게 표시
   const opacityStyle =
     hasSelectedProperty && !isSelected ? 'opacity-60 hover:opacity-100' : 'opacity-100';

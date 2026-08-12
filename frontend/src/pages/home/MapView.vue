@@ -40,10 +40,15 @@ import {
   getMinSearchRadiusKm,
   isWithinReachDistance,
 } from '@/utils/isochroneFilter.js';
+import DistrictToast from '@/components/common/DistrictToast.vue';
+import { isSupportedSafetyDistrict } from '@/utils/districtSupport.js';
+import { useDistrictToast } from '@/composables/useDistrictToast.js';
 
 const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
 const route = useRoute();
 const router = useRouter();
+
+const { showToast } = useDistrictToast();
 const props = defineProps({
   appliedOnboardingFilters: {
     type: Object,
@@ -291,12 +296,16 @@ onMounted(async () => {
     const cachedFilters = loadQuickFilterFromCache();
     if (cachedFilters) {
       Object.assign(filterState.value, cachedFilters);
-      hasCachedDestination = !!(cachedFilters.destinationLat && cachedFilters.destinationLng);
+      hasCachedDestination = !!(
+        cachedFilters.destinationLat && cachedFilters.destinationLng
+      );
     }
   }
 
   // 2. 기본 DB 온보딩 값 로드 (URL 또는 캐시에 목적지가 이미 존재하는 경우 덮어쓰기 차단)
-  await loadOnboardingDefaultFilters({ resetDestination: !hasUrlQuery && !hasCachedDestination });
+  await loadOnboardingDefaultFilters({
+    resetDestination: !hasUrlQuery && !hasCachedDestination,
+  });
 
   // 3. URL 주소창 Query 파라미터 100% 최우선 보장
   parseUrlQueryToFilters({ includeDestination: true });
@@ -602,6 +611,21 @@ const destinationConfig = computed(() => {
   };
 });
 
+watch(
+  () => [
+    destinationConfig.value,
+    appliedFilterState.value?.destinationAddress,
+    appliedFilterState.value?.destination,
+  ],
+  ([dest, destAddr, destName]) => {
+    const fullText = `${destAddr || ''} ${destName || ''} ${dest?.name || ''} ${dest?.address || ''}`;
+    if (fullText.trim() && !isSupportedSafetyDistrict(fullText)) {
+      showToast();
+    }
+  },
+  { immediate: true, deep: true },
+);
+
 // 퀵버튼 필터 + 도보/대중교통 도달 범위(Reach) + 5종 정렬 연동 로직 (appliedFilterState 기준 연산)
 const baseFilteredProperties = computed(() => {
   const currentFilters = appliedFilterState.value;
@@ -895,6 +919,15 @@ const loadSafetyRouteForProperty = async (property) => {
       requestId !== safetyRouteRequestSequence ||
       Number(selectedProperty.value?.propertyId) !== Number(property.propertyId)
     ) {
+      return;
+    }
+
+    if (response && response.isSupportedDistrict === false) {
+      showToast(
+        response.message ||
+          '선택하신 자치구는 보안등 공공데이터가 구축되지 않아 안전 점수가 제공되지 않습니다.',
+      );
+      syncSafetySummaryToProperty(property.propertyId, response);
       return;
     }
 
@@ -1480,7 +1513,9 @@ const {
             <p class="text-xs text-slate-400 mt-1">
               주변 매물을 다시 확인하는 중입니다
             </p>
-            <div class="mt-4 w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+            <div
+              class="mt-4 w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden"
+            >
               <div
                 class="h-full w-1/2 rounded-full bg-indigo-500 animate-loading-bar"
               ></div>
@@ -1599,6 +1634,9 @@ const {
           다시 시도
         </button>
       </div>
+
+      <!-- ⚠️ 보안등 미구축 자치구 안내 토스트 팝업 -->
+      <DistrictToast />
     </main>
 
     <!-- 3. 우측 560px Slide-Over 매물 상세 패널 -->

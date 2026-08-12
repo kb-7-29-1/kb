@@ -136,7 +136,7 @@ const cardThumbnailUrl = computed(() => {
               class="fa-solid fa-shield-halved text-[9px]"
               aria-hidden="true"
             ></i>
-            {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
+            {{ property.isSafetyLoading ? '계산 중...' : (hasSafetyScore ? `${property.safetyScore}점` : '점수 없음') }}
           </span>
         </div>
 
