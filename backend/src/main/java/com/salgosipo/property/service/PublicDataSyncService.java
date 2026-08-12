@@ -105,6 +105,9 @@ public class PublicDataSyncService {
         // 100건 단위 버퍼로 Railway DB 일괄 저장 (DB 커넥션 과부하 방지)
         List<PropertyListDTO> batchBuffer = new ArrayList<>();
         for (PropertyListDTO p : totalFetchedBuffer) {
+            if (!PublicDataApiService.isValidAddress(p.getAddress())) {
+                continue; // ~동 으로만 끝나는 쓰레기 주소 매물 DB 저장 제외
+            }
             batchBuffer.add(p);
             if (batchBuffer.size() >= 100) {
                 try {

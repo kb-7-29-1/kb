@@ -204,6 +204,11 @@ public class PublicDataApiService {
                         String fullAddress = "서울특별시 " + guName + (dong.isEmpty() ? "" : " " + dong)
                                 + (formattedJibun.isEmpty() ? "" : " " + formattedJibun);
                         fullAddress = fullAddress.trim();
+
+                        if (!isValidAddress(fullAddress)) {
+                            continue;
+                        }
+
                         String fullTitle = name.equals("실거래 매물") ? fullAddress : fullAddress + " " + name;
 
                         int deposit = parseSafeInt(depositStr);
@@ -665,5 +670,19 @@ public class PublicDataApiService {
             default:
                 return 127.0731;
         }
+    }
+
+    public static boolean isValidAddress(String address) {
+        if (address == null || address.trim().isEmpty()) {
+            return false;
+        }
+        String clean = address.trim();
+        if (!clean.matches(".*\\d+.*")) {
+            return false;
+        }
+        if (clean.matches(".*[가-힣]+동$")) {
+            return false;
+        }
+        return true;
     }
 }
