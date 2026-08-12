@@ -10,6 +10,7 @@ public class SafetyRouteResponseDTO {
     private String message;
     private Integer safetyScore;
     private String safetyGrade;
+    private Boolean isSupportedDistrict;
     private Integer cctvCount;
     private Integer streetLampCount;
     private Boolean hasPoliceStation;
@@ -113,5 +114,13 @@ public class SafetyRouteResponseDTO {
 
     public void setCandidateRoutes(List<SafetyRouteCandidateDTO> candidateRoutes) {
         this.candidateRoutes = candidateRoutes;
+    }
+
+    public Boolean getIsSupportedDistrict() {
+        return isSupportedDistrict;
+    }
+
+    public void setIsSupportedDistrict(Boolean isSupportedDistrict) {
+        this.isSupportedDistrict = isSupportedDistrict;
     }
 }

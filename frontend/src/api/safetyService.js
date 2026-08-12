@@ -33,7 +33,15 @@ const safetyService = {
       destinationLongitude,
     });
 
-    return data;
+    const map = {};
+    if (Array.isArray(data?.items)) {
+      data.items.forEach((item) => {
+        if (item.propertyId != null && item.safetyScore != null) {
+          map[item.propertyId] = item.safetyScore;
+        }
+      });
+    }
+    return map;
   },
 };
 
