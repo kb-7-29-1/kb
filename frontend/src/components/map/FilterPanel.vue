@@ -1,11 +1,13 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { nextTick, onMounted, ref } from 'vue';
 import AmenityFilter from './AmenityFilter.vue';
 import FilterBottomBar from './FilterBottomBar.vue';
 import FilterTabs from './FilterTabs.vue';
 import OnBoardingFilter from './OnBoardingFilter.vue';
 import OnboardingSummary from './OnboardingSummary.vue';
 import onboardingApi from '@/api/onboardingApi';
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import { saveAmenityFilterCache } from '@/utils/mapFilterCache.js';
 
 const props = defineProps({
   appliedFilters: {
@@ -23,7 +25,7 @@ const amenityFilterRef = ref(null);
 const onboardingFilterRef = ref(null);
 const onboarding = ref(null);
 const applyError = ref('');
-const amenityFilterCacheKey = 'kb_applied_amenity_filters';
+const authStore = useAuthStore();
 
 const emit = defineEmits(['close', 'apply-onboarding', 'apply-amenities', 'reset']);
 
@@ -59,24 +61,20 @@ const handleApply = async () => {
     : {};
   const { selectedDestination, ...onboardingFilters } = filters;
 
+  // 온보딩 저장 요청과 무관하게 편의시설·시간 선택은 즉시 보존한다.
+  saveAmenityFilterCache(authStore.user, amenities);
   try {
     if (selectedDestination) {
       await onboardingApi.saveDestination(selectedDestination);
     }
 
-    try {
-      if (amenities.length) {
-        localStorage.setItem(amenityFilterCacheKey, JSON.stringify(amenities));
-      } else {
-        localStorage.removeItem(amenityFilterCacheKey);
-      }
-    } catch (error) {
-      console.error('AMENITY FILTER CACHE SAVE ERROR: ', error);
-    }
     emit('apply-onboarding', onboardingFilters);
+    await nextTick();
+    // 목적지 변경 처리로 초기화된 경우에도 최종 편의시설 값을 다시 적용한다.
     emit('apply-amenities', amenities);
     emit('close');
   } catch (error) {
+    emit('apply-amenities', amenities);
     applyError.value = '목적지를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
     console.error('FILTER DESTINATION SAVE ERROR: ', error);
   }
