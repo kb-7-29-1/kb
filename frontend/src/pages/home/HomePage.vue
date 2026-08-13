@@ -4,31 +4,21 @@ import MapView from './MapView.vue';
 import FilterPanel from '@/components/map/FilterPanel.vue';
 import { useRouter } from 'vue-router';
 import { getProfile } from '@/api/authService.js';
+import { useAuthStore } from '@/stores/useAuthStore.js';
+import {
+  loadAmenityFilterCache,
+  saveAmenityFilterCache,
+} from '@/utils/mapFilterCache.js';
 
 const router = useRouter();
-const amenityFilterCacheKey = 'kb_applied_amenity_filters';
+const authStore = useAuthStore();
 
 const loadAppliedAmenityFilters = () => {
-  try {
-    const cached = localStorage.getItem(amenityFilterCacheKey);
-    const filters = cached ? JSON.parse(cached) : [];
-    return Array.isArray(filters) ? filters : [];
-  } catch (error) {
-    console.error('AMENITY FILTER CACHE LOAD ERROR: ', error);
-    return [];
-  }
+  return loadAmenityFilterCache(authStore.user);
 };
 
 const saveAppliedAmenityFilters = (filters) => {
-  try {
-    if (filters.length) {
-      localStorage.setItem(amenityFilterCacheKey, JSON.stringify(filters));
-    } else {
-      localStorage.removeItem(amenityFilterCacheKey);
-    }
-  } catch (error) {
-    console.error('AMENITY FILTER CACHE SAVE ERROR: ', error);
-  }
+  saveAmenityFilterCache(authStore.user, filters);
 };
 
 const isFilterOpen = ref(false);
@@ -55,28 +45,8 @@ const closeFilter = () => {
   isFilterOpen.value = false;
 };
 
-const getDestinationKey = (destination) => {
-  if (!destination) return '';
-  if (typeof destination === 'string') return destination.trim();
-
-  return JSON.stringify({
-    name: destination.destName ?? destination.destinationName ?? destination.name ?? '',
-    address: destination.destAddress ?? destination.address ?? '',
-    lat: destination.destLatitude ?? destination.latitude ?? destination.lat ?? '',
-    lng: destination.destLongitude ?? destination.longitude ?? destination.lng ?? '',
-  });
-};
-
 const applyOnboardingFilters = (onboarding) => {
-  const prevDestinationKey = getDestinationKey(appliedOnboardingFilters.value?.destination);
-  const nextDestinationKey = getDestinationKey(onboarding?.destination);
-
   appliedOnboardingFilters.value = onboarding;
-
-  if (prevDestinationKey !== nextDestinationKey) {
-    appliedAmenityFilters.value = [];
-    saveAppliedAmenityFilters([]);
-  }
 };
 
 const applyAmenityFilters = (amenities) => {
