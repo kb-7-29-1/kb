@@ -4,6 +4,7 @@ import api from '@/api/api';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import { getBankLogoUrl } from '@/utils/bankLogo';
 import { getBankLinkUrl } from '@/utils/bankLink';
+import ConfirmModal from '@/components/common/ConfirmModal.vue';
 import {
   DEPOSIT_MAX_LABEL,
   DEPOSIT_MIN_LABEL,
@@ -132,10 +133,17 @@ const formatAmount = (amount) => {
 const bankLogoUrl = computed(() => getBankLogoUrl(loan.value?.companyName));
 const bankLinkUrl = computed(() => getBankLinkUrl(loan.value?.companyName));
 
+const isBankLinkConfirmOpen = ref(false);
+
 const openBankLink = () => {
   if (bankLinkUrl.value) {
-    window.open(bankLinkUrl.value, '_blank', 'noopener,noreferrer');
+    isBankLinkConfirmOpen.value = true;
   }
+};
+
+const confirmBankLink = () => {
+  window.open(bankLinkUrl.value, '_blank', 'noopener,noreferrer');
+  isBankLinkConfirmOpen.value = false;
 };
 
 const loanLimitParts = computed(() => {
@@ -254,6 +262,13 @@ const rangeStyle = (value, min, max) => {
         <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
       </aside>
     </div>
+
+    <ConfirmModal
+      v-if="isBankLinkConfirmOpen"
+      message="해당 사이트로 이동하시겠습니까?"
+      @confirm="confirmBankLink"
+      @cancel="isBankLinkConfirmOpen = false"
+    />
   </section>
 </template>
 

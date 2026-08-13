@@ -67,7 +67,7 @@ export function renderLoanChipHTML(prop, selectedLoanId = null) {
 }
 
 // ⚡ 대출 칩 글로벌 ON/OFF 스위치 (false로 변경 시 지도상의 모든 대출 칩 1초컷 비활성화)
-export const ENABLE_LOAN_CHIP = true;
+export const ENABLE_LOAN_CHIP = false;
 
 /**
  * 현재 지도 화면 매물 중 상위 2~3개 추천 매물 ID Set만 선별합니다.

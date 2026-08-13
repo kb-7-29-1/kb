@@ -78,19 +78,47 @@ const amenityFilterRef = ref(null);
 const isAmenityDetailFilterOpen = ref(false);
 const amenityDetailFilters = ref([]);
 const activeAmenityFilters = ref([]);
+let isAmenityUrlSyncReady = false;
 
 watch(
   () => props.appliedAmenityFilters,
   (filters = []) => {
     activeAmenityFilters.value = filters.map((filter) => ({ ...filter }));
+    if (isAmenityDetailFilterOpen.value) {
+      const filtersByAmenityType = new Map(
+        filters.map((filter) => [Number(filter.amenityType), filter]),
+      );
+      amenityDetailFilters.value = amenityDetailFilters.value
+        .filter((filter) =>
+          filtersByAmenityType.has(Number(filter.amenityType)),
+        )
+        .map((filter) => {
+          const applied = filtersByAmenityType.get(Number(filter.amenityType));
+          return {
+            ...filter,
+            timeLimit: Number(
+              applied.walkTimeMinutes ?? applied.timeLimit ?? filter.timeLimit,
+            ),
+            walkTimeMinutes: Number(
+              applied.walkTimeMinutes ?? applied.timeLimit ?? filter.timeLimit,
+            ),
+          };
+        });
+    }
+    filterState.value.selectedAmenities = filters.map(
+      (filter) => filter.amenityType,
+    );
+    if (isAmenityUrlSyncReady) syncFiltersToUrlQuery(filterState.value);
   },
-  { immediate: true, deep: true },
+  { immediate: true, deep: true, flush: 'sync' },
 );
 
 // 선택된 매물 & 우측 상세 패널 열림 상태
 const selectedProperty = ref(null);
 const isPanelOpen = ref(false);
 const selectedPropertyDetailAmenities = ref([]);
+// 북마크/공유링크로 직접 연 매물은 현재 검색 목록에 없어도 자동으로 닫히지 않도록 예외 처리
+const externallyOpenedPropertyId = ref(null);
 
 // 선택 매물의 TMAP 안전 경로 상태
 // selectedSafetyRoute.routePoints를 NaverMap에 전달해 실제 폴리라인을 그립니다.
@@ -130,7 +158,13 @@ const {
 
 const syncFiltersToUrlQuery = (filters) => {
   rawSyncFiltersToUrlQuery(
-    filters,
+    {
+      ...filters,
+      selectedAmenities:
+        activeAmenityFilters.value.length > 0
+          ? activeAmenityFilters.value
+          : filters.selectedAmenities,
+    },
     route,
     router,
     selectedProperty.value?.propertyId,
@@ -310,8 +344,41 @@ onMounted(async () => {
   // 3. URL 주소창 Query 파라미터 100% 최우선 보장
   parseUrlQueryToFilters({ includeDestination: true });
 
+  const restoredAmenityFilters =
+    route.query.amenities != null
+      ? filterState.value.selectedAmenities
+      : props.appliedAmenityFilters.length > 0
+        ? props.appliedAmenityFilters
+        : filterState.value.selectedAmenities;
+
+  if (Array.isArray(restoredAmenityFilters)) {
+    activeAmenityFilters.value = restoredAmenityFilters.map((amenity) => {
+      const amenityType = Number(
+        typeof amenity === 'object' ? amenity.amenityType : amenity,
+      );
+      const defaultWalkTime =
+        amenityType === 1
+          ? DEFAULT_CONVENIENCE_STORE_WALK_TIME
+          : DEFAULT_AMENITY_WALK_TIME;
+
+      return {
+        amenityType,
+        walkTimeMinutes: Number(
+          typeof amenity === 'object'
+            ? (amenity.walkTimeMinutes ?? defaultWalkTime)
+            : defaultWalkTime,
+        ),
+      };
+    });
+    filterState.value.selectedAmenities = activeAmenityFilters.value.map(
+      (filter) => filter.amenityType,
+    );
+  }
+
   appliedFilterState.value = JSON.parse(JSON.stringify(filterState.value));
   syncFiltersToUrlQuery(appliedFilterState.value);
+  isAmenityUrlSyncReady = true;
+  emit('apply-amenity-filters', activeAmenityFilters.value);
   isQuickFilterReady.value = true;
   await fetchPropertiesFromBackend(false, true);
 });
@@ -344,6 +411,7 @@ const clearAmenitiesForDestinationChange = () => {
   safetyRouteError.value = '';
   isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
+  externallyOpenedPropertyId.value = null;
 
   emit('apply-amenity-filters', []);
 };
@@ -387,10 +455,14 @@ const handleChangeDestination = ({ name, lat, lng, address }) => {
   handleApplyFilters(true);
 };
 
-const handleApplyFilters = async (showOverlay = false) => {
+const handleApplyFilters = async (
+  showOverlay = false,
+  { preserveAmenities = false } = {},
+) => {
   if (
     getDestinationKey(appliedFilterState.value) !==
-    getDestinationKey(filterState.value)
+      getDestinationKey(filterState.value) &&
+    !preserveAmenities
   ) {
     clearAmenitiesForDestinationChange();
   }
@@ -489,7 +561,7 @@ const applyMobileOnboardingFilters = (filters) => {
     filterState.value.minSafetyScore = Number(filters.minSafetyScore);
   }
 
-  handleApplyFilters();
+  handleApplyFilters(false, { preserveAmenities: true });
 };
 
 watch(() => props.appliedOnboardingFilters, applyMobileOnboardingFilters, {
@@ -656,11 +728,6 @@ const baseFilteredProperties = computed(() => {
     // 1. 거래 유형 필터 (전세/월세)
     if (currentFilters.tradeType === 'JEONSE' && p.monthlyRent > 0)
       return false;
-    if (
-      currentFilters.tradeType === 'MONTHLY' &&
-      (p.monthlyRent === 0 || p.monthlyRent == null)
-    )
-      return false;
 
     // 2. 보증금 / 전세금 필터 (minDeposit ~ maxDeposit 단위: 만원 & 대출 레버리지 한도 증액 반영)
     let effectiveMinDeposit = currentFilters.minDeposit || 0;
@@ -817,12 +884,21 @@ const clearSelectedProperty = () => {
   isSafetyRouteLoading.value = false;
   isPanelOpen.value = false;
   mobileSidebarTab.value = 'list';
+  externallyOpenedPropertyId.value = null;
 };
 
 watch(
   [visibleProperties, selectedProperty, isMapAnalysisLoading],
   ([nextProperties, currentProperty, isLoading]) => {
     if (!currentProperty || isLoading) return;
+
+    if (
+      externallyOpenedPropertyId.value != null &&
+      Number(currentProperty.propertyId) ===
+        Number(externallyOpenedPropertyId.value)
+    ) {
+      return;
+    }
 
     const isStillVisible = nextProperties.some(
       (property) =>
@@ -962,8 +1038,14 @@ const loadSafetyRouteForProperty = async (property) => {
 };
 
 // 매물 선택 처리 (사이드바 카드 또는 지도 핀 클릭 시)
-const handleSelectProperty = async (property) => {
+const handleSelectProperty = async (
+  property,
+  { skipVisibilityCheck = false } = {},
+) => {
   selectedProperty.value = property;
+  externallyOpenedPropertyId.value = skipVisibilityCheck
+    ? property.propertyId
+    : null;
   isPanelOpen.value = true;
   mobileSidebarTab.value = 'detail';
   if (mobilePanelHeight.value === 'COLLAPSED') {
@@ -996,6 +1078,29 @@ const handleSelectProperty = async (property) => {
 };
 
 // 마이페이지 관심 매물 카드에서 전달한 propertyId로 기존 상세 패널을 열기
+// 북마크에 저장된 목적지 정보를 현재 필터 상태에 반영 (안전 경로 계산이 이 목적지 기준으로 이뤄지게 함)
+const applyBookmarkDestinationContext = (bookmarked) => {
+  if (!bookmarked || bookmarked.destinationId == null) return;
+
+  const patch = {
+    destinationId: Number(bookmarked.destinationId),
+    destination: bookmarked.destinationName || filterState.value.destination,
+    destinationAddress:
+      bookmarked.destinationAddress || filterState.value.destinationAddress,
+    destinationLat:
+      bookmarked.destinationLat != null
+        ? Number(bookmarked.destinationLat)
+        : filterState.value.destinationLat,
+    destinationLng:
+      bookmarked.destinationLng != null
+        ? Number(bookmarked.destinationLng)
+        : filterState.value.destinationLng,
+  };
+
+  Object.assign(filterState.value, patch);
+  Object.assign(appliedFilterState.value, patch);
+};
+
 const openPropertyDetailFromQuery = async (propertyId) => {
   if (!propertyId) return;
 
@@ -1015,12 +1120,20 @@ const openPropertyDetailFromQuery = async (propertyId) => {
     console.warn('BOOKMARK PROPERTY SESSION PARSE ERROR:', error);
   }
 
+  const isBookmarkedTarget =
+    Number(bookmarkedProperty?.propertyId) === numericPropertyId;
+
+  // onMounted의 목적지 로딩(캐시/온보딩)이 비동기로 filterState를 되돌려놓을 수 있어서,
+  // handleSelectProperty 직전에 매번 다시 적용해 항상 마지막에 반영되게 함
+  if (isBookmarkedTarget) applyBookmarkDestinationContext(bookmarkedProperty);
+
   const listedProperty = properties.value.find(
     (property) => Number(property.propertyId) === numericPropertyId,
   );
 
   if (listedProperty) {
-    handleSelectProperty(listedProperty);
+    if (isBookmarkedTarget) applyBookmarkDestinationContext(bookmarkedProperty);
+    handleSelectProperty(listedProperty, { skipVisibilityCheck: true });
     sessionStorage.removeItem('selectedBookmarkProperty');
     return;
   }
@@ -1033,7 +1146,12 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       },
     });
     if (data) {
-      handleSelectProperty({ ...data, isBookmarked: true });
+      if (isBookmarkedTarget)
+        applyBookmarkDestinationContext(bookmarkedProperty);
+      handleSelectProperty(
+        { ...data, isBookmarked: true },
+        { skipVisibilityCheck: true },
+      );
       sessionStorage.removeItem('selectedBookmarkProperty');
       return;
     }
@@ -1042,8 +1160,12 @@ const openPropertyDetailFromQuery = async (propertyId) => {
   }
 
   // 네트워크 오류 시 목록용 요약 데이터를 마지막 대안으로 사용
-  if (Number(bookmarkedProperty?.propertyId) === numericPropertyId) {
-    handleSelectProperty({ ...bookmarkedProperty, isBookmarked: true });
+  if (isBookmarkedTarget) {
+    applyBookmarkDestinationContext(bookmarkedProperty);
+    handleSelectProperty(
+      { ...bookmarkedProperty, isBookmarked: true },
+      { skipVisibilityCheck: true },
+    );
     sessionStorage.removeItem('selectedBookmarkProperty');
   }
 };
@@ -1085,7 +1207,10 @@ const handleToggleBookmark = async (id) => {
   try {
     const response = item.isBookmarked
       ? await api.delete(`/bookmark/${id}`)
-      : await api.post('/bookmark', { propertyId: id });
+      : await api.post('/bookmark', {
+          propertyId: id,
+          destinationId: appliedFilterState.value.destinationId || undefined,
+        });
 
     if (response.data && response.data.success === false) {
       console.error('BOOKMARK TOGGLE ERROR: ', response.data.message);
@@ -1115,6 +1240,7 @@ const handleApplyAmenities = (selectedList) => {
     (filter) => filter.amenityType,
   );
   emit('apply-amenity-filters', activeAmenityFilters.value);
+  syncFiltersToUrlQuery(filterState.value);
 };
 
 // 편의시설 선택 시 기본 디폴트 시간 적용 (편의점: 5분, 기타: 10분)
@@ -1496,35 +1622,12 @@ const {
             v-else
             class="h-full flex flex-col items-center justify-center p-6 text-center"
           >
-            <div
-              class="w-14 h-14 mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-200/60"
-            >
-              <svg
-                class="w-7 h-7 text-white animate-pulse"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-              >
-                <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0Z" />
-                <circle cx="12" cy="10" r="3" />
-                />
-              </svg>
-            </div>
             <p class="text-sm font-extrabold text-slate-700">
               편의시설 조건을 적용하고 있어요
             </p>
             <p class="text-xs text-slate-400 mt-1">
               주변 매물을 다시 확인하는 중입니다
             </p>
-            <div
-              class="mt-4 w-32 h-1.5 rounded-full bg-slate-100 overflow-hidden"
-            >
-              <div
-                class="h-full w-1/2 rounded-full bg-indigo-500 animate-loading-bar"
-              ></div>
-            </div>
           </div>
         </div>
       </div>

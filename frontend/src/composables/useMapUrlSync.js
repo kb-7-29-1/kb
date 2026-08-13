@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/useAuthStore.js';
+import { getQuickFilterCacheKey } from '@/utils/mapFilterCache.js';
 
 /**
  * URL 주소창 Query 파라미터 <-> 퀵 필터 로컬 캐시 <-> DB 온보딩 간의
@@ -7,16 +8,12 @@ import { useAuthStore } from '@/stores/useAuthStore.js';
 export function useMapUrlSync() {
   const authStore = useAuthStore();
 
-  const getQuickFilterCacheKey = () => {
-    const userId = authStore.user?.userId || authStore.user?.id || 'guest';
-    return `kb_quick_filter_state_${userId}`;
-  };
-
   const saveQuickFilterToCache = (filters) => {
     if (!filters) return;
     try {
-      const key = getQuickFilterCacheKey();
-      localStorage.setItem(key, JSON.stringify(filters));
+      const key = getQuickFilterCacheKey(authStore.user);
+      const { selectedAmenities, ...quickFilters } = filters;
+      localStorage.setItem(key, JSON.stringify(quickFilters));
     } catch (e) {
       console.error('Failed to save quick filter cache:', e);
     }
@@ -24,10 +21,11 @@ export function useMapUrlSync() {
 
   const loadQuickFilterFromCache = () => {
     try {
-      const key = getQuickFilterCacheKey();
+      const key = getQuickFilterCacheKey(authStore.user);
       const cached = localStorage.getItem(key);
       if (cached) {
-        return JSON.parse(cached);
+        const { selectedAmenities, ...quickFilters } = JSON.parse(cached);
+        return quickFilters;
       }
     } catch (e) {
       console.error('Failed to load quick filter cache:', e);
