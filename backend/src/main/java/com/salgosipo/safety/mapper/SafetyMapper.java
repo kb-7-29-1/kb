@@ -48,5 +48,9 @@ public interface SafetyMapper {
             @Param("destinationId") Integer destinationId
     );
 
+    List<SafetyRouteCacheVO> selectAllSafetyRouteCachesByDestinationId(
+            @Param("destinationId") Integer destinationId
+    );
+
     int upsertSafetyRouteCache(SafetyRouteCacheVO routeCache);
 }
