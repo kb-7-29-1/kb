@@ -272,6 +272,14 @@ const clearDestinationSearch = () => {
   nextTick(() => destinationSearchInput.value?.focus());
 };
 
+const resetDestinationSearchState = () => {
+  cancelPendingDestinationSearch();
+  destinationSearchKeyword.value = '';
+  destinationSearchResults.value = [];
+  selectedDestination.value = null;
+  destinationSearchError.value = '';
+};
+
 const applyDestination = async () => {
   destinationSearchError.value = '';
 
@@ -296,6 +304,7 @@ const applyDestination = async () => {
 
   updateFilters();
   emit('apply');
+  resetDestinationSearchState();
   activePopover.value = null;
 };
 
@@ -429,6 +438,9 @@ const updateFiltersImmediate = () => {
 
 const activePopoverName = ref(null);
 const togglePopover = (name) => {
+  if (name === 'destination' && activePopover.value !== 'destination') {
+    resetDestinationSearchState();
+  }
   activePopover.value = activePopover.value === name ? null : name;
 };
 
