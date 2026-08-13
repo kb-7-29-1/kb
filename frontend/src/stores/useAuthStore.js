@@ -1,4 +1,5 @@
 import {defineStore} from "pinia";
+import { clearMapFilterCache } from '@/utils/mapFilterCache.js';
 
 export const useAuthStore = defineStore('auth',{
     state: () =>({
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth',{
             localStorage.setItem('token', token)
         },
         logout() {
+            clearMapFilterCache(this.user);
             this.clearAuthState();
             localStorage.removeItem('token');
             localStorage.removeItem('user');
