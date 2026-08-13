@@ -5,26 +5,27 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salgosipo.safety.domain.PedestrianRoute;
 import com.salgosipo.safety.domain.SafetyDestinationVO;
 import com.salgosipo.safety.domain.SafetyFacilityVO;
-import com.salgosipo.safety.domain.TestLineStringVO;
+import com.salgosipo.safety.domain.SafetyRouteCacheVO;
 import com.salgosipo.safety.dto.RoutePointDTO;
 import com.salgosipo.safety.dto.SafetyRouteCandidateDTO;
 import com.salgosipo.safety.dto.TestFacilityMapResultDTO;
 import com.salgosipo.safety.dto.TestLineStringDetailDTO;
 import com.salgosipo.safety.dto.TestLineStringPageDTO;
 import com.salgosipo.safety.mapper.SafetyMapper;
-import com.salgosipo.safety.mapper.TestLineStringMapper;
 import com.salgosipo.safety.repository.SafetyFacilityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * [임시/테스트 전용] test_line_string에 저장된 경로를 지도 시각화용으로
- * 다시 채점(SafetyScoreCalculator)하고, 목적지 주변 CCTV/가로등/파출소 원본
- * 좌표를 조회하는 읽기 전용 서비스입니다. TMAP은 절대 호출하지 않습니다.
+ * [임시/테스트 전용] 운영 DB(property_safety_route)에 이미 저장된 실제 경로를
+ * 지도 시각화용으로 다시 채점(SafetyScoreCalculator)하고, 목적지 주변
+ * CCTV/가로등/파출소 원본 좌표를 조회하는 읽기 전용 서비스입니다.
+ * TMAP은 절대 호출하지 않고, 운영 테이블에 아무것도 쓰지 않습니다.
  *
  * 검증이 끝나면 SafetyDebugMapPage.vue와 함께 삭제해도 됩니다.
  */
@@ -33,7 +34,6 @@ public class TestLineStringDebugService {
 
     private static final double FACILITY_QUERY_MARGIN_METERS = 1_850.0;
 
-    private final TestLineStringMapper testLineStringMapper;
     private final SafetyMapper safetyMapper;
     private final SafetyFacilityRepository safetyFacilityRepository;
     private final SafetyScoreCalculator safetyScoreCalculator = new SafetyScoreCalculator();
@@ -41,25 +41,28 @@ public class TestLineStringDebugService {
 
     @Autowired
     public TestLineStringDebugService(
-            TestLineStringMapper testLineStringMapper,
             SafetyMapper safetyMapper,
             @Value(
                     "${SAFETY_FACILITY_RESOURCE:"
                             + "public_data/safety_facility_normalized.csv}"
             ) String facilityResource
     ) {
-        this.testLineStringMapper = testLineStringMapper;
         this.safetyMapper = safetyMapper;
         this.safetyFacilityRepository = new SafetyFacilityRepository(facilityResource);
     }
 
     public TestLineStringPageDTO getLineStringPage(Integer destinationId, int offset, int limit) {
-        int totalCount = testLineStringMapper.countTestLineString(destinationId);
-        List<TestLineStringVO> rows =
-                testLineStringMapper.selectTestLineStringPage(destinationId, offset, limit);
+        List<SafetyRouteCacheVO> allRows =
+                safetyMapper.selectAllSafetyRouteCachesByDestinationId(destinationId);
+        allRows.sort(Comparator.comparing(SafetyRouteCacheVO::getPropertyId));
+
+        int totalCount = allRows.size();
+        int fromIndex = Math.min(Math.max(offset, 0), totalCount);
+        int toIndex = Math.min(fromIndex + Math.max(limit, 0), totalCount);
+        List<SafetyRouteCacheVO> pageRows = allRows.subList(fromIndex, toIndex);
 
         List<TestLineStringDetailDTO> items = new ArrayList<>();
-        for (TestLineStringVO row : rows) {
+        for (SafetyRouteCacheVO row : pageRows) {
             items.add(toDetail(row));
         }
 
@@ -98,8 +101,8 @@ public class TestLineStringDebugService {
         return result;
     }
 
-    private TestLineStringDetailDTO toDetail(TestLineStringVO row) {
-        List<RoutePointDTO> routePoints = deserializeRoutePoints(row.getLineStringJson());
+    private TestLineStringDetailDTO toDetail(SafetyRouteCacheVO row) {
+        List<RoutePointDTO> routePoints = deserializeRoutePoints(row.getRoutePointsJson());
 
         PedestrianRoute route = new PedestrianRoute();
         route.setRoutePoints(routePoints);

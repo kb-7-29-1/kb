@@ -1,6 +1,7 @@
 <script setup>
-// [임시/테스트 전용] 세종대 도보 15분권 매물 안전점수 알고리즘을 눈으로 검증하기 위한
+// [임시/테스트 전용] 특정 목적지 도보권 매물 안전점수 알고리즘을 눈으로 검증하기 위한
 // 독립 디버그 페이지입니다. 10개 개별 On/Off 토글 & 실시간 영향권 렌더링 지원.
+// 목적지 ID를 화면에서 바꿀 수 있고, 실제 조회된 목적지 이름을 항상 같이 표시합니다.
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/api/api.js';
@@ -8,7 +9,12 @@ import api from '@/api/api.js';
 const route = useRoute();
 const router = useRouter();
 
-const DESTINATION_ID = 1; // 세종대 고정
+// destinations 테이블은 고정 시드 없이 동적 생성되는 테이블이라 ID가 항상
+// 같은 장소를 가리킨다고 가정하면 안 됨. URL 쿼리(?destinationId=)로 지정하고,
+// 없으면 1을 기본값으로 시도하되 실제 목적지 이름은 API 응답으로 화면에 표시해 확인한다.
+const destinationId = ref(Number(route.query.destinationId) || 1);
+const destinationIdInput = ref(String(destinationId.value));
+const resolvedDestinationName = ref('');
 
 const GRADE_COLOR = {
   SAFE: '#22a06b',
@@ -22,10 +28,11 @@ const FACILITY_COLOR = {
   POLICE: '#7c3aed',
 };
 
+// SafetyScoreCalculator.java의 반경 상수와 반드시 일치시켜야 함
 const FACILITY_RADIUS = {
   CCTV: 50,
   STREET_LIGHT: 30,
-  POLICE: 300,
+  POLICE: 100,
 };
 
 const FACILITY_LABEL = {
@@ -71,7 +78,7 @@ async function openStatsModal() {
   try {
     const res = await api.get('/safety/test/linestrings', {
       params: {
-        destinationId: DESTINATION_ID,
+        destinationId: destinationId.value,
         offset: 0,
         limit: 1000,
       },
@@ -431,7 +438,7 @@ async function fetchPage(page, updateUrl = true) {
   try {
     const response = await api.get('/safety/test/linestrings', {
       params: {
-        destinationId: DESTINATION_ID,
+        destinationId: destinationId.value,
         offset,
         limit: PAGE_SIZE,
       },
@@ -459,47 +466,74 @@ async function fetchPage(page, updateUrl = true) {
   }
 }
 
+async function loadDestination({ resetPage = true } = {}) {
+  const facilityResponse = await api.get('/safety/test/facilities', {
+    params: { destinationId: destinationId.value },
+  });
+  const {
+    destinationLatitude,
+    destinationLongitude,
+    destinationName,
+    facilities,
+  } = facilityResponse.data;
+
+  resolvedDestinationName.value = destinationName || '(이름 없음)';
+  allFacilities.value = facilities || [];
+
+  const center = new window.naver.maps.LatLng(
+    destinationLatitude,
+    destinationLongitude,
+  );
+  mapInstance.setCenter(center);
+  mapInstance.setZoom(15);
+
+  if (destinationMarker) destinationMarker.setMap(null);
+  destinationMarker = new window.naver.maps.Marker({
+    map: mapInstance,
+    position: center,
+    icon: {
+      content: `<div style="background:#111827;color:#fff;font-size:12px;font-weight:900;padding:6px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 3px 8px rgba(0,0,0,0.4);border:2px solid #3b82f6;">📍 ${destinationName || `목적지 #${destinationId.value}`}</div>`,
+      anchor: new window.naver.maps.Point(0, 0),
+    },
+  });
+
+  const initialPage = resetPage ? 1 : Math.max(1, Number(route.query.page) || 1);
+  await fetchPage(initialPage, false);
+}
+
 async function initMap() {
   try {
     await loadNaverSdk();
 
-    const facilityResponse = await api.get('/safety/test/facilities', {
-      params: { destinationId: DESTINATION_ID },
-    });
-    const {
-      destinationLatitude,
-      destinationLongitude,
-      destinationName,
-      facilities,
-    } = facilityResponse.data;
-
-    allFacilities.value = facilities || [];
-
     mapInstance = new window.naver.maps.Map(mapEl.value, {
-      center: new window.naver.maps.LatLng(
-        destinationLatitude,
-        destinationLongitude,
-      ),
+      center: new window.naver.maps.LatLng(37.5502, 127.0764),
       zoom: 15,
     });
 
-    destinationMarker = new window.naver.maps.Marker({
-      map: mapInstance,
-      position: new window.naver.maps.LatLng(
-        destinationLatitude,
-        destinationLongitude,
-      ),
-      icon: {
-        content: `<div style="background:#111827;color:#fff;font-size:12px;font-weight:900;padding:6px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 3px 8px rgba(0,0,0,0.4);border:2px solid #3b82f6;">📍 ${destinationName || '목적지(세종대)'}</div>`,
-        anchor: new window.naver.maps.Point(0, 0),
-      },
-    });
-
-    const initialPage = Math.max(1, Number(route.query.page) || 1);
-    await fetchPage(initialPage, false);
+    await loadDestination({ resetPage: false });
   } catch (error) {
     loadError.value =
       '지도를 초기화하지 못했습니다. 로그인 상태와 서버 상태를 확인해주세요.';
+  }
+}
+
+async function applyDestinationId() {
+  const parsed = Number(destinationIdInput.value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    loadError.value = '유효한 목적지 ID를 입력해주세요.';
+    return;
+  }
+
+  destinationId.value = parsed;
+  router.replace({ query: { ...route.query, destinationId: parsed, page: 1 } });
+
+  statsData.value = null; // 목적지가 바뀌면 이전 목적지 통계 캐시를 버림
+  loadError.value = '';
+  try {
+    await loadDestination();
+  } catch (error) {
+    loadError.value =
+      '목적지를 불러오지 못했습니다. destinationId가 존재하는지 확인해주세요.';
   }
 }
 
@@ -529,7 +563,28 @@ onUnmounted(() => {
   <div class="safety-debug-page">
     <aside class="safety-debug-panel">
       <h2>안전점수 디버그 지도</h2>
-      <p class="safety-debug-subtitle">세종대 도보 15분권 · 10개 단위 개별 ON/OFF 검증</p>
+      <p class="safety-debug-subtitle">
+        도보 15분권 · 10개 단위 개별 ON/OFF 검증 ·
+        목적지: <strong>{{ resolvedDestinationName || '로딩중...' }}</strong> (ID {{ destinationId }})
+      </p>
+
+      <div class="safety-debug-destination-input">
+        <input
+          v-model="destinationIdInput"
+          type="number"
+          min="1"
+          placeholder="destinationId"
+          @keydown.enter="applyDestinationId"
+        />
+        <button type="button" :disabled="isLoading" @click="applyDestinationId">
+          목적지 변경
+        </button>
+      </div>
+      <p class="safety-debug-hint">
+        destinations 테이블은 검색/선택할 때마다 동적으로 생성되는 테이블이라
+        ID가 항상 같은 장소를 가리키지 않습니다. 위 목적지 이름으로 실제 조회된 곳이
+        맞는지 꼭 확인하세요.
+      </p>
 
       <div class="safety-debug-progress">
         총 {{ totalCount }}개 중 <strong>{{ (currentPage - 1) * PAGE_SIZE + 1 }} ~ {{ Math.min(currentPage * PAGE_SIZE, totalCount) }}번</strong> 표시
@@ -624,7 +679,7 @@ onUnmounted(() => {
         <div class="toggle-sub-group">
           <label><input v-model="showCctv" type="checkbox" /> CCTV (50m 반경)</label>
           <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (30m 반경)</label>
-          <label><input v-model="showPolice" type="checkbox" /> 파출소 (300m 반경)</label>
+          <label><input v-model="showPolice" type="checkbox" /> 파출소 (100m 반경)</label>
         </div>
       </div>
 
@@ -636,7 +691,7 @@ onUnmounted(() => {
         <div class="border-t pt-1 mt-1 space-y-0.5 text-[11px]">
           <span><i style="background: #2a60f7"></i> 📷 파란색 = CCTV (50m 반경)</span>
           <span><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (30m 반경)</span>
-          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (300m 반경)</span>
+          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (100m 반경)</span>
         </div>
       </div>
 
@@ -648,7 +703,7 @@ onUnmounted(() => {
         <ul>
           <li>CCTV {{ selectedDetail.breakdown.cctvCount }}개 (커버리지 {{ selectedDetail.breakdown.cctvCoveragePercent }}%)</li>
           <li>가로등 {{ selectedDetail.breakdown.streetLightCount }}개 (커버리지 {{ selectedDetail.breakdown.streetLightCoveragePercent }}%)</li>
-          <li>파출소 300m 이내: {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}</li>
+          <li>파출소 100m 이내: {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}</li>
           <li>총 페널티: {{ selectedDetail.breakdown.totalPenalty }}</li>
         </ul>
       </div>
@@ -797,7 +852,7 @@ onUnmounted(() => {
                   <strong class="text-blue-600 font-black">-{{ statsData.avgCctvPenalty }}점</strong>
                 </li>
                 <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
-                  <span>👮 파출소 300m 이내 미존재 비율</span>
+                  <span>👮 파출소 100m 이내 미존재 비율</span>
                   <strong class="text-rose-600 font-black">{{ statsData.policeMissingRatio }}% <span class="text-[11px] text-slate-400 font-normal">({{ statsData.policeMissingCnt }}개 매물)</span></strong>
                 </li>
               </ul>
@@ -840,6 +895,44 @@ onUnmounted(() => {
   margin: 0;
   color: #64748b;
   font-size: 12px;
+}
+
+.safety-debug-destination-input {
+  display: flex;
+  gap: 6px;
+}
+
+.safety-debug-destination-input input {
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.safety-debug-destination-input button {
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.safety-debug-destination-input button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.safety-debug-hint {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .safety-debug-progress {
