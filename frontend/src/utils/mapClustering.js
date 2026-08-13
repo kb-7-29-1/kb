@@ -2,8 +2,15 @@
  * 초고속 격자 클러스터링 (Grid Marker Clustering) 및 바운즈 연산 유틸리티
  */
 
+import { renderLoanChipHTML } from '@/utils/loanChip.js';
+
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
-export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = false) => {
+export const renderPropertyPinHTML = (
+  prop,
+  isSelected,
+  hasSelectedProperty = false,
+  isFeaturedLoan = false,
+) => {
   const isLoading = Boolean(prop.isSafetyLoading);
   const rawScore = prop.safetyScore;
   const hasScore =
@@ -70,13 +77,18 @@ export const renderPropertyPinHTML = (prop, isSelected, hasSelectedProperty = fa
   const opacityStyle =
     hasSelectedProperty && !isSelected ? 'opacity-60 hover:opacity-100' : 'opacity-100';
 
+  const loanChipHTML = isFeaturedLoan ? renderLoanChipHTML(prop) : '';
+
   return `
     <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform transition-opacity duration-200 ${opacityStyle}">
-      <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}">
-        <span class="shrink-0">${priceText}</span>
-        <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}">
-          ${badgeText}
-        </span>
+      <div class="flex items-center gap-1.5">
+        <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}">
+          <span class="shrink-0">${priceText}</span>
+          <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}">
+            ${badgeText}
+          </span>
+        </div>
+        ${loanChipHTML}
       </div>
       <div class="-mt-1.5 h-2.5 w-2.5 rotate-45 ${theme.pointer}"></div>
       <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-sm"></div>
