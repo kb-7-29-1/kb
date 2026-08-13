@@ -11,8 +11,10 @@ import TransportStep from '@/components/onboarding/TransportStep.vue';
 import onboardingApi from '@/api/onboardingApi';
 import { useAuthStore } from '@/stores/useAuthStore';
 import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
+import { useMapUrlSync } from '@/composables/useMapUrlSync';
 
 const authStore = useAuthStore();
+const { saveQuickFilterToCache, loadQuickFilterFromCache } = useMapUrlSync();
 const getStorageKeys = () => getOnboardingStorageKeys(authStore.user);
 
 const defaultOnboardingData = {
@@ -173,6 +175,21 @@ const goMap = async () => {
     if (storageKeys) localStorage.setItem(storageKeys.result, JSON.stringify(requestData));
     await onboardingApi.saveOnboarding(requestData);
     clearOnboardingDraft();
+
+    // 지도 페이지의 로컬 퀵필터 캐시가 목적지보다 우선 적용되므로,
+    // 방금 저장한 새 목적지를 캐시에도 반영해 즉시 반영되게 함 (다른 캐시 필드는 유지)
+    const dest = onboardingData.destination;
+    if (dest) {
+      saveQuickFilterToCache({
+        ...(loadQuickFilterFromCache() || {}),
+        destinationId: dest.destinationId ?? null,
+        destination: dest.destName,
+        destinationAddress: dest.destAddress || '',
+        destinationLat: Number(dest.destLatitude),
+        destinationLng: Number(dest.destLongitude),
+      });
+    }
+
     router.push('/home');
   } catch (error) {
     console.error('ONBOARDING SAVE ERROR: ', error);
