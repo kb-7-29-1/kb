@@ -78,7 +78,7 @@ public class SafetyScoreCalculator {
                 + policePenalty;
         int safetyScore = Math.max(
                 0,
-                (int) Math.round(100 - totalPenalty / 2.0)
+                (int) Math.round(100 - totalPenalty / 1.5)
         );
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
@@ -117,29 +117,27 @@ public class SafetyScoreCalculator {
     }
 
     int calculateCctvDensityPenalty(double averageGapMeters) {
-        // CCTV 평균 간격이 50m 이하면 0점, 150m 이상이면 최대 20점 감점.
-        // 그 사이는 평균 간격에 비례해 연속적으로 증가한 뒤 정수로 반올림합니다.
-        double rawPenalty = (averageGapMeters - 50.0) / (150.0 - 50.0) * 20.0;
-        return clampAndRoundPenalty(rawPenalty, 20);
+        if (averageGapMeters <= 50.0) return 0;
+        if (averageGapMeters <= 75.0) return 5;
+        if (averageGapMeters <= 100.0) return 10;
+        if (averageGapMeters <= 150.0) return 15;
+        return 20;
     }
 
     int calculateCctvCoveragePenalty(double coveragePercent) {
-        // CCTV 커버리지가 80% 이상이면 0점, 0%이면 최대 15점 감점.
-        // 기존 구간별 if 감점 대신 커버리지 부족분에 비례해 연속적으로 계산합니다.
-        double rawPenalty = (80.0 - coveragePercent) / 80.0 * 15.0;
-        return clampAndRoundPenalty(rawPenalty, 15);
+        if (coveragePercent >= 80.0) return 0;
+        if (coveragePercent >= 60.0) return 4;
+        if (coveragePercent >= 40.0) return 8;
+        if (coveragePercent >= 20.0) return 12;
+        return 15;
     }
 
     int calculateStreetLightCoveragePenalty(double coveragePercent) {
-        // 가로등 커버리지가 80% 이상이면 0점, 0%이면 최대 55점 감점.
-        // 기존 구간별 if 감점 대신 커버리지 부족분에 비례해 연속적으로 계산합니다.
-        double rawPenalty = (80.0 - coveragePercent) / 80.0 * 55.0;
-        return clampAndRoundPenalty(rawPenalty, 55);
-    }
-
-    private int clampAndRoundPenalty(double rawPenalty, int maxPenalty) {
-        double clampedPenalty = Math.max(0.0, Math.min(maxPenalty, rawPenalty));
-        return (int) Math.round(clampedPenalty);
+        if (coveragePercent >= 80.0) return 0;
+        if (coveragePercent >= 60.0) return 10;
+        if (coveragePercent >= 40.0) return 20;
+        if (coveragePercent >= 20.0) return 30;
+        return 55;
     }
 
     private int countFacilitiesNearRoute(

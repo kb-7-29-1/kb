@@ -1,56 +1,25 @@
 package com.salgosipo.safety.mapper;
 
 import com.salgosipo.safety.domain.PropertySafetyVO;
-import com.salgosipo.safety.domain.SafetyDestinationVO;
-import com.salgosipo.safety.domain.SafetyPropertyCoordinateVO;
-import com.salgosipo.safety.domain.SafetyRouteCacheVO;
+import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.math.BigDecimal;
-import java.util.List;
-
+@Mapper
 public interface SafetyMapper {
 
+    /**
+     * 특정 매물과 목적지 조합의 안전 정보 조회
+     */
     PropertySafetyVO selectPropertySafety(
             @Param("propertyId") Long propertyId,
-            @Param("destinationId") Integer destinationId
+            @Param("destinationId") Long destinationId
     );
 
-    List<PropertySafetyVO> selectPropertySafetyBatch(
-            @Param("propertyIds") List<Long> propertyIds,
-            @Param("destinationId") Integer destinationId
-    );
-
-    SafetyPropertyCoordinateVO selectPropertyCoordinate(
-            @Param("propertyId") Long propertyId
-    );
-
-    List<SafetyPropertyCoordinateVO> selectPropertyCoordinates(
-            @Param("propertyIds") List<Long> propertyIds
-    );
-
-    SafetyDestinationVO selectDestinationById(
-            @Param("destinationId") Integer destinationId
-    );
-
-    SafetyDestinationVO selectDestinationByMatch(
-            @Param("name") String name,
-            @Param("latitude") BigDecimal latitude,
-            @Param("longitude") BigDecimal longitude
-    );
-
-    int upsertDestination(SafetyDestinationVO destination);
-
+    /**
+     * 안전 정보 저장
+     *
+     * 동일한 propertyId, destinationId가 이미 존재하면
+     * 기존 값을 수정합니다.
+     */
     int upsertPropertySafety(PropertySafetyVO propertySafety);
-
-    SafetyRouteCacheVO selectSafetyRouteCache(
-            @Param("propertyId") Long propertyId,
-            @Param("destinationId") Integer destinationId
-    );
-
-    List<SafetyRouteCacheVO> selectAllSafetyRouteCachesByDestinationId(
-            @Param("destinationId") Integer destinationId
-    );
-
-    int upsertSafetyRouteCache(SafetyRouteCacheVO routeCache);
 }

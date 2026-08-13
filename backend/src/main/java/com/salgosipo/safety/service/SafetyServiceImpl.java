@@ -45,44 +45,6 @@ public class SafetyServiceImpl implements SafetyService {
 
     private static final double FACILITY_QUERY_MARGIN_METERS = 320.0;
 
-    public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
-            "강서구", "관악구", "광진구", "구로구", "도봉구",
-            "동대문구", "동작구", "서대문구", "서초구", "양천구",
-            "은평구", "종로구", "중구", "중랑구"
-    );
-
-    public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
-            "강남구", "강북구", "금천구", "마포구", "성북구", "영등포구", "용산구"
-    );
-
-    public static boolean isSupportedDistrict(String... texts) {
-        if (texts == null) {
-            return true;
-        }
-        for (String text : texts) {
-            if (text == null || text.isBlank()) {
-                continue;
-            }
-            for (String district : SUPPORTED_DISTRICTS) {
-                if (text.contains(district)) {
-                    return true;
-                }
-            }
-            if (text.contains("성동구")) {
-                if (text.contains("송정동") || text.contains("용답동")) {
-                    return true;
-                }
-                return false;
-            }
-            for (String unsupported : UNSUPPORTED_DISTRICTS) {
-                if (text.contains(unsupported)) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     private final SafetyMapper safetyMapper;
     private final SafetyRouteClient safetyRouteClient;
     private final SafetyFacilityRepository safetyFacilityRepository;
@@ -137,19 +99,6 @@ public class SafetyServiceImpl implements SafetyService {
                 request.getDestinationLongitude()
         );
 
-        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName(), request.getDestinationAddress(), request.getDestinationName())) {
-            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
-            uncalculated.setPropertyId(request.getPropertyId());
-            uncalculated.setDestinationId(destination.getDestinationId());
-            uncalculated.setCacheHit(false);
-            uncalculated.setPersisted(false);
-            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
-            uncalculated.setSafetyScore(null);
-            uncalculated.setSafetyGrade(null);
-            uncalculated.setIsSupportedDistrict(false);
-            return uncalculated;
-        }
-
         PropertySafetyVO cached = safetyMapper.selectPropertySafety(
                 request.getPropertyId(),
                 destination.getDestinationId()
@@ -185,17 +134,6 @@ public class SafetyServiceImpl implements SafetyService {
         validateRequest(request);
 
         SafetyPropertyCoordinateVO property = resolveProperty(request.getPropertyId());
-
-        if (!isSupportedDistrict(property.getAddress(), request.getDestinationAddress(), request.getDestinationName())) {
-            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
-            uncalculated.setPropertyId(request.getPropertyId());
-            uncalculated.setDestinationId(request.getDestinationId());
-            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
-            uncalculated.setSafetyScore(null);
-            uncalculated.setSafetyGrade(null);
-            uncalculated.setIsSupportedDistrict(false);
-            return uncalculated;
-        }
         SafetyDestinationVO destination = new SafetyDestinationVO();
         destination.setDestinationId(request.getDestinationId());
         destination.setLatitude(BigDecimal.valueOf(request.getDestinationLatitude()));
@@ -327,36 +265,31 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
-            if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName())) {
-                items.add(createFailedBatchItem(
-                        propertyId,
-                        destination.getDestinationId(),
-                        "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다."
-                ));
-                failedCount++;
-                continue;
-            }
-
             try {
-                CalculationResult calcResult = calculateAndPersist(
+                CalculationResult calculation = calculateAndPersist(
                         property,
                         destination,
-                        defaultName(property.getAddress(), "매물")
+                        property.getAddress()
                 );
                 items.add(createBatchItem(
-                        calcResult.stored(),
+                        calculation.stored(),
                         "CALCULATED",
                         false,
                         true,
-                        "TMAP 보행자 경로 기반으로 안전점수를 정밀 계산하여 DB에 저장했습니다."
+                        "대로 우선 경로를 계산해 DB에 저장했습니다."
                 ));
                 calculatedCount++;
-            } catch (Exception e) {
-                log.warn("TMAP 정밀 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
+            } catch (RuntimeException exception) {
+                log.warn(
+                        "매물 안전점수 배치 계산 실패. propertyId={}, destinationId={}, message={}",
+                        propertyId,
+                        destination.getDestinationId(),
+                        exception.getMessage()
+                );
                 items.add(createFailedBatchItem(
                         propertyId,
                         destination.getDestinationId(),
-                        "TMAP 보행자 경로 정밀 연산에 실패했습니다."
+                        exception.getMessage()
                 ));
                 failedCount++;
             }
@@ -491,47 +424,6 @@ public class SafetyServiceImpl implements SafetyService {
         return response;
     }
 
-    @Override
-    public PropertySafetyVO recalculateFromCachedRoute(
-            SafetyRouteCacheVO cachedRoute,
-            SafetyPropertyCoordinateVO property,
-            SafetyDestinationVO destination
-    ) {
-        if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
-            throw new IllegalArgumentException("재계산용 DB LineString 경로 데이터가 유효하지 않습니다.");
-        }
-
-        List<RoutePointDTO> points = deserializeRoutePoints(cachedRoute.getRoutePointsJson());
-        PedestrianRoute route = new PedestrianRoute();
-        route.setRouteId(cachedRoute.getRouteId());
-        route.setSearchOption(cachedRoute.getSearchOption());
-        route.setRouteType(cachedRoute.getRouteType());
-        route.setDistanceMeters(cachedRoute.getDistanceMeters());
-        route.setTotalTimeSeconds(cachedRoute.getTotalTimeSeconds());
-        route.setRoutePoints(points);
-
-        BoundingBox boundingBox = calculateBoundingBox(route);
-        List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
-                boundingBox.minLatitude(),
-                boundingBox.maxLatitude(),
-                boundingBox.minLongitude(),
-                boundingBox.maxLongitude()
-        );
-
-        SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
-
-        PropertySafetyVO calculated = new PropertySafetyVO();
-        calculated.setPropertyId(property.getPropertyId());
-        calculated.setDestinationId(destination.getDestinationId());
-        calculated.setSafetyScore(selectedRoute.getSafetyScore());
-        calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
-        calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
-        calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
-
-        safetyMapper.upsertPropertySafety(calculated);
-        return calculated;
-    }
-
     private SafetyRouteCandidateDTO createRouteCandidateFromCache(
             PropertySafetyVO safety,
             SafetyRouteCacheVO routeCache
@@ -587,7 +479,6 @@ public class SafetyServiceImpl implements SafetyService {
             SafetyRouteResponseDTO response,
             PropertySafetyVO propertySafety
     ) {
-        response.setIsSupportedDistrict(true);
         response.setSafetyScore(propertySafety.getSafetyScore());
         response.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
         response.setCctvCount(propertySafety.getCctvCount());
@@ -656,16 +547,21 @@ public class SafetyServiceImpl implements SafetyService {
             SafetyDestinationVO stored =
                     safetyMapper.selectDestinationById(destinationId);
 
-            if (stored != null) {
-                validateCoordinate(
-                        stored.getLatitude().doubleValue(),
-                        stored.getLongitude().doubleValue(),
-                        "목적지"
+            if (stored == null) {
+                throw new IllegalArgumentException(
+                        "destinations 테이블에 존재하지 않는 destinationId입니다: "
+                                + destinationId
                 );
-                log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
-                        stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
-                return stored;
             }
+
+            validateCoordinate(
+                    stored.getLatitude().doubleValue(),
+                    stored.getLongitude().doubleValue(),
+                    "목적지"
+            );
+            log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
+                    stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
+            return stored;
         }
 
         validateCoordinate(
@@ -674,23 +570,12 @@ public class SafetyServiceImpl implements SafetyService {
                 "목적지"
         );
 
-        String name = defaultName(destinationName, "선택 목적지");
-        BigDecimal latBd = toDatabaseCoordinate(destinationLatitude);
-        BigDecimal lngBd = toDatabaseCoordinate(destinationLongitude);
-
-        SafetyDestinationVO matched = safetyMapper.selectDestinationByMatch(name, latBd, lngBd);
-        if (matched != null) {
-            log.info("[Safety] matched existing destination by name/coords: id={}, name={}, lat={}, lng={}",
-                    matched.getDestinationId(), matched.getName(), matched.getLatitude(), matched.getLongitude());
-            return matched;
-        }
-
         SafetyDestinationVO destination = new SafetyDestinationVO();
-        destination.setLatitude(latBd);
-        destination.setLongitude(lngBd);
-        destination.setName(name);
+        destination.setLatitude(toDatabaseCoordinate(destinationLatitude));
+        destination.setLongitude(toDatabaseCoordinate(destinationLongitude));
+        destination.setName(defaultName(destinationName, "선택 목적지"));
         destination.setAddress(destinationAddress);
-        log.warn("[Safety] Reusing or creating new destination: name={}, lat={}, lng={}",
+        log.warn("[Safety] destinationId is missing. Reusing or creating destination by name only: name={}, lat={}, lng={}",
                 destination.getName(), destination.getLatitude(), destination.getLongitude());
         safetyMapper.upsertDestination(destination);
 
