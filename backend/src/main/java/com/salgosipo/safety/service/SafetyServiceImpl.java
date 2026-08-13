@@ -337,15 +337,29 @@ public class SafetyServiceImpl implements SafetyService {
                 continue;
             }
 
-            PropertySafetyVO fastCalculated = calculateFastLocalSafety(property, destination);
-            items.add(createBatchItem(
-                    fastCalculated,
-                    "CALCULATED",
-                    false,
-                    true,
-                    "로컬 공간 데이터 기준으로 안전점수를 즉시 반환했습니다."
-            ));
-            calculatedCount++;
+            try {
+                CalculationResult calcResult = calculateAndPersist(
+                        property,
+                        destination,
+                        defaultName(property.getAddress(), "매물")
+                );
+                items.add(createBatchItem(
+                        calcResult.stored(),
+                        "CALCULATED",
+                        false,
+                        true,
+                        "TMAP 보행자 경로 기반으로 안전점수를 정밀 계산하여 DB에 저장했습니다."
+                ));
+                calculatedCount++;
+            } catch (Exception e) {
+                log.warn("TMAP 정밀 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
+                items.add(createFailedBatchItem(
+                        propertyId,
+                        destination.getDestinationId(),
+                        "TMAP 보행자 경로 정밀 연산에 실패했습니다."
+                ));
+                failedCount++;
+            }
         }
 
         SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
@@ -357,63 +371,6 @@ public class SafetyServiceImpl implements SafetyService {
         response.setSuccessCount(cacheHitCount + calculatedCount);
         response.setItems(items);
         return response;
-    }
-
-    private PropertySafetyVO calculateFastLocalSafety(
-            SafetyPropertyCoordinateVO property,
-            SafetyDestinationVO destination
-    ) {
-        double pLat = property.getLatitude();
-        double pLng = property.getLongitude();
-        double dLat = destination.getLatitude().doubleValue();
-        double dLng = destination.getLongitude().doubleValue();
-
-        double minLat = Math.min(pLat, dLat) - 0.003;
-        double maxLat = Math.max(pLat, dLat) + 0.003;
-        double minLng = Math.min(pLng, dLng) - 0.003;
-        double maxLng = Math.max(pLng, dLng) + 0.003;
-
-        List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
-                minLat, maxLat, minLng, maxLng
-        );
-
-        int cctvCount = 0;
-        int streetLampCount = 0;
-        boolean hasPoliceStation = false;
-
-        if (facilities != null) {
-            for (SafetyFacilityVO facility : facilities) {
-                String type = facility.getFacilityType();
-                if (type != null) {
-                    if (type.contains("CCTV")) {
-                        cctvCount++;
-                    } else if (type.contains("보안등") || type.contains("가로등") || type.contains("LIGHT")) {
-                        streetLampCount++;
-                    } else if (type.contains("경찰서") || type.contains("파출소")) {
-                        hasPoliceStation = true;
-                    }
-                }
-            }
-        }
-
-        int rawScore = 55 + Math.min(25, cctvCount * 2) + Math.min(15, streetLampCount) + (hasPoliceStation ? 10 : 0);
-        int finalScore = Math.min(98, Math.max(35, rawScore));
-
-        PropertySafetyVO vo = new PropertySafetyVO();
-        vo.setPropertyId(property.getPropertyId());
-        vo.setDestinationId(destination.getDestinationId());
-        vo.setSafetyScore(finalScore);
-        vo.setCctvCount(cctvCount);
-        vo.setStreetLampCount(streetLampCount);
-        vo.setHasPoliceStation(hasPoliceStation);
-
-        try {
-            safetyMapper.upsertPropertySafety(vo);
-        } catch (Exception e) {
-            log.warn("Failed to persist fast local safety score: {}", e.getMessage());
-        }
-
-        return vo;
     }
 
     private CalculationResult calculateAndPersist(
@@ -534,6 +491,47 @@ public class SafetyServiceImpl implements SafetyService {
         return response;
     }
 
+    @Override
+    public PropertySafetyVO recalculateFromCachedRoute(
+            SafetyRouteCacheVO cachedRoute,
+            SafetyPropertyCoordinateVO property,
+            SafetyDestinationVO destination
+    ) {
+        if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
+            throw new IllegalArgumentException("재계산용 DB LineString 경로 데이터가 유효하지 않습니다.");
+        }
+
+        List<RoutePointDTO> points = deserializeRoutePoints(cachedRoute.getRoutePointsJson());
+        PedestrianRoute route = new PedestrianRoute();
+        route.setRouteId(cachedRoute.getRouteId());
+        route.setSearchOption(cachedRoute.getSearchOption());
+        route.setRouteType(cachedRoute.getRouteType());
+        route.setDistanceMeters(cachedRoute.getDistanceMeters());
+        route.setTotalTimeSeconds(cachedRoute.getTotalTimeSeconds());
+        route.setRoutePoints(points);
+
+        BoundingBox boundingBox = calculateBoundingBox(route);
+        List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
+                boundingBox.minLatitude(),
+                boundingBox.maxLatitude(),
+                boundingBox.minLongitude(),
+                boundingBox.maxLongitude()
+        );
+
+        SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
+
+        PropertySafetyVO calculated = new PropertySafetyVO();
+        calculated.setPropertyId(property.getPropertyId());
+        calculated.setDestinationId(destination.getDestinationId());
+        calculated.setSafetyScore(selectedRoute.getSafetyScore());
+        calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
+        calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
+        calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
+
+        safetyMapper.upsertPropertySafety(calculated);
+        return calculated;
+    }
+
     private SafetyRouteCandidateDTO createRouteCandidateFromCache(
             PropertySafetyVO safety,
             SafetyRouteCacheVO routeCache
@@ -589,6 +587,7 @@ public class SafetyServiceImpl implements SafetyService {
             SafetyRouteResponseDTO response,
             PropertySafetyVO propertySafety
     ) {
+        response.setIsSupportedDistrict(true);
         response.setSafetyScore(propertySafety.getSafetyScore());
         response.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
         response.setCctvCount(propertySafety.getCctvCount());

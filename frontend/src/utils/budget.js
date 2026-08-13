@@ -108,6 +108,6 @@ export const LOAN_PRODUCTS = [
     company: '주택도시기금 (보증금 70%)',
     ratio: 0.7,
     rateInfo: '연 1.0%~1.5%',
-    icon: '⚡',
+    icon: '🏦',
   },
 ];

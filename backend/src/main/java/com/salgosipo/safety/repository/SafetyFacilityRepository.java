@@ -40,6 +40,10 @@ public class SafetyFacilityRepository {
         log.info("안전시설 CSV 로딩 완료: {}건, 격자 {}개", facilityCount, facilitiesByCell.size());
     }
 
+    public int getFacilityCount() {
+        return facilityCount;
+    }
+
     public List<SafetyFacilityVO> findInBounds(
             double minLatitude,
             double maxLatitude,
