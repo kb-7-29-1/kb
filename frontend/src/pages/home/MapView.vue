@@ -945,6 +945,13 @@ const shouldHideAmenityPins = computed(
 );
 
 const syncSafetySummaryToProperty = (propertyId, response) => {
+  // 현재 적용된 목적지에 ID가 없는 경우, 백엔드가 안전경로 계산 중 매칭/생성한
+  // 진짜 destinationId를 돌려주므로 그 값을 프론트 상태에도 채워 넣어 이후 찜 등록 시 사용
+  if (response?.destinationId != null && appliedFilterState.value.destinationId == null) {
+    appliedFilterState.value.destinationId = Number(response.destinationId);
+    filterState.value.destinationId = Number(response.destinationId);
+  }
+
   const safetySummary = {
     safetyScore: response?.safetyScore ?? null,
     safetyGrade: response?.safetyGrade ?? null,
