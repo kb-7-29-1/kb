@@ -4,6 +4,7 @@ import { formatDeposit } from '@/utils/priceFormatter';
 import WalkingTime from '@/components/property/WalkingTime.vue';
 import CommentSection from '@/components/detail/CommentSection.vue';
 import SafetyModal from '@/components/detail/SafetyModal.vue';
+import ConfirmModal from '@/components/common/ConfirmModal.vue';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import api from '@/api/api.js';
 import safetyService from '@/api/safetyService.js';
@@ -239,11 +240,20 @@ const fetchLoanList = async () => {
   }
 };
 
+const pendingBankUrl = ref('');
+const isBankLinkConfirmOpen = ref(false);
+
 const openBankLink = (companyName) => {
   const url = getBankLinkUrl(companyName);
   if (url) {
-    window.open(url, '_blank', 'noopener,noreferrer');
+    pendingBankUrl.value = url;
+    isBankLinkConfirmOpen.value = true;
   }
+};
+
+const confirmBankLink = () => {
+  window.open(pendingBankUrl.value, '_blank', 'noopener,noreferrer');
+  isBankLinkConfirmOpen.value = false;
 };
 
 const openSafetyModal = async () => {
@@ -832,6 +842,13 @@ const detailImageUrl = computed(() => {
       :safety-route="safetyDetails?.selectedRoute"
       :is-calculating="isSafetyDetailsLoading"
       @close="isSafetyModalOpen = false"
+    />
+
+    <ConfirmModal
+      v-if="isBankLinkConfirmOpen"
+      message="해당 사이트로 이동하시겠습니까?"
+      @confirm="confirmBankLink"
+      @cancel="isBankLinkConfirmOpen = false"
     />
   </div>
 </template>
