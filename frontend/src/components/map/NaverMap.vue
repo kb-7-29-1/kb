@@ -17,6 +17,7 @@ import {
   renderPropertyPinHTML,
   renderDestinationPinHTML,
 } from '@/utils/mapClustering';
+import { getFeaturedLoanPropertyIds } from '@/utils/loanChip.js';
 import { isTouchEvent, isMousePointer } from '@/utils/deviceUtils';
 import { useAuthStore } from '@/stores/useAuthStore.js';
 import onboardingApi from '@/api/onboardingApi.js';
@@ -345,6 +346,7 @@ const renderMarkers = () => {
   // 선택 매물은 클러스터 계산에서 제외, 개별 마커로 유지
   const selectedPropertyId = Number(props.selectedProperty?.propertyId);
   const hasSelectedProperty = Number.isFinite(selectedPropertyId);
+  const featuredLoanSet = getFeaturedLoanPropertyIds(props.properties, 3);
   const propertiesForClustering = hasSelectedProperty
     ? props.properties.filter(
         (property) => Number(property.propertyId) !== selectedPropertyId,
@@ -380,11 +382,12 @@ const renderMarkers = () => {
       const prop = node.item;
       const isSelected =
         Number(props.selectedProperty?.propertyId) === Number(prop.propertyId);
-      const propKey = `prop_${prop.propertyId}_${prop.safetyScore ?? 'null'}_${isSelected ? 'selected' : hasSelectedProperty ? 'dimmed' : 'normal'}`;
+      const isFeaturedLoan = featuredLoanSet.has(prop.propertyId);
+      const propKey = `prop_${prop.propertyId}_${prop.safetyScore ?? 'null'}_${isFeaturedLoan ? 'loan' : 'normal'}_${isSelected ? 'selected' : hasSelectedProperty ? 'dimmed' : 'normal'}`;
       nextMarkerKeys.add(propKey);
 
       if (!activePropertyMarkersMap.has(propKey)) {
-        nodesToCreate.push({ type: 'prop', key: propKey, prop, isSelected });
+        nodesToCreate.push({ type: 'prop', key: propKey, prop, isSelected, isFeaturedLoan });
       }
     }
   });
@@ -435,7 +438,7 @@ const renderMarkers = () => {
           activePropertyMarkersMap.set(task.key, clusterMarker);
         }
       } else {
-        const { prop, isSelected, key } = task;
+        const { prop, isSelected, isFeaturedLoan, key } = task;
         const oldNormalKey = `prop_${prop.propertyId}_normal`;
         const oldSelectedKey = `prop_${prop.propertyId}_selected`;
         if (activePropertyMarkersMap.has(oldNormalKey)) {
@@ -461,6 +464,7 @@ const renderMarkers = () => {
                 prop,
                 isSelected,
                 hasSelectedProperty,
+                isFeaturedLoan,
               ),
             },
           });

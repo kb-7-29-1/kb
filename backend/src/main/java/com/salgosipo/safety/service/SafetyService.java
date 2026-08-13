@@ -20,4 +20,14 @@ public interface SafetyService {
      * 캐시가 없는 조합만 TMAP 대로 우선 경로로 계산해 저장합니다.
      */
     SafetyBatchResponseDTO getOrCalculateSafetyBatch(SafetyBatchRequestDTO request);
+
+    /**
+     * DB에 이미 저장된 LineString 궤적(cachedRoute)을 TMAP 호출 0건으로 재활용하여
+     * SafetyScoreCalculator 정밀 감산 로직으로 초고속 재계산 후 DB에 업데이트합니다.
+     */
+    com.salgosipo.safety.domain.PropertySafetyVO recalculateFromCachedRoute(
+            com.salgosipo.safety.domain.SafetyRouteCacheVO cachedRoute,
+            com.salgosipo.safety.domain.SafetyPropertyCoordinateVO property,
+            com.salgosipo.safety.domain.SafetyDestinationVO destination
+    );
 }

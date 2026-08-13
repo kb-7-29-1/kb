@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import MapLoanChip from '@/components/map/MapLoanChip.vue';
 
 const props = defineProps({
   property: {
@@ -7,6 +8,10 @@ const props = defineProps({
     required: true,
   },
   isSelected: {
+    type: Boolean,
+    default: false,
+  },
+  isFeaturedLoan: {
     type: Boolean,
     default: false,
   },
@@ -80,22 +85,26 @@ const priceText = computed(() => {
   <div
     class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform"
   >
-    <div
-      class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all"
-      :class="[
-        safetyPinTheme.border,
-        isSelected
-          ? `${safetyPinTheme.background} text-white z-30`
-          : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10',
-      ]"
-    >
-      <span class="shrink-0">{{ priceText }}</span>
-      <span
-        class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
-        :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
+    <div class="flex items-center gap-1.5">
+      <div
+        class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all"
+        :class="[
+          safetyPinTheme.border,
+          isSelected
+            ? `${safetyPinTheme.background} text-white z-30`
+            : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10',
+        ]"
       >
-        {{ property.isSafetyLoading ? '계산 중...' : (safetyScore === null ? '점수 없음' : `${safetyScore}점`) }}
-      </span>
+        <span class="shrink-0">{{ priceText }}</span>
+        <span
+          class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
+          :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
+        >
+          {{ property.isSafetyLoading ? '계산 중...' : (safetyScore === null ? '점수 없음' : `${safetyScore}점`) }}
+        </span>
+      </div>
+
+      <MapLoanChip v-if="isFeaturedLoan" :property="property" />
     </div>
     <div class="-mt-1.5 h-2.5 w-2.5 rotate-45" :class="safetyPinTheme.pointer"></div>
     <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-sm"></div>

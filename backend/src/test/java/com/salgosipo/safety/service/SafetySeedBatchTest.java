@@ -22,8 +22,12 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 @Log4j2
 public class SafetySeedBatchTest {
 
+    static {
+        System.setProperty("java.awt.headless", "false");
+    }
+
     @Autowired
-    private TestLineStringSeedService testLineStringSeedService;
+    private SafetySeedBatchService safetySeedBatchService;
 
     /**
      * 1. 세종대학교 (destinationId = 1)
@@ -32,7 +36,7 @@ public class SafetySeedBatchTest {
     @Test
     public void seedSejongTest() {
         log.info("Starting Sejong Univ Safety Seed (ID: 1)...");
-        TestLineStringSeedResultDTO result = testLineStringSeedService.seed(1, 1.2);
+        TestLineStringSeedResultDTO result = safetySeedBatchService.seed(1, 1.2);
         log.info("Sejong Seed Result: {}", result);
     }
 
@@ -43,7 +47,7 @@ public class SafetySeedBatchTest {
     @Test
     public void seedChungangTest() {
         log.info("Starting Chung-Ang Univ Safety Seed (ID: 126)...");
-        TestLineStringSeedResultDTO result = testLineStringSeedService.seed(126, 1.2);
+        TestLineStringSeedResultDTO result = safetySeedBatchService.seed(126, 1.2);
         log.info("Chung-Ang Seed Result: {}", result);
     }
 
@@ -54,7 +58,7 @@ public class SafetySeedBatchTest {
     @Test
     public void seedYonseiTest() {
         log.info("Starting Yonsei Univ Safety Seed (ID: 5)...");
-        TestLineStringSeedResultDTO result = testLineStringSeedService.seed(5, 1.2);
+        TestLineStringSeedResultDTO result = safetySeedBatchService.seed(5, 1.2);
         log.info("Yonsei Seed Result: {}", result);
     }
 
@@ -65,7 +69,7 @@ public class SafetySeedBatchTest {
     @Test
     public void seedGongneungTest() {
         log.info("Starting Gongneung Stn Safety Seed (ID: 1234)...");
-        TestLineStringSeedResultDTO result = testLineStringSeedService.seed(1234, 1.2);
+        TestLineStringSeedResultDTO result = safetySeedBatchService.seed(1234, 1.2);
         log.info("Gongneung Seed Result: {}", result);
     }
 }
