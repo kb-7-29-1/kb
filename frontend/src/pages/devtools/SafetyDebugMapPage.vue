@@ -61,6 +61,12 @@ const PAGE_SIZE = 10;
 const currentItems = ref([]);
 const allFacilities = ref([]);
 const activeItemIndices = ref([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+// 지도에 실제로 찍힌 시설 지점수 vs 대수 합계를 보여줘서 breakdown 숫자와 직접 대조하기 위한 값
+const mapFacilitySummary = ref({
+  CCTV: { locations: 0, totalCount: 0 },
+  STREET_LIGHT: { locations: 0, totalCount: 0 },
+  POLICE: { locations: 0, totalCount: 0 },
+});
 
 const isLoading = ref(false);
 const loadError = ref('');
@@ -222,15 +228,29 @@ function clearMapOverlays() {
   clearFacilityOverlays();
 }
 
+function resetMapFacilitySummary() {
+  mapFacilitySummary.value = {
+    CCTV: { locations: 0, totalCount: 0 },
+    STREET_LIGHT: { locations: 0, totalCount: 0 },
+    POLICE: { locations: 0, totalCount: 0 },
+  };
+}
+
 function renderFacilitiesForActiveItems() {
   clearFacilityOverlays();
-  if (!allFacilities.value || allFacilities.value.length === 0) return;
+  if (!allFacilities.value || allFacilities.value.length === 0) {
+    resetMapFacilitySummary();
+    return;
+  }
 
   // 현재 활성화(ON)된 매물들만 수집
   const activeItems = currentItems.value.filter((_, idx) =>
     activeItemIndices.value.includes(idx),
   );
-  if (activeItems.length === 0) return;
+  if (activeItems.length === 0) {
+    resetMapFacilitySummary();
+    return;
+  }
 
   const routePoints = [];
   activeItems.forEach((item) => {
@@ -253,10 +273,26 @@ function renderFacilitiesForActiveItems() {
     );
   });
 
+  // 지점수 vs 대수(facility_count) 합계 집계 — breakdown의 cctvCount 등과 직접 비교용
+  const summary = {
+    CCTV: { locations: 0, totalCount: 0 },
+    STREET_LIGHT: { locations: 0, totalCount: 0 },
+    POLICE: { locations: 0, totalCount: 0 },
+  };
+  relevantFacilities.forEach((facility) => {
+    const bucket = summary[facility.facilityType];
+    if (!bucket) return;
+    bucket.locations += 1;
+    bucket.totalCount += Math.max(1, Number(facility.facilityCount) || 1);
+  });
+  mapFacilitySummary.value = summary;
+
   relevantFacilities.forEach((facility) => {
     const color = FACILITY_COLOR[facility.facilityType] || '#94a3b8';
     const radius = FACILITY_RADIUS[facility.facilityType] || 50;
     const labelText = FACILITY_LABEL[facility.facilityType] || facility.facilityType;
+    const unitCount = Math.max(1, Number(facility.facilityCount) || 1);
+    const countBadge = unitCount > 1 ? ` ×${unitCount}` : '';
 
     const circle = new window.naver.maps.Circle({
       map: mapInstance,
@@ -273,7 +309,7 @@ function renderFacilitiesForActiveItems() {
       map: mapInstance,
       position: new window.naver.maps.LatLng(facility.latitude, facility.longitude),
       icon: {
-        content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}</div>`,
+        content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}${countBadge}</div>`,
         anchor: new window.naver.maps.Point(20, 8),
       },
     });
@@ -708,6 +744,29 @@ onUnmounted(() => {
         </ul>
       </div>
 
+      <div class="safety-debug-map-summary">
+        <div class="font-bold text-slate-700 text-[11px] mb-1">
+          지도에 표시된 시설 (현재 켜진 매물 전체 기준)
+        </div>
+        <p class="safety-debug-map-summary-hint">
+          매물을 1개만 켠 상태에서 봐야 좌측 breakdown 숫자와 정확히 비교됩니다.
+        </p>
+        <ul>
+          <li>
+            📷 CCTV: {{ mapFacilitySummary.CCTV.locations }}개 지점 · 총
+            {{ mapFacilitySummary.CCTV.totalCount }}대
+          </li>
+          <li>
+            💡 가로등: {{ mapFacilitySummary.STREET_LIGHT.locations }}개 지점 · 총
+            {{ mapFacilitySummary.STREET_LIGHT.totalCount }}대
+          </li>
+          <li>
+            👮 파출소: {{ mapFacilitySummary.POLICE.locations }}개 지점 · 총
+            {{ mapFacilitySummary.POLICE.totalCount }}대
+          </li>
+        </ul>
+      </div>
+
       <!-- 📊 안전점수 통계 분석 모달 버튼 -->
       <button
         type="button"
@@ -1085,6 +1144,28 @@ onUnmounted(() => {
 }
 
 .safety-debug-detail ul {
+  margin: 0;
+  padding-left: 16px;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.safety-debug-map-summary {
+  padding: 10px 12px;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  background: #fffbeb;
+}
+
+.safety-debug-map-summary-hint {
+  margin: 0 0 6px;
+  color: #92400e;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.safety-debug-map-summary ul {
   margin: 0;
   padding-left: 16px;
   color: #334155;
