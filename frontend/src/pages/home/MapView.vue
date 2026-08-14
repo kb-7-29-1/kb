@@ -1141,7 +1141,17 @@ const baseFilteredProperties = computed(() => {
 });
 
 // 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
-watch([activeAmenityFilters, baseFilteredProperties], scheduleAmenityLoad, {
+const amenityFilterPropertyKey = computed(() =>
+  baseFilteredProperties.value
+    .map((property) => Number(property.propertyId))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+    .join(','),
+);
+
+// 안전점수·선택 상태처럼 매물 객체의 부수 값이 바뀌어도 편의시설을 다시 조회하지 않는다.
+// 실제 필터 대상 매물 ID 집합이 바뀔 때만 재조회한다.
+watch([activeAmenityFilters, amenityFilterPropertyKey], scheduleAmenityLoad, {
   deep: true,
 });
 
@@ -1416,6 +1426,14 @@ const handleSelectProperty = async (
 
   if (!activeAmenityFilters.value.length) {
     selectedPropertyDetailAmenities.value = [];
+    return;
+  }
+
+  // 목록 편의시설 필터에서 이미 조회한 매물별 결과를 상세에도 재사용한다.
+  // 빈 배열도 "조건에 맞는 시설 없음"이라는 조회 완료 결과이므로 다시 요청하지 않는다.
+  const cachedAmenities = amenitiesByProperty.value[property.propertyId];
+  if (Array.isArray(cachedAmenities)) {
+    selectedPropertyDetailAmenities.value = cachedAmenities;
     return;
   }
 
