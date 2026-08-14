@@ -1458,6 +1458,12 @@ const applyBookmarkDestinationContext = (bookmarked) => {
 
   Object.assign(filterState.value, patch);
   Object.assign(appliedFilterState.value, patch);
+
+  // onMounted가 로컬 캐시를 읽어와 filterState를 덮어쓰기 전에(이 함수는 그보다 먼저 실행됨)
+  // 캐시에도 목적지 필드만 병합 저장해둠. 통째로 저장하지 않고 기존 캐시에 병합하는 이유:
+  // 이 시점엔 예산/거래유형 등 다른 필터가 아직 초기값이라, 그대로 저장하면 새로고침 시
+  // 사용자가 저장해둔 다른 필터 설정이 초기값으로 덮어써짐.
+  saveQuickFilterToCache({ ...(loadQuickFilterFromCache() || {}), ...patch });
 };
 
 const openPropertyDetailFromQuery = async (propertyId) => {
