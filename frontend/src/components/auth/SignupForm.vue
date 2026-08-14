@@ -175,19 +175,6 @@ const handleSignup = async () => {
 <template>
   <form @submit.prevent="handleSignup" class="signup-form flex flex-col gap-4">
     <div>
-      <label class="block text-sm text-gray-600 mb-1">이름</label>
-      <i class="signup-field-icon fa-regular fa-user" aria-hidden="true"></i>
-      <input
-        v-model="form.name"
-        type="text"
-        placeholder="홍길동"
-        class="w-full border rounded-lg px-4 py-3"
-        maxlength="20"
-        required
-      />
-    </div>
-
-    <div>
       <label class="block text-sm text-gray-600 mb-1">아이디</label>
       <i
         class="signup-field-icon signup-field-icon--login-id fa-regular fa-id-card"
@@ -218,6 +205,19 @@ const handleSignup = async () => {
       >
         {{ idCheckMessage }}
       </p>
+    </div>
+
+    <div>
+      <label class="block text-sm text-gray-600 mb-1">이름</label>
+      <i class="signup-field-icon fa-regular fa-user" aria-hidden="true"></i>
+      <input
+        v-model="form.name"
+        type="text"
+        placeholder="홍길동"
+        class="w-full border rounded-lg px-4 py-3"
+        maxlength="20"
+        required
+      />
     </div>
 
     <div class="signup-email-field">
