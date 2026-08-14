@@ -35,6 +35,9 @@ import {
 import { mockProperties } from '@/mock/mockProperties.js';
 import amenityService from '@/api/amenityService.js';
 import safetyService from '@/api/safetyService.js';
+import onboardingApi from '@/api/onboardingApi.js';
+import aiVoiceSearchService from '@/api/aiVoiceSearchService.js';
+import AiVoiceSearchBar from '@/components/map/AiVoiceSearchBar.vue';
 import {
   getSearchRadiusKm,
   getMinSearchRadiusKm,
@@ -503,6 +506,350 @@ const handleResetFilters = async () => {
   syncFiltersToUrlQuery(appliedFilterState.value);
   mapStore.saveFilterState(filterState.value, appliedFilterState.value);
   await fetchPropertiesFromBackend();
+};
+
+// AI 음성검색 상태
+// 음성 -> 브라우저 SpeechRecognition -> 텍스트 -> GPT-5 Nano -> 기존 검색필터 적용
+const isAiVoiceSearchLoading = ref(false);
+const aiVoiceTranscript = ref('');
+const aiVoiceMessage = ref('');
+const aiVoiceError = ref('');
+
+const AI_RESET_DEFAULTS = {
+  tradeType: 'MONTHLY',
+  minDeposit: 0,
+  maxDeposit: DEFAULT_DEPOSIT,
+  minRent: 0,
+  maxRent: DEFAULT_RENT,
+  minSafetyScore: 0,
+  transportMode: 'WALK',
+  minTravelTime: 0,
+  travelTime: 15,
+  walkPace: 'NORMAL',
+  flexTime: 10,
+  selectedLoanId: 'NONE',
+};
+
+const AI_FILTER_FIELDS = Object.keys(AI_RESET_DEFAULTS);
+
+const clearAiVoiceFeedback = () => {
+  aiVoiceTranscript.value = '';
+  aiVoiceMessage.value = '';
+  aiVoiceError.value = '';
+};
+
+const snapshotAiMainFilters = () => {
+  const snapshot = {};
+  AI_FILTER_FIELDS.forEach((field) => {
+    snapshot[field] = filterState.value[field] ?? null;
+  });
+  snapshot.destinationId = filterState.value.destinationId ?? null;
+  snapshot.destination = filterState.value.destination ?? null;
+  snapshot.destinationAddress = filterState.value.destinationAddress ?? null;
+  snapshot.destinationLat = filterState.value.destinationLat ?? null;
+  snapshot.destinationLng = filterState.value.destinationLng ?? null;
+  return JSON.stringify(snapshot);
+};
+
+const applyAiResetFields = (resetFields = []) => {
+  if (!Array.isArray(resetFields)) return;
+
+  resetFields.forEach((field) => {
+    if (Object.prototype.hasOwnProperty.call(AI_RESET_DEFAULTS, field)) {
+      filterState.value[field] = AI_RESET_DEFAULTS[field];
+    }
+  });
+};
+
+const applyAiFilterPatch = (patch = {}) => {
+  if (!patch || typeof patch !== 'object') return;
+
+  AI_FILTER_FIELDS.forEach((field) => {
+    const value = patch[field];
+    if (value === null || value === undefined) return;
+
+    if (
+      [
+        'minDeposit',
+        'maxDeposit',
+        'minRent',
+        'maxRent',
+        'minSafetyScore',
+        'minTravelTime',
+        'travelTime',
+        'flexTime',
+      ].includes(field)
+    ) {
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) {
+        filterState.value[field] = numericValue;
+      }
+      return;
+    }
+
+    filterState.value[field] = value;
+  });
+};
+
+// AI가 반환한 목적지 문자열과 기존 목적지 검색 API의 결과를 비교하여
+// 단순히 첫 번째 결과를 고르지 않고 장소명/주소가 가장 잘 맞는 결과를 선택합니다.
+const normalizeAiDestinationText = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/[^0-9a-z가-힣]/g, '');
+
+const scoreAiDestinationCandidate = (candidate, destinationQuery) => {
+  const query = normalizeAiDestinationText(destinationQuery);
+  const name = normalizeAiDestinationText(candidate?.destName);
+  const address = normalizeAiDestinationText(candidate?.destAddress);
+
+  if (!query || !name) return -1;
+
+  let score = 0;
+
+  if (query === name) score += 1000;
+  else if (query.includes(name)) score += 700 + Math.min(name.length, 100);
+  else if (name.includes(query)) score += 500;
+
+  if (address) {
+    if (query.includes(address)) {
+      score += 500;
+    } else {
+      const addressTokens = String(candidate?.destAddress || '')
+        .split(/\s+/)
+        .map(normalizeAiDestinationText)
+        .filter((token) => token.length >= 2);
+
+      score +=
+        addressTokens.filter((token) => query.includes(token)).length * 30;
+    }
+  }
+
+  const nameTokens = String(candidate?.destName || '')
+    .split(/\s+/)
+    .map(normalizeAiDestinationText)
+    .filter((token) => token.length >= 2);
+
+  score += nameTokens.filter((token) => query.includes(token)).length * 10;
+
+  return score;
+};
+
+const selectBestAiDestination = (results, destinationQuery) => {
+  if (!Array.isArray(results) || results.length === 0) return null;
+
+  return results.reduce((best, candidate, index) => {
+    const score = scoreAiDestinationCandidate(candidate, destinationQuery);
+    if (!best || score > best.score) {
+      return { candidate, score, index };
+    }
+    return best;
+  }, null)?.candidate;
+};
+
+const resolveAiDestination = async (destinationQuery) => {
+  const keyword = String(destinationQuery || '').trim();
+  if (!keyword) return null;
+
+  const results = await onboardingApi.searchDestinations(keyword);
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new Error(`“${keyword}” 목적지를 찾지 못했습니다.`);
+  }
+
+  const selected = selectBestAiDestination(results, keyword) || results[0];
+
+  console.info('AI DESTINATION RESOLVED:', {
+    requested: keyword,
+    selectedName: selected?.destName,
+    selectedAddress: selected?.destAddress,
+  });
+
+  try {
+    return await onboardingApi.saveDestination(selected);
+  } catch (error) {
+    // 저장 실패 시에도 검증된 검색 결과 좌표는 이번 검색에 사용할 수 있습니다.
+    console.warn('AI DESTINATION SAVE WARNING:', error);
+    return selected;
+  }
+};
+
+const buildAppliedAiVoiceMessage = (result, resolvedDestination) => {
+  const fallbackMessage = result?.message || 'AI가 검색조건을 적용했습니다.';
+  if (!resolvedDestination || !result?.destinationQuery) {
+    return fallbackMessage;
+  }
+
+  const actualDestination = [
+    resolvedDestination.destName,
+    resolvedDestination.destAddress,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  if (!actualDestination) return fallbackMessage;
+
+  const requestedDestination = String(result.destinationQuery).trim();
+  if (requestedDestination && fallbackMessage.includes(requestedDestination)) {
+    return fallbackMessage.replace(requestedDestination, actualDestination);
+  }
+
+  return `실제 목적지는 ${actualDestination}(으)로 적용했습니다. ${fallbackMessage}`;
+};
+
+const applyResolvedAiDestination = (destination) => {
+  if (!destination) return;
+
+  const latitude = Number(destination.destLatitude);
+  const longitude = Number(destination.destLongitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('AI가 찾은 목적지의 좌표가 올바르지 않습니다.');
+  }
+
+  filterState.value.destinationId = destination.destinationId ?? null;
+  filterState.value.destination = destination.destName || '선택한 위치';
+  filterState.value.destinationAddress = destination.destAddress || '';
+  filterState.value.destinationLat = latitude;
+  filterState.value.destinationLng = longitude;
+
+  const userId = authStore.user?.userId || authStore.user?.id;
+  saveRecentDestinationGlobal(
+    {
+      destinationId: destination.destinationId ?? null,
+      destName: destination.destName || '선택한 위치',
+      destAddress: destination.destAddress || '',
+      destLatitude: latitude,
+      destLongitude: longitude,
+    },
+    userId,
+  );
+};
+
+const applyAiAmenities = (result) => {
+  const mode = result?.amenityMode || 'UNCHANGED';
+  const incoming = Array.isArray(result?.amenities)
+    ? result.amenities
+        .map((item) => ({
+          amenityType: Number(item.amenityType),
+          walkTimeMinutes: Number(item.walkTimeMinutes),
+        }))
+        .filter(
+          (item) =>
+            Number.isInteger(item.amenityType) &&
+            item.amenityType >= 1 &&
+            item.amenityType <= 7 &&
+            Number.isFinite(item.walkTimeMinutes),
+        )
+    : [];
+
+  if (mode === 'UNCHANGED') return false;
+
+  let nextAmenities = [];
+  if (mode === 'CLEAR') {
+    nextAmenities = [];
+  } else if (mode === 'MERGE') {
+    const merged = new Map(
+      activeAmenityFilters.value.map((item) => [
+        Number(item.amenityType),
+        { ...item },
+      ]),
+    );
+    incoming.forEach((item) => merged.set(item.amenityType, item));
+    nextAmenities = [...merged.values()];
+  } else {
+    nextAmenities = incoming;
+  }
+
+  // 최신 MapView의 기존 편의시설 적용 함수를 그대로 사용합니다.
+  handleApplyAmenities(nextAmenities);
+  return true;
+};
+
+const handleAiVoiceSearch = async (recognizedText) => {
+  if (isAiVoiceSearchLoading.value) return;
+  clearAiVoiceFeedback();
+
+  if (!authStore.token) {
+    aiVoiceError.value = 'AI 음성검색은 로그인 후 사용할 수 있습니다.';
+    return;
+  }
+
+  const transcript = String(recognizedText || '').trim();
+  if (!transcript) {
+    aiVoiceError.value = '음성을 인식하지 못했습니다. 다시 말씀해 주세요.';
+    return;
+  }
+
+  aiVoiceTranscript.value = transcript;
+  isAiVoiceSearchLoading.value = true;
+
+  try {
+    const result = await aiVoiceSearchService.searchWithTranscript(
+      transcript,
+      filterState.value,
+      activeAmenityFilters.value,
+    );
+
+    if (!result?.success) {
+      throw new Error(
+        result?.message || 'AI가 검색조건을 분석하지 못했습니다.',
+      );
+    }
+
+    aiVoiceTranscript.value = result.transcript || transcript;
+
+    if (result.action === 'NO_CHANGE') {
+      aiVoiceMessage.value =
+        result.message || '변경할 검색조건을 찾지 못했습니다.';
+      return;
+    }
+
+    if (result.action === 'RESET_ALL') {
+      amenityFilterRef.value?.resetFilters?.();
+      amenityDetailFilters.value = [];
+      handleApplyAmenities([]);
+      await handleResetFilters();
+      aiVoiceMessage.value = result.message || '검색조건을 초기화했습니다.';
+      return;
+    }
+
+    // 목적지는 GPT가 좌표를 만들지 않고 팀의 기존 목적지 검색 API로 실제 값을 찾습니다.
+    const resolvedDestination = result.destinationQuery
+      ? await resolveAiDestination(result.destinationQuery)
+      : null;
+
+    const beforeSnapshot = snapshotAiMainFilters();
+    applyAiResetFields(result.resetFields);
+    applyAiFilterPatch(result.filters);
+    applyResolvedAiDestination(resolvedDestination);
+    const afterSnapshot = snapshotAiMainFilters();
+    const mainFiltersChanged = beforeSnapshot !== afterSnapshot;
+
+    if (mainFiltersChanged) {
+      showFilterAnalysisLoading();
+      await handleApplyFilters(true);
+    }
+
+    const amenitiesChanged = applyAiAmenities(result);
+    if (!mainFiltersChanged && !amenitiesChanged) {
+      aiVoiceMessage.value = result.message || '현재 검색조건과 동일합니다.';
+      return;
+    }
+
+    aiVoiceMessage.value = buildAppliedAiVoiceMessage(
+      result,
+      resolvedDestination,
+    );
+  } catch (error) {
+    console.error('AI VOICE SEARCH ERROR:', error);
+    aiVoiceError.value =
+      error?.response?.data?.message ||
+      error?.response?.data?.error ||
+      error?.message ||
+      'AI 음성검색에 실패했습니다. 잠시 후 다시 시도해 주세요.';
+  } finally {
+    isAiVoiceSearchLoading.value = false;
+  }
 };
 
 const applyMobileOnboardingFilters = (filters) => {
@@ -1648,6 +1995,15 @@ const {
       <div
         class="absolute top-4 left-4 z-30 flex flex-col items-start gap-3 pointer-events-none"
       >
+        <AiVoiceSearchBar
+          :loading="isAiVoiceSearchLoading"
+          :disabled="!authStore.token"
+          :transcript="aiVoiceTranscript"
+          :message="aiVoiceMessage"
+          :error="aiVoiceError"
+          @voice-search="handleAiVoiceSearch"
+          @clear-feedback="clearAiVoiceFeedback"
+        />
         <MapQuickFilterBar
           v-model="filterState"
           :total-count="visibleProperties.length"
