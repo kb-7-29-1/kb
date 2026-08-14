@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -21,8 +22,8 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableScheduling
-@PropertySource(value = {"classpath:/application.properties"}, ignoreResourceNotFound = true)
-@MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
+@PropertySource(value = { "classpath:/application.properties" }, ignoreResourceNotFound = true)
+@MapperScan(basePackages = { "com.salgosipo.amenity.mapper",
         "com.salgosipo.auth.mapper",
         "com.salgosipo.bookmark.mapper",
         "com.salgosipo.comment.mapper",
@@ -31,8 +32,8 @@ import javax.sql.DataSource;
         "com.salgosipo.property.mapper",
         "com.salgosipo.routevote.mapper",
         "com.salgosipo.safety.mapper",
-        "com.salgosipo.user.mapper"})
-@ComponentScan(basePackages = {"com.salgosipo.amenity.service",
+        "com.salgosipo.user.mapper" })
+@ComponentScan(basePackages = { "com.salgosipo.amenity.service",
         "com.salgosipo.auth.service",
         "com.salgosipo.bookmark.service",
         "com.salgosipo.comment.service",
@@ -46,22 +47,29 @@ import javax.sql.DataSource;
         "com.salgosipo.loan.service",
         "com.salgosipo.loan.client",
         "com.salgosipo.amenity.client",
-        "com.salgosipo.global.config"})
+        "com.salgosipo.global.config" })
 public class RootConfig {
-    //프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
+    // 프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired
     ApplicationContext applicationContext;
 
-    @Value("${jdbc.driver}")
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        PropertySourcesPlaceholderConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
+        configurer.setIgnoreUnresolvablePlaceholders(true);
+        return configurer;
+    }
+
+    @Value("${jdbc.driver:${JDBC_DRIVER:${jdbc_driver:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}}")
     String driver;
 
-    @Value("${jdbc.url}")
+    @Value("${jdbc.url:${JDBC_URL:${jdbc_url:}}}")
     String url;
 
-    @Value("${jdbc.username}")
+    @Value("${jdbc.username:${JDBC_USERNAME:${jdbc_username:}}}")
     String username;
 
-    @Value("${jdbc.password}")
+    @Value("${jdbc.password:${JDBC_PASSWORD:${jdbc_password:}}}")
     String password;
 
     @Bean
@@ -74,14 +82,75 @@ public class RootConfig {
 
     @Bean
     public DataSource dataSource() {
+        System.out.println(">>> [DB CONFIG] Starting DataSource initialization...");
+        System.out.println(">>> [DB CONFIG] Environment variable keys available: " + System.getenv().keySet());
+
         HikariConfig config = new HikariConfig();
-        config.setDriverClassName(driver);
-        config.setJdbcUrl(url);
-        config.setUsername(username);
-        config.setPassword(password);
+        String resolvedDriver = resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver");
+        if (resolvedDriver.isBlank()) {
+            resolvedDriver = "net.sf.log4jdbc.sql.jdbcapi.DriverSpy";
+        }
+        config.setDriverClassName(resolvedDriver);
+
+        String resolvedUrl = resolveJdbcUrl(url, "jdbc.url", "JDBC_URL", "jdbc_url", "MYSQL_URL", "MYSQLURL", "DATABASE_URL", "MYSQL_PUBLIC_URL");
+        System.out.println(">>> [DB CONFIG] Resolved Driver: " + resolvedDriver);
+        System.out.println(">>> [DB CONFIG] Resolved JDBC URL: " + (resolvedUrl.isEmpty() ? "(EMPTY!)" : resolvedUrl.substring(0, Math.min(25, resolvedUrl.length())) + "..."));
+        config.setJdbcUrl(resolvedUrl);
+
+        String resolvedUser = resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username", "MYSQLUSER", "MYSQL_USER", "DATABASE_USER");
+        config.setUsername(resolvedUser);
+
+        String resolvedPassword = resolveValue(password, "jdbc.password", "JDBC_PASSWORD", "jdbc_password", "MYSQLPASSWORD", "MYSQL_PASSWORD", "DATABASE_PASSWORD");
+        config.setPassword(resolvedPassword);
+
         config.setConnectionInitSql("SET time_zone = '+09:00'");
         HikariDataSource dataSource = new HikariDataSource(config);
         return dataSource;
+    }
+
+    private String resolveJdbcUrl(String injectedVal, String... fallbackKeys) {
+        String resolved = resolveValue(injectedVal, fallbackKeys);
+        if (resolved.startsWith("mysql://")) {
+            resolved = "jdbc:log4jdbc:" + resolved;
+            if (!resolved.contains("?")) {
+                resolved += "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8";
+            }
+        } else if (resolved.startsWith("jdbc:mysql:") && !resolved.startsWith("jdbc:log4jdbc:")) {
+            resolved = "jdbc:log4jdbc:" + resolved.substring(5);
+        }
+        return resolved;
+    }
+
+    private String resolveValue(String injectedVal, String... fallbackKeys) {
+        if (injectedVal != null && !injectedVal.isBlank() && !injectedVal.startsWith("${")) {
+            return cleanValue(injectedVal);
+        }
+        for (String key : fallbackKeys) {
+            String val = System.getenv(key);
+            if (val != null && !val.isBlank()) return cleanValue(val);
+            val = System.getProperty(key);
+            if (val != null && !val.isBlank()) return cleanValue(val);
+        }
+        for (String envKey : System.getenv().keySet()) {
+            for (String key : fallbackKeys) {
+                if (envKey.equalsIgnoreCase(key) || envKey.equalsIgnoreCase(key.replace('.', '_'))) {
+                    String val = System.getenv(envKey);
+                    if (val != null && !val.isBlank()) return cleanValue(val);
+                }
+            }
+        }
+        return (injectedVal != null && !injectedVal.startsWith("${")) ? cleanValue(injectedVal) : "";
+    }
+
+    private String cleanValue(String val) {
+        if (val == null) return "";
+        val = val.trim();
+        if ((val.startsWith("\"") && val.endsWith("\"")) || (val.startsWith("'") && val.endsWith("'"))) {
+            if (val.length() >= 2) {
+                val = val.substring(1, val.length() - 1).trim();
+            }
+        }
+        return val;
     }
 
     @Bean
@@ -93,7 +162,7 @@ public class RootConfig {
     }
 
     @Bean
-    public DataSourceTransactionManager transactionManager(){
+    public DataSourceTransactionManager transactionManager() {
         DataSourceTransactionManager manager = new DataSourceTransactionManager(dataSource());
         return manager;
     }

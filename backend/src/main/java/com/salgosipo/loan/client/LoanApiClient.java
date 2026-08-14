@@ -15,7 +15,7 @@ public class LoanApiClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${loan.jeonse.api.key}")
+    @Value("${loan.jeonse.api.key:${LOAN_JEONSE_API_KEY:}}")
     private String jeonseApiKey;
 
     private static final String JEONSE_END_POINT =

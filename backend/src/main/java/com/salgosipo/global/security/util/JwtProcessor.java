@@ -19,7 +19,7 @@ public class JwtProcessor {
     static private final long RESET_TOKEN_VALID_MILISECOND = 1000L * 60 * 5; // 5분
     static private final long REFRESH_GRACE_MILISECOND = 1000L * 60 * 5; // 세션 연장 유예기간 5분
 
-    public JwtProcessor(@Value("${jwt.secret}") String secretKey) {
+    public JwtProcessor(@Value("${jwt.secret:${JWT_SECRET:}}") String secretKey) {
         this.key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
     }
 

@@ -21,11 +21,7 @@ import { useMapUrlSync } from '@/composables/useMapUrlSync.js';
 import { usePropertySearch } from '@/composables/usePropertySearch.js';
 import { useMapStore } from '@/stores/useMapStore.js';
 import { useAuthStore } from '@/stores/useAuthStore.js';
-import {
-  saveRecentDestinationGlobal,
-  getRecentDestinations,
-  findMatchingDestination,
-} from '@/utils/recentDestinations.js';
+import { saveRecentDestinationGlobal } from '@/utils/recentDestinations.js';
 import {
   DEFAULT_DEPOSIT,
   DEFAULT_RENT,
@@ -421,36 +417,45 @@ const clearAmenitiesForDestinationChange = () => {
 
 const authStore = useAuthStore();
 
-const handleChangeDestination = ({ name, lat, lng, address }) => {
+const handleChangeDestination = async ({ name, lat, lng, address }) => {
   if (!name || lat == null || lng == null) return;
   const destAddress = address || '';
-
   const userId = authStore.user?.userId || authStore.user?.id;
-  const recentList = getRecentDestinations(userId) || [];
-  const matched = findMatchingDestination(
-    name,
-    destAddress,
-    recentList,
-    lat,
-    lng,
-  );
 
-  const finalDestName =
-    matched?.destName || name || destAddress || '선택한 위치';
+  // 목적지를 지정하는 즉시 백엔드에 저장/조회해 실제 destinationId를 확보합니다.
+  // (로컬 최근목적지 캐시 매칭만으로는 destinationId를 알 수 없어 찜하기 시 null로 새는 문제가 있었음)
+  let savedDestination = null;
+  try {
+    savedDestination = await onboardingApi.saveDestination({
+      destName: name,
+      destAddress,
+      destLatitude: Number(lat),
+      destLongitude: Number(lng),
+    });
+  } catch (err) {
+    console.error('DESTINATION SAVE ERROR:', err);
+  }
+
+  const finalDestName = savedDestination?.destName || name || destAddress || '선택한 위치';
 
   filterState.value.destination = finalDestName;
-  filterState.value.destinationAddress = destAddress;
-  filterState.value.destinationLat = Number(lat);
-  filterState.value.destinationLng = Number(lng);
-  filterState.value.destinationId = matched?.destinationId || null;
+  filterState.value.destinationAddress = savedDestination?.destAddress || destAddress;
+  filterState.value.destinationLat = savedDestination?.destLatitude != null
+    ? Number(savedDestination.destLatitude)
+    : Number(lat);
+  filterState.value.destinationLng = savedDestination?.destLongitude != null
+    ? Number(savedDestination.destLongitude)
+    : Number(lng);
+  filterState.value.destinationId = savedDestination?.destinationId ?? null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
     {
       destName: finalDestName,
-      destAddress,
-      destLatitude: Number(lat),
-      destLongitude: Number(lng),
+      destAddress: filterState.value.destinationAddress,
+      destLatitude: filterState.value.destinationLat,
+      destLongitude: filterState.value.destinationLng,
+      destinationId: filterState.value.destinationId,
     },
     userId,
   );
@@ -1136,7 +1141,17 @@ const baseFilteredProperties = computed(() => {
 });
 
 // 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
-watch([activeAmenityFilters, baseFilteredProperties], scheduleAmenityLoad, {
+const amenityFilterPropertyKey = computed(() =>
+  baseFilteredProperties.value
+    .map((property) => Number(property.propertyId))
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+    .join(','),
+);
+
+// 안전점수·선택 상태처럼 매물 객체의 부수 값이 바뀌어도 편의시설을 다시 조회하지 않는다.
+// 실제 필터 대상 매물 ID 집합이 바뀔 때만 재조회한다.
+watch([activeAmenityFilters, amenityFilterPropertyKey], scheduleAmenityLoad, {
   deep: true,
 });
 
@@ -1414,6 +1429,14 @@ const handleSelectProperty = async (
     return;
   }
 
+  // 목록 편의시설 필터에서 이미 조회한 매물별 결과를 상세에도 재사용한다.
+  // 빈 배열도 "조건에 맞는 시설 없음"이라는 조회 완료 결과이므로 다시 요청하지 않는다.
+  const cachedAmenities = amenitiesByProperty.value[property.propertyId];
+  if (Array.isArray(cachedAmenities)) {
+    selectedPropertyDetailAmenities.value = cachedAmenities;
+    return;
+  }
+
   try {
     const amenities = await amenityService.filterAmenities(
       property.propertyId,
@@ -1453,6 +1476,12 @@ const applyBookmarkDestinationContext = (bookmarked) => {
 
   Object.assign(filterState.value, patch);
   Object.assign(appliedFilterState.value, patch);
+
+  // onMounted가 로컬 캐시를 읽어와 filterState를 덮어쓰기 전에(이 함수는 그보다 먼저 실행됨)
+  // 캐시에도 목적지 필드만 병합 저장해둠. 통째로 저장하지 않고 기존 캐시에 병합하는 이유:
+  // 이 시점엔 예산/거래유형 등 다른 필터가 아직 초기값이라, 그대로 저장하면 새로고침 시
+  // 사용자가 저장해둔 다른 필터 설정이 초기값으로 덮어써짐.
+  saveQuickFilterToCache({ ...(loadQuickFilterFromCache() || {}), ...patch });
 };
 
 const openPropertyDetailFromQuery = async (propertyId) => {
@@ -1503,7 +1532,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       if (isBookmarkedTarget)
         applyBookmarkDestinationContext(bookmarkedProperty);
       handleSelectProperty(
-        { ...data, isBookmarked: true },
+        { ...data, isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked) },
         { skipVisibilityCheck: true },
       );
       sessionStorage.removeItem('selectedBookmarkProperty');
