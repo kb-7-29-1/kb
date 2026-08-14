@@ -46,17 +46,9 @@
                 </otherwise>
             </choose>
         FROM properties p
-        LEFT JOIN (
-            SELECT property_id,
-                   MAX(safety_score) AS safety_score
-            FROM property_safety
-            <where>
-                <if test="cond != null and cond.destinationId != null">
-                    destination_id = #{cond.destinationId}
-                </if>
-            </where>
-            GROUP BY property_id
-        ) ps ON p.property_id = ps.property_id
+        LEFT JOIN property_safety ps
+        ON p.property_id = ps.property_id
+        AND ps.destination_id = #{cond.destinationId}
         <if test="userId != null">
             LEFT JOIN bookmarks b
                    ON p.property_id = b.property_id
