@@ -8,7 +8,7 @@ COPY frontend/package*.json ./
 RUN npm install
 
 COPY frontend ./
-RUN npm run build
+RUN npm run build -- --outDir dist
 
 # ==========================================
 # 2단계: Backend 빌드 (Java 17 + Gradle)
@@ -27,7 +27,8 @@ RUN gradle build --no-daemon -x test
 # ==========================================
 # 3단계: Runtime 실행 (Tomcat 9 + Java 17)
 # ==========================================
-FROM tomcat:9.0-jdk17-slim
+FROM tomcat:9.0-jdk17-temurin
+
 WORKDIR /usr/local/tomcat
 
 # WAR 파일 배치 (ROOT.war로 기본 배포)
