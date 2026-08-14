@@ -42,7 +42,7 @@ class SafetyScoreCalculatorTest {
 
     @Test
     void facilityRadiiUseUpdatedFeedbackValues() {
-        assertEquals(15.0, SafetyScoreCalculator.STREET_LIGHT_ROUTE_RADIUS_METERS);
+        assertEquals(20.0, SafetyScoreCalculator.STREET_LIGHT_ROUTE_RADIUS_METERS);
         assertEquals(500.0, SafetyScoreCalculator.POLICE_ROUTE_RADIUS_METERS);
     }
 
