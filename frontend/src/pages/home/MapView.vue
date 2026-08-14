@@ -21,11 +21,7 @@ import { useMapUrlSync } from '@/composables/useMapUrlSync.js';
 import { usePropertySearch } from '@/composables/usePropertySearch.js';
 import { useMapStore } from '@/stores/useMapStore.js';
 import { useAuthStore } from '@/stores/useAuthStore.js';
-import {
-  saveRecentDestinationGlobal,
-  getRecentDestinations,
-  findMatchingDestination,
-} from '@/utils/recentDestinations.js';
+import { saveRecentDestinationGlobal } from '@/utils/recentDestinations.js';
 import {
   DEFAULT_DEPOSIT,
   DEFAULT_RENT,
@@ -421,36 +417,45 @@ const clearAmenitiesForDestinationChange = () => {
 
 const authStore = useAuthStore();
 
-const handleChangeDestination = ({ name, lat, lng, address }) => {
+const handleChangeDestination = async ({ name, lat, lng, address }) => {
   if (!name || lat == null || lng == null) return;
   const destAddress = address || '';
-
   const userId = authStore.user?.userId || authStore.user?.id;
-  const recentList = getRecentDestinations(userId) || [];
-  const matched = findMatchingDestination(
-    name,
-    destAddress,
-    recentList,
-    lat,
-    lng,
-  );
 
-  const finalDestName =
-    matched?.destName || name || destAddress || '선택한 위치';
+  // 목적지를 지정하는 즉시 백엔드에 저장/조회해 실제 destinationId를 확보합니다.
+  // (로컬 최근목적지 캐시 매칭만으로는 destinationId를 알 수 없어 찜하기 시 null로 새는 문제가 있었음)
+  let savedDestination = null;
+  try {
+    savedDestination = await onboardingApi.saveDestination({
+      destName: name,
+      destAddress,
+      destLatitude: Number(lat),
+      destLongitude: Number(lng),
+    });
+  } catch (err) {
+    console.error('DESTINATION SAVE ERROR:', err);
+  }
+
+  const finalDestName = savedDestination?.destName || name || destAddress || '선택한 위치';
 
   filterState.value.destination = finalDestName;
-  filterState.value.destinationAddress = destAddress;
-  filterState.value.destinationLat = Number(lat);
-  filterState.value.destinationLng = Number(lng);
-  filterState.value.destinationId = matched?.destinationId || null;
+  filterState.value.destinationAddress = savedDestination?.destAddress || destAddress;
+  filterState.value.destinationLat = savedDestination?.destLatitude != null
+    ? Number(savedDestination.destLatitude)
+    : Number(lat);
+  filterState.value.destinationLng = savedDestination?.destLongitude != null
+    ? Number(savedDestination.destLongitude)
+    : Number(lng);
+  filterState.value.destinationId = savedDestination?.destinationId ?? null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
     {
       destName: finalDestName,
-      destAddress,
-      destLatitude: Number(lat),
-      destLongitude: Number(lng),
+      destAddress: filterState.value.destinationAddress,
+      destLatitude: filterState.value.destinationLat,
+      destLongitude: filterState.value.destinationLng,
+      destinationId: filterState.value.destinationId,
     },
     userId,
   );
@@ -1503,7 +1508,7 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       if (isBookmarkedTarget)
         applyBookmarkDestinationContext(bookmarkedProperty);
       handleSelectProperty(
-        { ...data, isBookmarked: true },
+        { ...data, isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked) },
         { skipVisibilityCheck: true },
       );
       sessionStorage.removeItem('selectedBookmarkProperty');
