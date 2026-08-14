@@ -60,16 +60,16 @@ public class RootConfig {
         return configurer;
     }
 
-    @Value("${jdbc.driver:${JDBC_DRIVER:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}")
+    @Value("${jdbc.driver:${JDBC_DRIVER:${jdbc_driver:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}}")
     String driver;
 
-    @Value("${jdbc.url:${JDBC_URL:}}")
+    @Value("${jdbc.url:${JDBC_URL:${jdbc_url:}}}")
     String url;
 
-    @Value("${jdbc.username:${JDBC_USERNAME:}}")
+    @Value("${jdbc.username:${JDBC_USERNAME:${jdbc_username:}}}")
     String username;
 
-    @Value("${jdbc.password:${JDBC_PASSWORD:}}")
+    @Value("${jdbc.password:${JDBC_PASSWORD:${jdbc_password:}}}")
     String password;
 
     @Bean
@@ -83,13 +83,26 @@ public class RootConfig {
     @Bean
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
-        config.setDriverClassName(driver);
-        config.setJdbcUrl(url);
-        config.setUsername(username);
-        config.setPassword(password);
+        config.setDriverClassName(resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver"));
+        config.setJdbcUrl(resolveValue(url, "jdbc.url", "JDBC_URL", "jdbc_url"));
+        config.setUsername(resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username"));
+        config.setPassword(resolveValue(password, "jdbc.password", "JDBC_PASSWORD", "jdbc_password"));
         config.setConnectionInitSql("SET time_zone = '+09:00'");
         HikariDataSource dataSource = new HikariDataSource(config);
         return dataSource;
+    }
+
+    private String resolveValue(String injectedVal, String... fallbackKeys) {
+        if (injectedVal != null && !injectedVal.isBlank() && !injectedVal.startsWith("${")) {
+            return injectedVal.trim();
+        }
+        for (String key : fallbackKeys) {
+            String val = System.getenv(key);
+            if (val != null && !val.isBlank()) return val.trim();
+            val = System.getProperty(key);
+            if (val != null && !val.isBlank()) return val.trim();
+        }
+        return injectedVal != null ? injectedVal.trim() : "";
     }
 
     @Bean
