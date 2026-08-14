@@ -60,16 +60,16 @@ public class RootConfig {
         return configurer;
     }
 
-    @Value("${jdbc.driver:${JDBC_DRIVER:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}")
+    @Value("${jdbc.driver:${JDBC_DRIVER:${jdbc_driver:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}}")
     String driver;
 
-    @Value("${jdbc.url:${JDBC_URL:}}")
+    @Value("${jdbc.url:${JDBC_URL:${jdbc_url:}}}")
     String url;
 
-    @Value("${jdbc.username:${JDBC_USERNAME:}}")
+    @Value("${jdbc.username:${JDBC_USERNAME:${jdbc_username:}}}")
     String username;
 
-    @Value("${jdbc.password:${JDBC_PASSWORD:}}")
+    @Value("${jdbc.password:${JDBC_PASSWORD:${jdbc_password:}}}")
     String password;
 
     @Bean
@@ -82,14 +82,63 @@ public class RootConfig {
 
     @Bean
     public DataSource dataSource() {
+        System.out.println(">>> [DB CONFIG] Starting DataSource initialization...");
+        System.out.println(">>> [DB CONFIG] Environment variable keys available: " + System.getenv().keySet());
+
         HikariConfig config = new HikariConfig();
-        config.setDriverClassName(driver);
-        config.setJdbcUrl(url);
-        config.setUsername(username);
-        config.setPassword(password);
+        String resolvedDriver = resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver");
+        if (resolvedDriver.isBlank()) {
+            resolvedDriver = "net.sf.log4jdbc.sql.jdbcapi.DriverSpy";
+        }
+        config.setDriverClassName(resolvedDriver);
+
+        String resolvedUrl = resolveJdbcUrl(url, "jdbc.url", "JDBC_URL", "jdbc_url", "MYSQL_URL", "MYSQLURL", "DATABASE_URL", "MYSQL_PUBLIC_URL");
+        System.out.println(">>> [DB CONFIG] Resolved Driver: " + resolvedDriver);
+        System.out.println(">>> [DB CONFIG] Resolved JDBC URL: " + (resolvedUrl.isEmpty() ? "(EMPTY!)" : resolvedUrl.substring(0, Math.min(25, resolvedUrl.length())) + "..."));
+
+        String resolvedUser = resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username", "MYSQLUSER", "MYSQL_USER", "DATABASE_USER");
+        config.setUsername(resolvedUser);
+
+        String resolvedPassword = resolveValue(password, "jdbc.password", "JDBC_PASSWORD", "jdbc_password", "MYSQLPASSWORD", "MYSQL_PASSWORD", "DATABASE_PASSWORD");
+        config.setPassword(resolvedPassword);
+
         config.setConnectionInitSql("SET time_zone = '+09:00'");
         HikariDataSource dataSource = new HikariDataSource(config);
         return dataSource;
+    }
+
+    private String resolveJdbcUrl(String injectedVal, String... fallbackKeys) {
+        String resolved = resolveValue(injectedVal, fallbackKeys);
+        if (resolved.startsWith("mysql://")) {
+            resolved = "jdbc:log4jdbc:" + resolved;
+            if (!resolved.contains("?")) {
+                resolved += "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8";
+            }
+        } else if (resolved.startsWith("jdbc:mysql:") && !resolved.startsWith("jdbc:log4jdbc:")) {
+            resolved = "jdbc:log4jdbc:" + resolved.substring(5);
+        }
+        return resolved;
+    }
+
+    private String resolveValue(String injectedVal, String... fallbackKeys) {
+        if (injectedVal != null && !injectedVal.isBlank() && !injectedVal.startsWith("${")) {
+            return injectedVal.trim();
+        }
+        for (String key : fallbackKeys) {
+            String val = System.getenv(key);
+            if (val != null && !val.isBlank()) return val.trim();
+            val = System.getProperty(key);
+            if (val != null && !val.isBlank()) return val.trim();
+        }
+        for (String envKey : System.getenv().keySet()) {
+            for (String key : fallbackKeys) {
+                if (envKey.equalsIgnoreCase(key) || envKey.equalsIgnoreCase(key.replace('.', '_'))) {
+                    String val = System.getenv(envKey);
+                    if (val != null && !val.isBlank()) return val.trim();
+                }
+            }
+        }
+        return (injectedVal != null && !injectedVal.startsWith("${")) ? injectedVal.trim() : "";
     }
 
     @Bean
