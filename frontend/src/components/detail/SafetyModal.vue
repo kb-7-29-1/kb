@@ -72,7 +72,7 @@
             </div>
             <div class="info-content">
               <div class="info-title">가로등 분포</div>
-              <div class="info-desc">경로 반경 15m 내 {{ streetLampCount }}개</div>
+              <div class="info-desc">경로 반경 20m 내 {{ streetLampCount }}개</div>
               <div class="info-desc">
                 {{ formatAverageGap('가로등', streetLampAverageGapMeters) }}
               </div>
