@@ -37,6 +37,7 @@ export const saveRecentDestinationGlobal = (destObj, userId) => {
       destAddress: destObj.destAddress || '',
       destLatitude: destObj.destLatitude || destObj.lat || null,
       destLongitude: destObj.destLongitude || destObj.lng || null,
+      destinationId: destObj.destinationId ?? null,
     },
     ...filtered,
   ].slice(0, 10);
