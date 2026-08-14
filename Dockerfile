@@ -29,7 +29,8 @@ RUN gradle build --no-daemon -x test
 # ==========================================
 FROM tomcat:9.0-jdk17-temurin
 
-WORKDIR /usr/local/tomcat
+# 기존 톰캣 기본 앱 삭제 (충돌 방지)
+RUN rm -rf ./webapps/*
 
 # WAR 파일 배치 (ROOT.war로 기본 배포)
 COPY --from=backend-builder /app/backend/build/libs/*.war ./webapps/ROOT.war
