@@ -43,7 +43,7 @@ public class SafetyServiceImpl implements SafetyService {
     private static final Logger log =
             LogManager.getLogger(SafetyServiceImpl.class);
 
-    private static final double FACILITY_QUERY_MARGIN_METERS = 320.0;
+    private static final double FACILITY_QUERY_MARGIN_METERS = 520.0;
 
     public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
             "강서구", "관악구", "광진구", "구로구", "도봉구",
