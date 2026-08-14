@@ -6,7 +6,7 @@
         @toggle="toggleAmenity"
       />
       <p v-if="showGuideText" class="amenity-guide-text">
-        ⚠ 선택한 조건이 모두 반영되어 검색 결과가 다소 적을 수 있어요
+        ⚠ 선택한 조건이 모두 반영되면 검색 결과가 줄어들 수 있어요
       </p>
       <AmenityWalkingTimeFilter
         v-if="showWalkingTime"
