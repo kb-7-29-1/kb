@@ -122,23 +122,34 @@ public class RootConfig {
 
     private String resolveValue(String injectedVal, String... fallbackKeys) {
         if (injectedVal != null && !injectedVal.isBlank() && !injectedVal.startsWith("${")) {
-            return injectedVal.trim();
+            return cleanValue(injectedVal);
         }
         for (String key : fallbackKeys) {
             String val = System.getenv(key);
-            if (val != null && !val.isBlank()) return val.trim();
+            if (val != null && !val.isBlank()) return cleanValue(val);
             val = System.getProperty(key);
-            if (val != null && !val.isBlank()) return val.trim();
+            if (val != null && !val.isBlank()) return cleanValue(val);
         }
         for (String envKey : System.getenv().keySet()) {
             for (String key : fallbackKeys) {
                 if (envKey.equalsIgnoreCase(key) || envKey.equalsIgnoreCase(key.replace('.', '_'))) {
                     String val = System.getenv(envKey);
-                    if (val != null && !val.isBlank()) return val.trim();
+                    if (val != null && !val.isBlank()) return cleanValue(val);
                 }
             }
         }
-        return (injectedVal != null && !injectedVal.startsWith("${")) ? injectedVal.trim() : "";
+        return (injectedVal != null && !injectedVal.startsWith("${")) ? cleanValue(injectedVal) : "";
+    }
+
+    private String cleanValue(String val) {
+        if (val == null) return "";
+        val = val.trim();
+        if ((val.startsWith("\"") && val.endsWith("\"")) || (val.startsWith("'") && val.endsWith("'"))) {
+            if (val.length() >= 2) {
+                val = val.substring(1, val.length() - 1).trim();
+            }
+        }
+        return val;
     }
 
     @Bean
