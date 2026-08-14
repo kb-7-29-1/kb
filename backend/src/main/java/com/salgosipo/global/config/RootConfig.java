@@ -95,6 +95,7 @@ public class RootConfig {
         String resolvedUrl = resolveJdbcUrl(url, "jdbc.url", "JDBC_URL", "jdbc_url", "MYSQL_URL", "MYSQLURL", "DATABASE_URL", "MYSQL_PUBLIC_URL");
         System.out.println(">>> [DB CONFIG] Resolved Driver: " + resolvedDriver);
         System.out.println(">>> [DB CONFIG] Resolved JDBC URL: " + (resolvedUrl.isEmpty() ? "(EMPTY!)" : resolvedUrl.substring(0, Math.min(25, resolvedUrl.length())) + "..."));
+        config.setJdbcUrl(resolvedUrl);
 
         String resolvedUser = resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username", "MYSQLUSER", "MYSQL_USER", "DATABASE_USER");
         config.setUsername(resolvedUser);
