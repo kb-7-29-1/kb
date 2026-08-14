@@ -1920,7 +1920,7 @@ const {
 
             <p class="mt-2 text-[12px] leading-5 text-slate-500">
               <span class="notice-icon" aria-hidden="true">⚠</span>
-              선택한 조건이 모두 반영되어 검색 결과가 적어질 수 있어요
+              선택한 조건이 모두 반영되면 검색 결과가 적어질 수 있어요
             </p>
 
             <AmenityDetailFilterPanel
