@@ -116,6 +116,51 @@ public class SafetyScoreCalculator {
         return candidate;
     }
 
+    /**
+     * 점수 계산(countFacilitiesNearRoute)과 동일한 반경/거리 기준으로,
+     * 실제로 경로에 영향을 준 시설물만 걸러서 반환합니다. ("경로 자세히 보기" 지도 표시용)
+     */
+    public List<SafetyFacilityVO> filterFacilitiesNearRoute(
+            PedestrianRoute route,
+            List<SafetyFacilityVO> facilities
+    ) {
+        if (route == null || route.getRoutePoints() == null || route.getRoutePoints().size() < 2
+                || facilities == null || facilities.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProjectedPoint> projectedRoute = projectRoute(route.getRoutePoints());
+        ProjectedPoint origin = projectedRoute.get(0);
+
+        List<SafetyFacilityVO> result = new ArrayList<>();
+        for (SafetyFacilityVO facility : facilities) {
+            if (facility.getLatitude() == null || facility.getLongitude() == null) {
+                continue;
+            }
+            double radiusMeters = radiusForType(facility.getFacilityType());
+            if (radiusMeters <= 0.0) {
+                continue;
+            }
+            ProjectedPoint projected = project(
+                    facility.getLatitude(),
+                    facility.getLongitude(),
+                    origin.originLatitude(),
+                    origin.originLongitude()
+            );
+            if (distancePointToPolyline(projected, projectedRoute) <= radiusMeters) {
+                result.add(facility);
+            }
+        }
+        return result;
+    }
+
+    private double radiusForType(String facilityType) {
+        if ("CCTV".equalsIgnoreCase(facilityType)) return CCTV_ROUTE_RADIUS_METERS;
+        if ("STREET_LIGHT".equalsIgnoreCase(facilityType)) return STREET_LIGHT_ROUTE_RADIUS_METERS;
+        if ("POLICE".equalsIgnoreCase(facilityType)) return POLICE_ROUTE_RADIUS_METERS;
+        return 0.0;
+    }
+
     int calculateCctvDensityPenalty(double averageGapMeters) {
         // CCTV 평균 간격이 50m 이하면 0점, 150m 이상이면 최대 20점 감점.
         // 그 사이는 평균 간격에 비례해 연속적으로 증가한 뒤 정수로 반올림합니다.
