@@ -83,13 +83,37 @@ public class RootConfig {
     @Bean
     public DataSource dataSource() {
         HikariConfig config = new HikariConfig();
-        config.setDriverClassName(resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver"));
-        config.setJdbcUrl(resolveValue(url, "jdbc.url", "JDBC_URL", "jdbc_url"));
-        config.setUsername(resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username"));
-        config.setPassword(resolveValue(password, "jdbc.password", "JDBC_PASSWORD", "jdbc_password"));
+        String resolvedDriver = resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver");
+        if (resolvedDriver.isBlank()) {
+            resolvedDriver = "net.sf.log4jdbc.sql.jdbcapi.DriverSpy";
+        }
+        config.setDriverClassName(resolvedDriver);
+
+        String resolvedUrl = resolveJdbcUrl(url, "jdbc.url", "JDBC_URL", "jdbc_url", "MYSQL_URL", "MYSQLURL", "DATABASE_URL", "MYSQL_PUBLIC_URL");
+        config.setJdbcUrl(resolvedUrl);
+
+        String resolvedUser = resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username", "MYSQLUSER", "MYSQL_USER", "DATABASE_USER");
+        config.setUsername(resolvedUser);
+
+        String resolvedPassword = resolveValue(password, "jdbc.password", "JDBC_PASSWORD", "jdbc_password", "MYSQLPASSWORD", "MYSQL_PASSWORD", "DATABASE_PASSWORD");
+        config.setPassword(resolvedPassword);
+
         config.setConnectionInitSql("SET time_zone = '+09:00'");
         HikariDataSource dataSource = new HikariDataSource(config);
         return dataSource;
+    }
+
+    private String resolveJdbcUrl(String injectedVal, String... fallbackKeys) {
+        String resolved = resolveValue(injectedVal, fallbackKeys);
+        if (resolved.startsWith("mysql://")) {
+            resolved = "jdbc:log4jdbc:" + resolved;
+            if (!resolved.contains("?")) {
+                resolved += "?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8";
+            }
+        } else if (resolved.startsWith("jdbc:mysql:") && !resolved.startsWith("jdbc:log4jdbc:")) {
+            resolved = "jdbc:log4jdbc:" + resolved.substring(5);
+        }
+        return resolved;
     }
 
     private String resolveValue(String injectedVal, String... fallbackKeys) {
@@ -102,7 +126,7 @@ public class RootConfig {
             val = System.getProperty(key);
             if (val != null && !val.isBlank()) return val.trim();
         }
-        return injectedVal != null ? injectedVal.trim() : "";
+        return (injectedVal != null && !injectedVal.startsWith("${")) ? injectedVal.trim() : "";
     }
 
     @Bean
