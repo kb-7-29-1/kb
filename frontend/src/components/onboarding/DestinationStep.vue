@@ -30,6 +30,12 @@ const purposes = [
   { id: 'etc', label: '기타', icon: '🏠' },
 ];
 
+const destinationExamples = [
+  { title: '학교·캠퍼스', example: '예) 세종대학교', icon: '🎓' },
+  { title: '직장·근무지', example: '예) KB국민은행', icon: '💼' },
+  { title: '자주 가는 장소', example: '예) 잠실역·병원', icon: '📍' },
+];
+
 let searchTimer;
 let searchRequestId = 0;
 let selectionReleaseTimer;
@@ -104,17 +110,11 @@ const scheduleSearch = (value) => {
   searchError.value = '';
 
   const searchKeyword = (value || '').trim();
-  if (
-    selectedDestination.value &&
-    selectedDestination.value.destName !== value
-  ) {
+  if (selectedDestination.value && selectedDestination.value.destName !== value) {
     selectedDestination.value = null;
   }
 
-  if (
-    searchKeyword.length < 2 ||
-    selectedDestination.value?.destName === value
-  ) {
+  if (searchKeyword.length < 2 || selectedDestination.value?.destName === value) {
     destinations.value = [];
     isSearching.value = false;
     return;
@@ -130,8 +130,7 @@ const scheduleSearch = (value) => {
     } catch (error) {
       if (requestId !== searchRequestId) return;
       destinations.value = [];
-      searchError.value =
-        '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('DESTINATION SEARCH ERROR: ', error);
     } finally {
       if (requestId === searchRequestId) isSearching.value = false;
@@ -177,26 +176,16 @@ onBeforeUnmount(() => {
       <h2>자주 방문하는 장소를 알려주세요</h2>
       <p class="description">목적지를 기준으로 나에게 맞는 매물을 찾아드려요</p>
 
-      <div class="purpose-list" role="group" aria-label="목적지 유형">
-        <button
-          v-for="purpose in purposes"
-          :key="purpose.id"
-          type="button"
-          class="purpose-button"
-          :class="{ active: selectedPurpose === purpose.id }"
-          @click="selectedPurpose = purpose.id"
-        >
-          <span class="purpose-icon" aria-hidden="true">{{
-            purpose.icon
-          }}</span>
-          {{ purpose.label }}
-        </button>
+      <div class="purpose-list" role="list" aria-label="검색 가능한 목적지 예시">
+        <div v-for="example in destinationExamples" :key="example.title" class="purpose-example">
+          <span class="purpose-example__icon" aria-hidden="true">{{ example.icon }}</span>
+          <strong>{{ example.title }}</strong>
+          <small>{{ example.example }}</small>
+        </div>
       </div>
 
       <div class="search-field">
-        <label class="search-label" for="destination"
-          >학교/직장 이름 또는 주소</label
-        >
+        <label class="search-label" for="destination">목적지 이름 또는 주소</label>
         <div class="search-box">
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input
@@ -226,11 +215,7 @@ onBeforeUnmount(() => {
           {{ searchError }}
         </p>
         <p
-          v-else-if="
-            keyword.trim().length >= 2 &&
-            !selectedDestination &&
-            !destinations.length
-          "
+          v-else-if="keyword.trim().length >= 2 && !selectedDestination && !destinations.length"
           class="search-message"
         >
           검색 결과가 없어요.
@@ -238,14 +223,8 @@ onBeforeUnmount(() => {
 
         <div class="search-feedback">
           <ul v-if="destinations.length" class="suggestion-list">
-            <li
-              v-for="item in destinations"
-              :key="`${item.destName}-${item.destAddress}`"
-            >
-              <button
-                type="button"
-                @pointerdown.capture.prevent="selectDestination(item)"
-              >
+            <li v-for="item in destinations" :key="`${item.destName}-${item.destAddress}`">
+              <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
                 <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
                 <span>
                   <strong>{{ item.destName }}</strong>
@@ -352,7 +331,71 @@ h2 {
   transform: scale(0.97);
 }
 
+.purpose-example {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 92px;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #f8faff;
+  color: #475569;
+  text-align: center;
+  animation: destination-example-enter 0.36s ease both;
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.purpose-example:nth-child(2) {
+  animation-delay: 0.06s;
+}
+
+.purpose-example:nth-child(3) {
+  animation-delay: 0.12s;
+}
+
+.purpose-example__icon {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.purpose-example strong {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.purpose-example small {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+@keyframes destination-example-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (hover: hover) {
+  .purpose-example:hover {
+    border-color: #bfd0ff;
+    background: #f3f6ff;
+    box-shadow: 0 8px 16px -14px rgba(42, 96, 247, 0.5);
+    transform: translateY(-2px);
+  }
+
   .purpose-button:hover {
     border-color: #b9c8ff;
     background: #f8faff;
