@@ -55,19 +55,21 @@ public class RootConfig {
 
     @Bean
     public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
-        return new PropertySourcesPlaceholderConfigurer();
+        PropertySourcesPlaceholderConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
+        configurer.setIgnoreUnresolvablePlaceholders(true);
+        return configurer;
     }
 
-    @Value("${jdbc.driver}")
+    @Value("${jdbc.driver:${JDBC_DRIVER:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}")
     String driver;
 
-    @Value("${jdbc.url}")
+    @Value("${jdbc.url:${JDBC_URL:}}")
     String url;
 
-    @Value("${jdbc.username}")
+    @Value("${jdbc.username:${JDBC_USERNAME:}}")
     String username;
 
-    @Value("${jdbc.password}")
+    @Value("${jdbc.password:${JDBC_PASSWORD:}}")
     String password;
 
     @Bean
@@ -99,9 +101,8 @@ public class RootConfig {
     }
 
     @Bean
-    public DataSourceTransactionManager transactionManager(){
+    public DataSourceTransactionManager transactionManager() {
         DataSourceTransactionManager manager = new DataSourceTransactionManager(dataSource());
         return manager;
     }
 }
- 
