@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -21,8 +22,8 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableScheduling
-@PropertySource(value = {"classpath:/application.properties"}, ignoreResourceNotFound = true)
-@MapperScan(basePackages  = {"com.salgosipo.amenity.mapper",
+@PropertySource(value = { "classpath:/application.properties" }, ignoreResourceNotFound = true)
+@MapperScan(basePackages = { "com.salgosipo.amenity.mapper",
         "com.salgosipo.auth.mapper",
         "com.salgosipo.bookmark.mapper",
         "com.salgosipo.comment.mapper",
@@ -31,8 +32,8 @@ import javax.sql.DataSource;
         "com.salgosipo.property.mapper",
         "com.salgosipo.routevote.mapper",
         "com.salgosipo.safety.mapper",
-        "com.salgosipo.user.mapper"})
-@ComponentScan(basePackages = {"com.salgosipo.amenity.service",
+        "com.salgosipo.user.mapper" })
+@ComponentScan(basePackages = { "com.salgosipo.amenity.service",
         "com.salgosipo.auth.service",
         "com.salgosipo.bookmark.service",
         "com.salgosipo.comment.service",
@@ -46,22 +47,29 @@ import javax.sql.DataSource;
         "com.salgosipo.loan.service",
         "com.salgosipo.loan.client",
         "com.salgosipo.amenity.client",
-        "com.salgosipo.global.config"})
+        "com.salgosipo.global.config" })
 public class RootConfig {
-    //프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
+    // 프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired
     ApplicationContext applicationContext;
 
-    @Value("${jdbc.driver}")
+    @Bean
+    public static PropertySourcesPlaceholderConfigurer propertySourcesPlaceholderConfigurer() {
+        PropertySourcesPlaceholderConfigurer configurer = new PropertySourcesPlaceholderConfigurer();
+        configurer.setIgnoreUnresolvablePlaceholders(true);
+        return configurer;
+    }
+
+    @Value("${jdbc.driver:${JDBC_DRIVER:net.sf.log4jdbc.sql.jdbcapi.DriverSpy}}")
     String driver;
 
-    @Value("${jdbc.url}")
+    @Value("${jdbc.url:${JDBC_URL:}}")
     String url;
 
-    @Value("${jdbc.username}")
+    @Value("${jdbc.username:${JDBC_USERNAME:}}")
     String username;
 
-    @Value("${jdbc.password}")
+    @Value("${jdbc.password:${JDBC_PASSWORD:}}")
     String password;
 
     @Bean
@@ -93,7 +101,7 @@ public class RootConfig {
     }
 
     @Bean
-    public DataSourceTransactionManager transactionManager(){
+    public DataSourceTransactionManager transactionManager() {
         DataSourceTransactionManager manager = new DataSourceTransactionManager(dataSource());
         return manager;
     }
