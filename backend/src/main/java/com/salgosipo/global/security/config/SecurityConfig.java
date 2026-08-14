@@ -124,7 +124,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                           "/api/amenities/filter",
                           "/api/amenities/filter/properties").permitAll()
                 .antMatchers("/api/auth/**","/api/loan/**").permitAll()
-                .anyRequest().authenticated();
+                .antMatchers("/api/**").authenticated()
+                .anyRequest().permitAll();
     }
 
     @Override
