@@ -82,6 +82,9 @@ public class RootConfig {
 
     @Bean
     public DataSource dataSource() {
+        System.out.println(">>> [DB CONFIG] Starting DataSource initialization...");
+        System.out.println(">>> [DB CONFIG] Environment variable keys available: " + System.getenv().keySet());
+
         HikariConfig config = new HikariConfig();
         String resolvedDriver = resolveValue(driver, "jdbc.driver", "JDBC_DRIVER", "jdbc_driver");
         if (resolvedDriver.isBlank()) {
@@ -90,7 +93,8 @@ public class RootConfig {
         config.setDriverClassName(resolvedDriver);
 
         String resolvedUrl = resolveJdbcUrl(url, "jdbc.url", "JDBC_URL", "jdbc_url", "MYSQL_URL", "MYSQLURL", "DATABASE_URL", "MYSQL_PUBLIC_URL");
-        config.setJdbcUrl(resolvedUrl);
+        System.out.println(">>> [DB CONFIG] Resolved Driver: " + resolvedDriver);
+        System.out.println(">>> [DB CONFIG] Resolved JDBC URL: " + (resolvedUrl.isEmpty() ? "(EMPTY!)" : resolvedUrl.substring(0, Math.min(25, resolvedUrl.length())) + "..."));
 
         String resolvedUser = resolveValue(username, "jdbc.username", "JDBC_USERNAME", "jdbc_username", "MYSQLUSER", "MYSQL_USER", "DATABASE_USER");
         config.setUsername(resolvedUser);
@@ -125,6 +129,14 @@ public class RootConfig {
             if (val != null && !val.isBlank()) return val.trim();
             val = System.getProperty(key);
             if (val != null && !val.isBlank()) return val.trim();
+        }
+        for (String envKey : System.getenv().keySet()) {
+            for (String key : fallbackKeys) {
+                if (envKey.equalsIgnoreCase(key) || envKey.equalsIgnoreCase(key.replace('.', '_'))) {
+                    String val = System.getenv(envKey);
+                    if (val != null && !val.isBlank()) return val.trim();
+                }
+            }
         }
         return (injectedVal != null && !injectedVal.startsWith("${")) ? injectedVal.trim() : "";
     }
