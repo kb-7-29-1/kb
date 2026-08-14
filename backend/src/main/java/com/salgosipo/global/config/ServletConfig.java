@@ -43,6 +43,10 @@ public class ServletConfig implements WebMvcConfigurer {
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addViewController("/")
                 .setViewName("forward:/resources/index.html");
+        registry.addViewController("/{path:[^\\.]*}")
+                .setViewName("forward:/resources/index.html");
+        registry.addViewController("/**/{path:[^\\.]*}")
+                .setViewName("forward:/resources/index.html");
     }
 
     @Override
