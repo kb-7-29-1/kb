@@ -26,7 +26,7 @@ public class WalkingApiClient {
 
     // 기준 좌표에서 가장 가까운 편의시설을 검색해 위도·경도를 반환
     public double[] findNearestPlace(Double centerLat, Double centerLng, String keyword) {
-        String url = "https://apis.openapi.sk.com/tmap/pois?version=1&searchKeyword={keyword}&centerLat={lat}&centerLon={lon}&radius=2&count=1";
+        String url = "https://apis.openapi.sk.com/tmap/pois?version=1&searchKeyword={keyword}&centerLat={lat}&centerLon={lon}&radius=2&searchtypCd=R&count=1";
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("appKey", tmapApiKey);

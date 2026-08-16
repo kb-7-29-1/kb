@@ -532,6 +532,31 @@ public class SafetyServiceImpl implements SafetyService {
         return calculated;
     }
 
+    @Override
+    public List<SafetyFacilityVO> getRouteFacilities(Long propertyId, Integer destinationId) {
+        SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(propertyId, destinationId);
+        if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
+            throw new IllegalArgumentException(
+                    "저장된 경로가 없습니다. 먼저 안전점수를 계산해주세요."
+            );
+        }
+
+        PedestrianRoute route = new PedestrianRoute();
+        route.setRoutePoints(deserializeRoutePoints(cachedRoute.getRoutePointsJson()));
+
+        BoundingBox boundingBox = calculateBoundingBox(route);
+        List<SafetyFacilityVO> candidates = safetyFacilityRepository.findInBounds(
+                boundingBox.minLatitude(),
+                boundingBox.maxLatitude(),
+                boundingBox.minLongitude(),
+                boundingBox.maxLongitude()
+        );
+
+        // bbox 조회 결과는 여유 마진(520m)이 포함돼 있어 범위가 넓으므로,
+        // 점수 계산과 동일한 반경 기준으로 실제 경로에 영향을 준 시설물만 다시 걸러냄
+        return safetyScoreCalculator.filterFacilitiesNearRoute(route, candidates);
+    }
+
     private SafetyRouteCandidateDTO createRouteCandidateFromCache(
             PropertySafetyVO safety,
             SafetyRouteCacheVO routeCache
