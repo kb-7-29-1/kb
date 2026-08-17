@@ -1,3 +1,5 @@
+import { isPointInUnsupportedDistrict } from '@/utils/districtPolygonOverlay.js';
+
 /**
  * [도커 라우팅 전용 오버레이 모듈: hybridRouteOverlay.js]
  * 발할라(도보) 및 그래프호퍼(대중교통) 경로와 스마트 칩 네임카드를 네이버 지도 위에 렌더링합니다.
@@ -102,6 +104,40 @@ export function createSafetyScoreChipHTML({ score, color, isDataMissing }) {
 }
 
 /**
+ * 도보 경로 점 목록을 미지원 자치구 통과 여부에 따라 연속/비연속 구간별로 지능형 분할합니다.
+ */
+export function splitRouteBySupportStatus(points) {
+  if (!Array.isArray(points) || points.length < 2) return [];
+
+  const segments = [];
+  let currentSegment = {
+    isSupported: !isPointInUnsupportedDistrict(points[0].lat, points[0].lng),
+    points: [points[0]],
+  };
+
+  for (let i = 1; i < points.length; i++) {
+    const pt = points[i];
+    const ptIsSupported = !isPointInUnsupportedDistrict(pt.lat, pt.lng);
+
+    if (ptIsSupported === currentSegment.isSupported) {
+      currentSegment.points.push(pt);
+    } else {
+      // 경계 연결성 보장을 위해 전환점 공유
+      currentSegment.points.push(pt);
+      segments.push(currentSegment);
+      currentSegment = {
+        isSupported: ptIsSupported,
+        points: [pt],
+      };
+    }
+  }
+  if (currentSegment.points.length >= 2) {
+    segments.push(currentSegment);
+  }
+  return segments;
+}
+
+/**
  * 발할라 & 호퍼 하이브리드 경로 지도 렌더러
  * @returns {object} { polylines: Array, markers: Array, lastRouteKey: string }
  */
@@ -186,7 +222,7 @@ export function renderHybridRouteOverlays({
     return overlays;
   }
 
-  // 2. [단일 도보/안전 경로 발할라 렌더링]
+  // 2. [단일 도보/안전 경로 발할라 렌더링 - 미지원 구역 지능형 구간 분할 음영 처리]
   const rawPoints = safetyRoute?.routePoints;
   if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
     return overlays;
@@ -214,32 +250,82 @@ export function renderHybridRouteOverlays({
   const routeKey = `${safetyRoute?.routeId || 'route'}_${points.length}_${first.lat}_${first.lng}_${last.lat}_${last.lng}`;
   overlays.lastRouteKey = routeKey;
 
-  const path = points.map((point) => new window.naver.maps.LatLng(point.lat, point.lng));
   const score = safetyRoute?.safetyScore;
   const grade = safetyRoute?.safetyGrade;
   const isDataMissing = score == null;
-  const color = isDataMissing ? TRANSIT_COLORS.WALK_UNSUPPORTED : (gradeColors[grade] || '#4058f5');
+  const gradeColor = gradeColors[grade] || '#4058f5';
 
-  const polyline = new window.naver.maps.Polyline({
-    map: mapInstance,
-    path,
-    strokeColor: color,
-    strokeWeight: isDataMissing ? 6 : 7,
-    strokeOpacity: isDataMissing ? 0.82 : 0.92,
-    strokeStyle: isDataMissing ? 'dash' : 'solid',
-    zIndex: 18,
+  // 🎯 경로를 8개 미지원 자치구 폴리곤 교차 여부에 따라 구간 분할
+  const subSegments = splitRouteBySupportStatus(points);
+
+  subSegments.forEach((subSeg) => {
+    const path = subSeg.points.map((p) => new window.naver.maps.LatLng(p.lat, p.lng));
+    const isSegSupported = subSeg.isSupported && !isDataMissing;
+
+    const strokeColor = isSegSupported ? gradeColor : TRANSIT_COLORS.WALK_UNSUPPORTED;
+    const strokeStyle = 'solid'; // 🎯 미지원 구간도 끊김 없는 깔끔한 실선(solid) 적용!
+    const strokeWeight = isSegSupported ? 7 : 6.5;
+    const strokeOpacity = isSegSupported ? 0.95 : 0.88;
+
+    const polyline = new window.naver.maps.Polyline({
+      map: mapInstance,
+      path,
+      strokeColor,
+      strokeWeight,
+      strokeOpacity,
+      strokeStyle,
+      zIndex: isSegSupported ? 19 : 17,
+    });
+    overlays.polylines.push(polyline);
+
+    // 미지원 구간 전용 안내 뱃지
+    if (!subSeg.isSupported && path.length >= 2) {
+      const midPoint = path[Math.floor(path.length / 2)];
+      const unsuppMarker = new window.naver.maps.Marker({
+        map: mapInstance,
+        position: midPoint,
+        icon: {
+          content: `
+            <div style="
+              background: #64748b;
+              color: #ffffff;
+              font-size: 10.5px;
+              font-weight: 700;
+              padding: 2.5px 7px;
+              border-radius: 999px;
+              white-space: nowrap;
+              box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+              border: 1.5px solid rgba(255,255,255,0.85);
+              user-select: none;
+            ">
+              🔒 미지원 구역 (보안등 제외)
+            </div>
+          `,
+          anchor: new window.naver.maps.Point(40, 10),
+        },
+        zIndex: 18,
+      });
+      overlays.markers.push(unsuppMarker);
+    }
   });
-  overlays.polylines.push(polyline);
 
-  const midPoint = path[Math.floor(path.length / 2)];
+  // 대표 안전점수 뱃지 (전체 경로의 중간 지점 또는 첫 지원 구간)
+  const fullPath = points.map((point) => new window.naver.maps.LatLng(point.lat, point.lng));
+  const mainMidPoint = fullPath[Math.floor(fullPath.length / 2)];
+  const hasUnsupported = subSegments.some((s) => !s.isSupported);
+
   const scoreMarker = new window.naver.maps.Marker({
     map: mapInstance,
-    position: midPoint,
+    position: mainMidPoint,
     icon: {
-      content: createSafetyScoreChipHTML({ score, color, isDataMissing }),
+      content: createSafetyScoreChipHTML({
+        score,
+        color: isDataMissing ? TRANSIT_COLORS.WALK_UNSUPPORTED : gradeColor,
+        isDataMissing,
+      }),
       anchor: new window.naver.maps.Point(isDataMissing ? 38 : 24, 12),
     },
-    zIndex: 19,
+    zIndex: 21,
   });
   overlays.markers.push(scoreMarker);
 

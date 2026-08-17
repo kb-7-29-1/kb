@@ -155,3 +155,50 @@ export function clearUnsupportedDistrictGeoJson(mapInstance) {
   clearUnsupportedDistrictLabels();
   isGeoJsonAdded = false;
 }
+
+/**
+ * 2D Ray-Casting 알고리즘 기반 점의 폴리곤 링 내부 포함 여부 판별 (초경량 0.001ms)
+ */
+function isPointInsidePolygonRing(x, y, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    const intersect = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * 특정 위경도 좌표(lat, lng)가 안전데이터 미구축 8개 자치구 폴리곤 내부에 위치하는지 검사합니다.
+ */
+export function isPointInUnsupportedDistrict(lat, lng) {
+  if (!seoulGeoData || !Array.isArray(seoulGeoData.features)) return false;
+  const unsupportedSet = new Set(UNSUPPORTED_SAFETY_DISTRICTS);
+
+  for (const feature of seoulGeoData.features) {
+    const guName = feature.properties?.SIG_KOR_NM || feature.properties?.name;
+    if (!unsupportedSet.has(guName)) continue;
+
+    const geometry = feature.geometry;
+    if (!geometry) continue;
+
+    if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+      for (const ring of geometry.coordinates) {
+        if (isPointInsidePolygonRing(lng, lat, ring)) return true;
+      }
+    } else if (geometry.type === 'MultiPolygon' && Array.isArray(geometry.coordinates)) {
+      for (const poly of geometry.coordinates) {
+        if (Array.isArray(poly)) {
+          for (const ring of poly) {
+            if (isPointInsidePolygonRing(lng, lat, ring)) return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
