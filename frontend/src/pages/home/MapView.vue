@@ -43,7 +43,11 @@ import DistrictToast from '@/components/common/DistrictToast.vue';
 import { isSupportedSafetyDistrict } from '@/utils/districtSupport.js';
 import { useDistrictToast } from '@/composables/useDistrictToast.js';
 
-const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
+const emit = defineEmits([
+  'open-filter',
+  'apply-amenity-filters',
+  'update:applied-onboarding-filters',
+]);
 const route = useRoute();
 const router = useRouter();
 
@@ -507,6 +511,16 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
   );
 
   handleApplyFilters(true);
+  emit('update:applied-onboarding-filters', {
+    ...appliedFilterState.value,
+    destination: {
+      destinationId: filterState.value.destinationId,
+      destName: finalDestName,
+      destAddress: filterState.value.destinationAddress,
+      destLatitude: filterState.value.destinationLat,
+      destLongitude: filterState.value.destinationLng,
+    },
+  });
 };
 
 const handleApplyFilters = async (
@@ -1930,31 +1944,31 @@ const {
         mobilePanelHeight === 'EXPANDED'
           ? 'h-full xl:h-full'
           : mobilePanelHeight === 'COLLAPSED'
-            ? 'h-[120px] xl:h-full'
+            ? 'h-[36px] xl:h-full'
             : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-4 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        class="w-full h-[36px] bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0 border-b border-slate-100"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
       >
-        <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
+        <span class="w-20 h-1 bg-slate-300 rounded-full"></span>
       </div>
 
-      <!-- 모바일 전용 탭 스위처 ([📋 매물 목록] | [🏠 선택 매물 상세]) -->
+      <!-- 모바일 전용 슬림 탭 스위처 ([📋 매물 목록] | [🏠 상세 정보]) -->
       <div
-        class="flex xl:hidden items-center px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none"
+        class="flex xl:hidden items-center px-3 py-1 bg-slate-50 border-b border-slate-100 gap-1.5 shrink-0 select-none"
       >
         <button
           type="button"
-          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold transition-all flex items-center justify-center gap-1"
           :class="[
             mobileSidebarTab === 'list'
-              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              ? 'bg-white text-blue-600 shadow-xs border border-slate-200/80 font-black'
               : 'text-slate-500 hover:text-slate-800',
           ]"
           @click="mobileSidebarTab = 'list'"
@@ -1964,10 +1978,10 @@ const {
         </button>
         <button
           type="button"
-          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold transition-all flex items-center justify-center gap-1"
           :class="[
             mobileSidebarTab === 'detail'
-              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              ? 'bg-white text-blue-600 shadow-xs border border-slate-200/80 font-black'
               : selectedProperty
                 ? 'text-slate-700 hover:text-slate-900'
                 : 'text-slate-300 cursor-not-allowed',
@@ -1979,7 +1993,7 @@ const {
           <span>상세 정보</span>
           <span
             v-if="selectedProperty"
-            class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"
+            class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"
           ></span>
         </button>
       </div>
