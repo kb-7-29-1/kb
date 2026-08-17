@@ -53,6 +53,8 @@ tmp/
 application-*.yml
 application-*.properties
 application.properties
+!backend/src/main/resources/docker-routing.properties
+!docker-routing.properties
 *.pem
 *.key
 *.p12
