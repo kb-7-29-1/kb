@@ -39,6 +39,7 @@ public class SafetyRouteClient {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     private final String tmapApiKey;
+    private final com.salgosipo.global.routing.ValhallaPedestrianClient valhallaClient;
 
     public SafetyRouteClient(String tmapApiKey) {
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
@@ -49,12 +50,14 @@ public class SafetyRouteClient {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
         this.tmapApiKey = tmapApiKey;
+        this.valhallaClient = new com.salgosipo.global.routing.ValhallaPedestrianClient();
     }
 
     SafetyRouteClient(String tmapApiKey, RestTemplate restTemplate, ObjectMapper objectMapper) {
         this.tmapApiKey = tmapApiKey;
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
+        this.valhallaClient = new com.salgosipo.global.routing.ValhallaPedestrianClient();
     }
 
     public PedestrianRoute findPreferredRoute(
@@ -65,6 +68,23 @@ public class SafetyRouteClient {
             double endLongitude,
             String endName
     ) {
+        // 1. [스위처] DOCKER 모드일 때 발할라 도보 엔진 우선 실행 (TMAP 호출 X)
+        String engineMode = resolveEngineMode();
+        if ("DOCKER".equalsIgnoreCase(engineMode)) {
+            try {
+                PedestrianRoute dockerRoute = valhallaClient.findPedestrianRoute(startLatitude, startLongitude, endLatitude, endLongitude);
+                if (dockerRoute != null && dockerRoute.getRoutePoints() != null && dockerRoute.getRoutePoints().size() >= 2) {
+                    log.info("[SafetyRouteClient] ⚡ 발할라(Valhalla) 도보 경로 연산 성공! (거리: {}m, 시간: {}초, TMAP 호출 0건)",
+                            dockerRoute.getDistanceMeters(), dockerRoute.getTotalTimeSeconds());
+                    return dockerRoute;
+                }
+                log.warn("[SafetyRouteClient] 발할라 결과 없음. TMAP으로 자동 백업(Fallback) 전환합니다.");
+            } catch (Exception e) {
+                log.warn("[SafetyRouteClient] 발할라 연산 예외({}). TMAP으로 자동 백업(Fallback) 전환합니다.", e.getMessage());
+            }
+        }
+
+        // 2. [기존 안전망] TMAP 모드이거나 도커 장애 시 기존 TMAP 호출
         if (tmapApiKey == null || tmapApiKey.isBlank()) {
             throw new IllegalStateException("TMAP_API_KEY가 설정되어 있지 않습니다.");
         }
@@ -88,6 +108,10 @@ public class SafetyRouteClient {
         }
 
         return route;
+    }
+
+    private String resolveEngineMode() {
+        return com.salgosipo.global.routing.RoutingConfigLoader.getEngineMode();
     }
 
     private PedestrianRoute requestRoute(
