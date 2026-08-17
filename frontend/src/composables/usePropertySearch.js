@@ -4,6 +4,17 @@ import { DEFAULT_DEPOSIT, DEFAULT_RENT, LOAN_PRODUCTS } from '@/utils/budget';
 import { getSearchRadiusKm, getMinSearchRadiusKm } from '@/utils/isochroneFilter.js';
 import { calculateDistanceKm } from '@/utils/geo.js';
 import safetyService from '@/api/safetyService.js';
+import { UNSUPPORTED_SAFETY_DISTRICTS, isSeoulServiceArea } from '@/utils/districtPolygonOverlay.js';
+
+/**
+ * 자치구 및 지역 주소를 검사하여 안전점수 계산 가능 대상인지 사전에 고속 판별합니다.
+ */
+function isEligibleForSafetyCalculation(item) {
+  if (!item) return false;
+  const address = item.address || item.roadAddress || item.jibunAddress || item.title || '';
+  if (!isSeoulServiceArea(address)) return false;
+  return !UNSUPPORTED_SAFETY_DISTRICTS.some((gu) => address.includes(gu));
+}
 
 /**
  * 백엔드 REST API 매물 조회 및 무한 스크롤 페이징, 대출 상한 계산을 전담 관리하는 Composable입니다.
@@ -145,16 +156,19 @@ export function usePropertySearch() {
         return true;
       });
 
-      properties.value = candidates.map((item) => ({
-        ...item,
-        isSafetyLoading: item.safetyScore == null,
-      }));
+      properties.value = candidates.map((item) => {
+        const isEligible = isEligibleForSafetyCalculation(item);
+        return {
+          ...item,
+          isSafetyLoading: isEligible && item.safetyScore == null,
+        };
+      });
       updateLastFetchedCenter(centerLat, centerLng);
 
       // 목적지별 안전점수를 백그라운드(non-blocking)로 일괄 준비 및 병합합니다.
       const dest = destinationConfig.value;
       const uncachedPropertyIds = candidates
-        .filter((item) => item.safetyScore == null)
+        .filter((item) => isEligibleForSafetyCalculation(item) && item.safetyScore == null)
         .map((item) => Number(item.propertyId))
         .filter(Boolean);
 

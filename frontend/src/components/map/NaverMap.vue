@@ -25,6 +25,14 @@ import {
   getRecentDestinations,
   findMatchingDestination,
 } from '@/utils/recentDestinations.js';
+import {
+  renderUnsupportedDistrictGeoJson,
+  clearUnsupportedDistrictGeoJson,
+} from '@/utils/districtPolygonOverlay.js';
+import {
+  renderHybridRouteOverlays,
+  clearHybridRouteOverlays,
+} from '@/utils/hybridRouteOverlay.js';
 
 const props = defineProps({
   properties: {
@@ -266,6 +274,8 @@ const scheduleSelectedPropertyContextFit = () => {
   });
 };
 
+let activeHybridRouteState = { polylines: [], markers: [], lastRouteKey: '' };
+
 const clearSafetyRoutePolyline = () => {
   if (safetyRoutePolyline) {
     safetyRoutePolyline.setMap(null);
@@ -275,12 +285,32 @@ const clearSafetyRoutePolyline = () => {
     safetyRouteScoreLabel.setMap(null);
     safetyRouteScoreLabel = null;
   }
+  clearHybridRouteOverlays(activeHybridRouteState);
+  activeHybridRouteState = { polylines: [], markers: [], lastRouteKey: '' };
   lastSafetyRouteKey = '';
 };
 
 const renderSafetyRoute = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
 
+  // 🚌 [대중교통 다중 구간(도보1 + 대중교통2 + 도보3) 호퍼 확장 렌더링]
+  if (
+    Array.isArray(props.safetyRoute?.transitSegments) &&
+    props.safetyRoute.transitSegments.length > 0
+  ) {
+    clearSafetyRoutePolyline();
+    activeHybridRouteState = renderHybridRouteOverlays({
+      mapInstance: mapInstance.value,
+      safetyRoute: props.safetyRoute,
+      gradeColors: GRADE_COLOR,
+    });
+    if (activeHybridRouteState.polylines.length > 0) {
+      scheduleSelectedPropertyContextFit();
+    }
+    return;
+  }
+
+  // 🚶 [기존 단일 안전 경로 및 미지원 구역 그레이 렌더링 유지]
   const rawPoints = props.safetyRoute?.routePoints;
   if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
     clearSafetyRoutePolyline();
@@ -324,34 +354,36 @@ const renderSafetyRoute = () => {
     (point) => new window.naver.maps.LatLng(point.lat, point.lng),
   );
 
+  const score = props.safetyRoute?.safetyScore;
   const grade = props.safetyRoute?.safetyGrade;
-  const color = GRADE_COLOR[grade] || '#4058f5';
+  const isDataMissing = score == null;
+  const color = isDataMissing ? '#94a3b8' : GRADE_COLOR[grade] || '#4058f5';
 
   safetyRoutePolyline = new window.naver.maps.Polyline({
     map: mapInstance.value,
     path,
     strokeColor: color,
-    strokeWeight: 7,
-    strokeOpacity: 0.92,
-    strokeStyle: 'solid',
+    strokeWeight: isDataMissing ? 6 : 7,
+    strokeOpacity: isDataMissing ? 0.82 : 0.92,
+    strokeStyle: isDataMissing ? 'dash' : 'solid',
     zIndex: 18,
   });
   lastSafetyRouteKey = routeKey;
 
-  const score = props.safetyRoute?.safetyScore;
-  if (score != null) {
-    const midPoint = path[Math.floor(path.length / 2)];
-    safetyRouteScoreLabel = new window.naver.maps.Marker({
-      map: mapInstance.value,
-      position: midPoint,
-      icon: {
-        content: `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`,
-        anchor: new window.naver.maps.Point(24, 12),
-      },
-      zIndex: 19,
-    });
-  }
+  const midPoint = path[Math.floor(path.length / 2)];
+  const labelContent = isDataMissing
+    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 부족</div>`
+    : `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`;
 
+  safetyRouteScoreLabel = new window.naver.maps.Marker({
+    map: mapInstance.value,
+    position: midPoint,
+    icon: {
+      content: labelContent,
+      anchor: new window.naver.maps.Point(isDataMissing ? 38 : 24, 12),
+    },
+    zIndex: 19,
+  });
   // 경로·목적지·선택 매물·편의시설을 포함하도록 카메라 조정
   scheduleSelectedPropertyContextFit();
 };
@@ -495,7 +527,13 @@ const renderMarkers = () => {
       nextMarkerKeys.add(propKey);
 
       if (!activePropertyMarkersMap.has(propKey)) {
-        nodesToCreate.push({ type: 'prop', key: propKey, prop, isSelected, isFeaturedLoan });
+        nodesToCreate.push({
+          type: 'prop',
+          key: propKey,
+          prop,
+          isSelected,
+          isFeaturedLoan,
+        });
       }
     }
   });
@@ -800,6 +838,7 @@ const initMap = () => {
       renderMarkers();
       renderAmenityMarkers();
       renderSafetyRoute();
+      renderUnsupportedDistrictGeoJson(mapInstance.value);
       renderDebugViewportRectangle();
       setupResizeObserver();
       checkDistanceToDestination();
@@ -1248,6 +1287,7 @@ onUnmounted(() => {
   clearSafetyRoutePolyline();
   clearRouteFacilityOverlays();
   clearPendingDestinationOverlay();
+  clearUnsupportedDistrictGeoJson(mapInstance.value);
   if (debugViewportRectangleInstance) {
     debugViewportRectangleInstance.setMap(null);
     debugViewportRectangleInstance = null;

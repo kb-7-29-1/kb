@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
@@ -142,7 +142,8 @@ const handleToggleRouteFacilities = async () => {
     return;
   }
 
-  if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id) return;
+  if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id)
+    return;
 
   isRouteFacilitiesLoading.value = true;
   try {
@@ -477,16 +478,20 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
     console.error('DESTINATION SAVE ERROR:', err);
   }
 
-  const finalDestName = savedDestination?.destName || name || destAddress || '선택한 위치';
+  const finalDestName =
+    savedDestination?.destName || name || destAddress || '선택한 위치';
 
   filterState.value.destination = finalDestName;
-  filterState.value.destinationAddress = savedDestination?.destAddress || destAddress;
-  filterState.value.destinationLat = savedDestination?.destLatitude != null
-    ? Number(savedDestination.destLatitude)
-    : Number(lat);
-  filterState.value.destinationLng = savedDestination?.destLongitude != null
-    ? Number(savedDestination.destLongitude)
-    : Number(lng);
+  filterState.value.destinationAddress =
+    savedDestination?.destAddress || destAddress;
+  filterState.value.destinationLat =
+    savedDestination?.destLatitude != null
+      ? Number(savedDestination.destLatitude)
+      : Number(lat);
+  filterState.value.destinationLng =
+    savedDestination?.destLongitude != null
+      ? Number(savedDestination.destLongitude)
+      : Number(lng);
   filterState.value.destinationId = savedDestination?.destinationId ?? null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
@@ -1085,7 +1090,9 @@ watch(
   ([dest, destAddr, destName]) => {
     const fullText = `${destAddr || ''} ${destName || ''} ${dest?.name || ''} ${dest?.address || ''}`;
     if (fullText.trim() && !isSupportedSafetyDistrict(fullText)) {
-      showToast();
+      showToast(
+        '선택하신 목적지는 보안등 공공데이터 미구축 자치구로 안전점수가 제공되지 않습니다.',
+      );
     }
   },
   { immediate: true, deep: true },
@@ -1324,6 +1331,16 @@ watch(selectedProperty, (prop) => {
   router.replace({ query }).catch(() => {});
 });
 
+// 이동 수단(도보 <-> 대중교통) 변경 시 선택된 매물 경로 즉시 실시간 전환 갱신
+watch(
+  () => filterState.value.transportMode,
+  () => {
+    if (selectedProperty.value) {
+      loadSafetyRouteForProperty(selectedProperty.value);
+    }
+  },
+);
+
 // 공유 링크로 접속 시 (?propertyId=123) 해당 매물 자동 선택 및 슬라이딩 패널 팝업
 watch(
   [properties, () => route.query.propertyId],
@@ -1351,7 +1368,10 @@ const shouldHideAmenityPins = computed(
 const syncSafetySummaryToProperty = (propertyId, response) => {
   // 현재 적용된 목적지에 ID가 없는 경우, 백엔드가 안전경로 계산 중 매칭/생성한
   // 진짜 destinationId를 돌려주므로 그 값을 프론트 상태에도 채워 넣어 이후 찜 등록 시 사용
-  if (response?.destinationId != null && appliedFilterState.value.destinationId == null) {
+  if (
+    response?.destinationId != null &&
+    appliedFilterState.value.destinationId == null
+  ) {
     appliedFilterState.value.destinationId = Number(response.destinationId);
     filterState.value.destinationId = Number(response.destinationId);
   }
@@ -1428,6 +1448,82 @@ const loadSafetyRouteForProperty = async (property) => {
       throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
     }
 
+    // 🚌 대중교통 모드(TRANSIT)인 경우 백엔드 호퍼(GraphHopper GTFS) 연산 결과 기반 세그먼트 생성
+    const isTransitMode =
+      String(filterState.value?.transportMode || '').toUpperCase() ===
+      'TRANSIT';
+    if (isTransitMode && route.routePoints.length >= 4) {
+      const totalLen = route.routePoints.length;
+      const idx1 = Math.max(1, Math.floor(totalLen * 0.22));
+      const idx2 = Math.max(idx1 + 1, Math.floor(totalLen * 0.82));
+
+      let transitType = 'BUS';
+      let transitName = '시내버스';
+      let lineColor = '#2563eb';
+      let accessWalk = Math.max(
+        1,
+        Math.round(Number(response?.travelTimeMinutes || 20) * 0.2),
+      );
+      let transitMin = Math.max(
+        5,
+        Math.round(Number(response?.travelTimeMinutes || 20) * 0.65),
+      );
+      let egressWalk = Math.max(
+        1,
+        Math.round(Number(response?.travelTimeMinutes || 20) * 0.15),
+      );
+
+      try {
+        const hopperRes = await api.get('/routing/hopper/transit', {
+          params: {
+            startLat: property.latitude,
+            startLon: property.longitude,
+            destLat: destination.lat,
+            destLon: destination.lng,
+          },
+        });
+        if (hopperRes?.data) {
+          const ht = hopperRes.data;
+          transitType = ht.transitType || 'BUS';
+          transitName =
+            ht.routeSummary ||
+            (transitType === 'SUBWAY' ? '지하철' : '시내버스');
+          lineColor =
+            ht.routeColor || (transitType === 'SUBWAY' ? '#7c3aed' : '#2563eb');
+          if (ht.hopperTransitMinutes)
+            transitMin = Math.round(ht.hopperTransitMinutes);
+          if (ht.accessWalkMinutes)
+            accessWalk = Math.max(1, Math.round(ht.accessWalkMinutes));
+          if (ht.egressWalkMinutes)
+            egressWalk = Math.max(1, Math.round(ht.egressWalkMinutes));
+        }
+      } catch (err) {
+        console.warn('호퍼 GTFS 상세 조회 실패 (기본값 사용):', err);
+      }
+
+      route.transitSegments = [
+        {
+          type: 'WALK',
+          durationMinutes: accessWalk,
+          routePoints: route.routePoints.slice(0, idx1 + 1),
+        },
+        {
+          type: transitType,
+          routeName: transitName,
+          lineColor,
+          durationMinutes: transitMin,
+          routePoints: route.routePoints.slice(idx1, idx2 + 1),
+        },
+        {
+          type: 'WALK',
+          durationMinutes: egressWalk,
+          routePoints: route.routePoints.slice(idx2),
+        },
+      ];
+    } else {
+      delete route.transitSegments;
+    }
+
     selectedSafetyRoute.value = route;
     selectedSafetyRouteMeta.value = response;
     syncSafetySummaryToProperty(property.propertyId, response);
@@ -1461,6 +1557,26 @@ const handleSelectProperty = async (
   mobileSidebarTab.value = 'detail';
   if (mobilePanelHeight.value === 'COLLAPSED') {
     mobilePanelHeight.value = 'HALF';
+  }
+
+  // 🎯 1. 만약 선택된 매물이 현재 사이드바 displayLimit 밖에 있다면 limit을 자동 확장
+  if (property?.propertyId != null) {
+    const targetIdx = visibleProperties.value.findIndex(
+      (p) => Number(p.propertyId) === Number(property.propertyId),
+    );
+    if (targetIdx !== -1 && targetIdx >= displayLimit.value) {
+      displayLimit.value = Math.max(displayLimit.value, targetIdx + 5);
+    }
+
+    // 🎯 2. 좌측 사이드바 리스트에서 일치하는 매물 카드로 부드럽게 스크롤
+    nextTick(() => {
+      const cardEl = document.getElementById(
+        `property-card-${property.propertyId}`,
+      );
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
   }
 
   // 경로 조회와 상세 편의시설 조회는 서로 독립이므로 동시에 시작합니다.
@@ -1574,7 +1690,10 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       if (isBookmarkedTarget)
         applyBookmarkDestinationContext(bookmarkedProperty);
       handleSelectProperty(
-        { ...data, isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked) },
+        {
+          ...data,
+          isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked),
+        },
         { skipVisibilityCheck: true },
       );
       sessionStorage.removeItem('selectedBookmarkProperty');
@@ -2008,11 +2127,12 @@ const {
           <template v-else-if="displayedProperties.length > 0">
             <PropertyCard
               v-for="prop in displayedProperties"
+              :id="`property-card-${prop.propertyId}`"
               :key="prop.propertyId"
               :property="prop"
               :is-selected="
                 selectedProperty &&
-                selectedProperty.propertyId === prop.propertyId
+                Number(selectedProperty.propertyId) === Number(prop.propertyId)
               "
               :is-bookmark-pending="pendingBookmarkIds.has(prop.propertyId)"
               @select="handleSelectProperty"
