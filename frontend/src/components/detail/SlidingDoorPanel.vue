@@ -403,10 +403,12 @@ const detailImageUrl = computed(() => {
               </span>
               <span
                 class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold"
-                :class="safetyScoreClass"
+                :class="property.isSafetyLoading ? 'bg-blue-50 text-blue-600 animate-pulse' : safetyScoreClass"
               >
-                <i class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
-                {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
+                <i v-if="property.isSafetyLoading" class="fa-solid fa-spinner fa-spin text-[10px]" aria-hidden="true"></i>
+                <i v-else-if="hasSafetyScore" class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
+                <i v-else class="fa-solid fa-shield-slash text-[10px]" aria-hidden="true"></i>
+                {{ property.isSafetyLoading ? '계산 중...' : (hasSafetyScore ? `${property.safetyScore}점` : '데이터 부족') }}
               </span>
             </div>
             <p class="truncate text-[15px] font-bold text-slate-800">

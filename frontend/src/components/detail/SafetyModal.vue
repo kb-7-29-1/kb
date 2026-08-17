@@ -145,7 +145,7 @@ const safetyScore = computed(() => {
 });
 
 const safetyGrade = computed(() => {
-  if (safetyScore.value === null) return '점수 없음';
+  if (safetyScore.value === null) return '데이터 부족';
   if (safetyScore.value >= 80) return '안심';
   if (safetyScore.value >= 60) return '보통';
   return '주의 필요';
