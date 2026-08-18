@@ -46,7 +46,7 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     const deltaY = dragStartY - clientY; // 위로 끌어올리면 양수
     const newHeight = dragStartHeightPx + deltaY;
 
-    const minHeight = window.innerHeight * 0.13;
+    const minHeight = 36; // 손잡이 바 높이까지 완전 접힘 허용
     const maxHeight = window.innerHeight * 0.95;
 
     dragPixelHeight.value = Math.max(minHeight, Math.min(maxHeight, newHeight));
@@ -63,9 +63,9 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     window.removeEventListener('touchend', stopDrag);
 
     if (dragPixelHeight.value) {
-      if (dragPixelHeight.value > window.innerHeight * 0.45) {
+      if (dragPixelHeight.value > window.innerHeight * 0.55) {
         mobilePanelHeight.value = 'EXPANDED';
-      } else if (dragPixelHeight.value < window.innerHeight * 0.28) {
+      } else if (dragPixelHeight.value < window.innerHeight * 0.18) {
         mobilePanelHeight.value = 'COLLAPSED';
       } else {
         mobilePanelHeight.value = 'HALF';

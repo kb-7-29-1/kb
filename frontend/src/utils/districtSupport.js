@@ -1,16 +1,19 @@
 /**
- * 보안등 공공데이터가 구축된 서울시 14개 자치구 목록
+ * 보안등 공공데이터가 구축된 서울시 17개 자치구 목록
  */
 export const SUPPORTED_SAFETY_DISTRICTS = [
+  '강동구',
   '강서구',
   '관악구',
   '광진구',
   '구로구',
+  '노원구',
   '도봉구',
   '동대문구',
   '동작구',
   '서대문구',
   '서초구',
+  '송파구',
   '양천구',
   '은평구',
   '종로구',
@@ -19,13 +22,14 @@ export const SUPPORTED_SAFETY_DISTRICTS = [
 ];
 
 /**
- * 보안등 공공데이터 미구축 확정 7개 자치구 목록
+ * 보안등 공공데이터 미구축 확정 8개 자치구 목록 (17 + 8 = 서울 25개 자치구 100% 매핑)
  */
 export const UNSUPPORTED_SAFETY_DISTRICTS = [
   '강남구',
   '강북구',
   '금천구',
   '마포구',
+  '성동구',
   '성북구',
   '영등포구',
   '용산구',
@@ -46,21 +50,13 @@ export function isSupportedSafetyDistrict(text) {
     }
   }
 
-  // 2. 성동구 예외 (송정동, 용답동만 포함 시 통과, 타 동은 미구축)
-  if (text.includes('성동구')) {
-    if (text.includes('송정동') || text.includes('용답동')) {
-      return true;
-    }
-    return false;
-  }
-
-  // 3. 확실한 미구축 7개 자치구 텍스트 명시 시 미구축(false) 리턴
+  // 2. 미구축 11개 자치구 텍스트 명시 시 미구축(false) 리턴
   for (const unsupported of UNSUPPORTED_SAFETY_DISTRICTS) {
     if (text.includes(unsupported)) {
       return false;
     }
   }
 
-  // 4. "세종대학교", "홍대입구"처럼 '구' 이름이 들어있지 않은 랜드마크 명칭은 오판하지 않고 통과
+  // 3. "세종대학교", "홍대입구"처럼 '구' 이름이 들어있지 않은 랜드마크 명칭은 오판하지 않고 통과
   return true;
 }

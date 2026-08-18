@@ -115,7 +115,7 @@ public class SafetySeedBatchService {
                 : existingRoutes.stream().map(SafetyRouteCacheVO::getPropertyId).filter(Objects::nonNull)
                         .collect(Collectors.toSet());
 
-        // LineString 경로 궤적이 아직 없는 매물들만 TMAP 신규 계산 대상으로 선정
+        // 1. LineString 경로가 아예 없는 매물들만 TMAP 신규 호출 대상으로 선정 (경로가 있는 매물은 0점이어도 TMAP 0건으로 병렬 재계산)
         List<PropertyListDTO> newPropertiesToCalculate = properties.stream()
                 .filter(p -> p.getPropertyId() != null && !cachedRoutePropertyIds.contains(p.getPropertyId()))
                 .toList();

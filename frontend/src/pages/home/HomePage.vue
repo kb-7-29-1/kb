@@ -89,6 +89,7 @@ const goMyPage = () => {
       :filter-reset-version="filterResetVersion"
       @open-filter="openFilter"
       @apply-amenity-filters="applyAmenityFilters"
+      @update:applied-onboarding-filters="appliedOnboardingFilters = $event"
     />
 
     <!-- 보관용 중복 필터 버튼 및 패널 주석 처리 (MapQuickFilterBar.vue 내부로 이전 완료) -->
@@ -151,7 +152,7 @@ const goMyPage = () => {
 
 <style scoped>
 .home-page {
-  --app-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
+  --app-header-height: calc(env(safe-area-inset-top, 0px) + 48px);
   position: relative;
   width: 100%;
   height: 100dvh;
@@ -196,24 +197,11 @@ const goMyPage = () => {
   box-sizing: border-box;
   height: var(--app-header-height);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  padding: max(60px, calc(env(safe-area-inset-top) + 22px)) 20px 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) 16px 8px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 10px;
-}
-
-@media (max-width: 768px) {
-  .home-page {
-    --app-header-height: max(100px, calc(env(safe-area-inset-top) + 62px));
-  }
-
-  .app-header {
-    height: var(--app-header-height);
-    align-items: flex-end;
-    padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
-  }
 }
 
 .logo {
@@ -328,10 +316,11 @@ const goMyPage = () => {
 
 @media (min-width: 768px) {
   .home-page {
-    --app-header-height: 56px;
+    --app-header-height: 52px;
   }
 
   .app-header {
+    align-items: center;
     padding: 0 20px;
   }
 }

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import api from '@/api/api.js';
 import NaverMap from '@/components/map/NaverMap.vue';
@@ -43,7 +43,11 @@ import DistrictToast from '@/components/common/DistrictToast.vue';
 import { isSupportedSafetyDistrict } from '@/utils/districtSupport.js';
 import { useDistrictToast } from '@/composables/useDistrictToast.js';
 
-const emit = defineEmits(['open-filter', 'apply-amenity-filters']);
+const emit = defineEmits([
+  'open-filter',
+  'apply-amenity-filters',
+  'update:applied-onboarding-filters',
+]);
 const route = useRoute();
 const router = useRouter();
 
@@ -142,7 +146,8 @@ const handleToggleRouteFacilities = async () => {
     return;
   }
 
-  if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id) return;
+  if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id)
+    return;
 
   isRouteFacilitiesLoading.value = true;
   try {
@@ -150,7 +155,32 @@ const handleToggleRouteFacilities = async () => {
       propertyId: selectedProperty.value.propertyId,
       destinationId: destinationConfig.value.id,
     });
-    routeFacilities.value = Array.isArray(facilities) ? facilities : [];
+
+    let result = Array.isArray(facilities) ? facilities : [];
+
+    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 안전 계산에서 완전히 배제
+    // 오직 실제 걸어가는 도보(WALK) 구간 주변(80m) 안전시설물만 선별 노출
+    const transitSegments = selectedSafetyRoute.value?.transitSegments;
+    if (Array.isArray(transitSegments) && transitSegments.length > 0) {
+      const walkPoints = transitSegments
+        .filter((seg) => String(seg.type || '').toUpperCase() === 'WALK')
+        .flatMap((seg) => seg.routePoints || []);
+
+      if (walkPoints.length > 0) {
+        result = result.filter((fac) => {
+          const fLat = Number(fac.latitude);
+          const fLng = Number(fac.longitude);
+          if (!Number.isFinite(fLat) || !Number.isFinite(fLng)) return false;
+          return walkPoints.some((wp) => {
+            const dLat = (Number(wp.latitude) - fLat) * 111000;
+            const dLng = (Number(wp.longitude) - fLng) * 88800;
+            return dLat * dLat + dLng * dLng <= 80 * 80;
+          });
+        });
+      }
+    }
+
+    routeFacilities.value = result;
     showRouteFacilities.value = true;
   } catch (error) {
     console.error('ROUTE FACILITIES LOAD ERROR:', error);
@@ -477,16 +507,20 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
     console.error('DESTINATION SAVE ERROR:', err);
   }
 
-  const finalDestName = savedDestination?.destName || name || destAddress || '선택한 위치';
+  const finalDestName =
+    savedDestination?.destName || name || destAddress || '선택한 위치';
 
   filterState.value.destination = finalDestName;
-  filterState.value.destinationAddress = savedDestination?.destAddress || destAddress;
-  filterState.value.destinationLat = savedDestination?.destLatitude != null
-    ? Number(savedDestination.destLatitude)
-    : Number(lat);
-  filterState.value.destinationLng = savedDestination?.destLongitude != null
-    ? Number(savedDestination.destLongitude)
-    : Number(lng);
+  filterState.value.destinationAddress =
+    savedDestination?.destAddress || destAddress;
+  filterState.value.destinationLat =
+    savedDestination?.destLatitude != null
+      ? Number(savedDestination.destLatitude)
+      : Number(lat);
+  filterState.value.destinationLng =
+    savedDestination?.destLongitude != null
+      ? Number(savedDestination.destLongitude)
+      : Number(lng);
   filterState.value.destinationId = savedDestination?.destinationId ?? null;
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
@@ -502,6 +536,16 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
   );
 
   handleApplyFilters(true);
+  emit('update:applied-onboarding-filters', {
+    ...appliedFilterState.value,
+    destination: {
+      destinationId: filterState.value.destinationId,
+      destName: finalDestName,
+      destAddress: filterState.value.destinationAddress,
+      destLatitude: filterState.value.destinationLat,
+      destLongitude: filterState.value.destinationLng,
+    },
+  });
 };
 
 const handleApplyFilters = async (
@@ -1085,7 +1129,9 @@ watch(
   ([dest, destAddr, destName]) => {
     const fullText = `${destAddr || ''} ${destName || ''} ${dest?.name || ''} ${dest?.address || ''}`;
     if (fullText.trim() && !isSupportedSafetyDistrict(fullText)) {
-      showToast();
+      showToast(
+        '선택하신 목적지는 보안등 공공데이터 미구축 자치구로 안전점수가 제공되지 않습니다.',
+      );
     }
   },
   { immediate: true, deep: true },
@@ -1324,6 +1370,16 @@ watch(selectedProperty, (prop) => {
   router.replace({ query }).catch(() => {});
 });
 
+// 이동 수단(도보 <-> 대중교통) 변경 시 선택된 매물 경로 즉시 실시간 전환 갱신
+watch(
+  () => filterState.value.transportMode,
+  () => {
+    if (selectedProperty.value) {
+      loadSafetyRouteForProperty(selectedProperty.value);
+    }
+  },
+);
+
 // 공유 링크로 접속 시 (?propertyId=123) 해당 매물 자동 선택 및 슬라이딩 패널 팝업
 watch(
   [properties, () => route.query.propertyId],
@@ -1351,7 +1407,10 @@ const shouldHideAmenityPins = computed(
 const syncSafetySummaryToProperty = (propertyId, response) => {
   // 현재 적용된 목적지에 ID가 없는 경우, 백엔드가 안전경로 계산 중 매칭/생성한
   // 진짜 destinationId를 돌려주므로 그 값을 프론트 상태에도 채워 넣어 이후 찜 등록 시 사용
-  if (response?.destinationId != null && appliedFilterState.value.destinationId == null) {
+  if (
+    response?.destinationId != null &&
+    appliedFilterState.value.destinationId == null
+  ) {
     appliedFilterState.value.destinationId = Number(response.destinationId);
     filterState.value.destinationId = Number(response.destinationId);
   }
@@ -1428,6 +1487,105 @@ const loadSafetyRouteForProperty = async (property) => {
       throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
     }
 
+    // 🚌 대중교통 모드(TRANSIT)인 경우 백엔드 모티스(MOTIS GTFS C++) 실시간 연산 결과 적용
+    const isTransitMode =
+      String(
+        appliedFilterState.value?.transportMode ||
+          filterState.value?.transportMode ||
+          '',
+      ).toUpperCase() === 'TRANSIT';
+    if (isTransitMode && route.routePoints.length >= 2) {
+      try {
+        const motisRes = await api.get('/routing/motis/transit', {
+          params: {
+            startLat: property.latitude,
+            startLon: property.longitude,
+            destLat: destination.lat,
+            destLon: destination.lng,
+          },
+        });
+        if (motisRes?.data) {
+          const ht = motisRes.data;
+          const transitType = ht.transitType || 'BUS';
+          const transitName =
+            ht.routeSummary ||
+            ht.routeShortName ||
+            (transitType === 'SUBWAY' ? '지하철' : '버스');
+          const lineColor =
+            ht.routeColor || (transitType === 'SUBWAY' ? '#3CB44A' : '#2563EB');
+          const accessWalk = Math.max(1, Math.round(ht.accessWalkMinutes || 5));
+          const transitMin = Math.max(
+            1,
+            Math.round(ht.hopperTransitMinutes || 15),
+          );
+          const egressWalk = Math.max(1, Math.round(ht.egressWalkMinutes || 5));
+
+          if (ht.totalTimeMinutes) {
+            response.travelTimeMinutes = Math.round(ht.totalTimeMinutes);
+          }
+
+          // 🚇 모티스에서 실제 지하철 선로 및 버스 도로의 정확한 GPS 좌표를 전달받아 세그먼트 생성
+          if (Array.isArray(ht.legs) && ht.legs.length > 0) {
+            route.transitSegments = ht.legs.map((leg) => {
+              const legMode = String(leg.mode || '').toUpperCase();
+              const isSubway = legMode === 'SUBWAY' || legMode === 'RAIL';
+              const isWalk = legMode === 'WALK';
+              const type = isSubway ? 'SUBWAY' : isWalk ? 'WALK' : 'BUS';
+
+              return {
+                type,
+                routeName:
+                  leg.routeName ||
+                  (isSubway ? '지하철' : isWalk ? '도보' : '버스'),
+                lineColor:
+                  leg.routeColor ||
+                  (isSubway ? '#3CB44A' : isWalk ? '#10B981' : '#2563EB'),
+                durationMinutes: Math.max(
+                  1,
+                  Math.round(leg.durationMinutes || 1),
+                ),
+                routePoints:
+                  Array.isArray(leg.routePoints) && leg.routePoints.length > 0
+                    ? leg.routePoints
+                    : [],
+              };
+            });
+          } else {
+            const totalLen = route.routePoints.length;
+            const idx1 = Math.max(1, Math.floor(totalLen * 0.22));
+            const idx2 = Math.max(idx1 + 1, Math.floor(totalLen * 0.82));
+
+            route.transitSegments = [
+              {
+                type: 'WALK',
+                durationMinutes: accessWalk,
+                routePoints: route.routePoints.slice(0, idx1 + 1),
+              },
+              {
+                type: transitType,
+                routeName: transitName,
+                lineColor,
+                durationMinutes: transitMin,
+                routePoints: route.routePoints.slice(idx1, idx2 + 1),
+              },
+              {
+                type: 'WALK',
+                durationMinutes: egressWalk,
+                routePoints: route.routePoints.slice(idx2),
+              },
+            ];
+          }
+        } else {
+          delete route.transitSegments;
+        }
+      } catch (err) {
+        console.warn('모티스 GTFS 상세 조회 실패:', err);
+        delete route.transitSegments;
+      }
+    } else {
+      delete route.transitSegments;
+    }
+
     selectedSafetyRoute.value = route;
     selectedSafetyRouteMeta.value = response;
     syncSafetySummaryToProperty(property.propertyId, response);
@@ -1461,6 +1619,26 @@ const handleSelectProperty = async (
   mobileSidebarTab.value = 'detail';
   if (mobilePanelHeight.value === 'COLLAPSED') {
     mobilePanelHeight.value = 'HALF';
+  }
+
+  // 🎯 1. 만약 선택된 매물이 현재 사이드바 displayLimit 밖에 있다면 limit을 자동 확장
+  if (property?.propertyId != null) {
+    const targetIdx = visibleProperties.value.findIndex(
+      (p) => Number(p.propertyId) === Number(property.propertyId),
+    );
+    if (targetIdx !== -1 && targetIdx >= displayLimit.value) {
+      displayLimit.value = Math.max(displayLimit.value, targetIdx + 5);
+    }
+
+    // 🎯 2. 좌측 사이드바 리스트에서 일치하는 매물 카드로 부드럽게 스크롤
+    nextTick(() => {
+      const cardEl = document.getElementById(
+        `property-card-${property.propertyId}`,
+      );
+      if (cardEl) {
+        cardEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
   }
 
   // 경로 조회와 상세 편의시설 조회는 서로 독립이므로 동시에 시작합니다.
@@ -1574,7 +1752,10 @@ const openPropertyDetailFromQuery = async (propertyId) => {
       if (isBookmarkedTarget)
         applyBookmarkDestinationContext(bookmarkedProperty);
       handleSelectProperty(
-        { ...data, isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked) },
+        {
+          ...data,
+          isBookmarked: isBookmarkedTarget ? true : Boolean(data.isBookmarked),
+        },
         { skipVisibilityCheck: true },
       );
       sessionStorage.removeItem('selectedBookmarkProperty');
@@ -1811,31 +1992,31 @@ const {
         mobilePanelHeight === 'EXPANDED'
           ? 'h-full xl:h-full'
           : mobilePanelHeight === 'COLLAPSED'
-            ? 'h-[120px] xl:h-full'
+            ? 'h-[36px] xl:h-full'
             : 'h-1/3 xl:h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
       <!-- 모바일 전용 마우스/터치 실시간 손잡이 드래그 바 (md:hidden) -->
       <div
-        class="w-full pb-4 pt-4 bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0"
+        class="w-full h-[36px] bg-white flex flex-col items-center justify-center cursor-row-resize active:cursor-grabbing xl:hidden select-none touch-none shrink-0 border-b border-slate-100"
         @click="toggleMobilePanel"
         @mousedown="startDrag"
         @touchstart.prevent="startDrag"
       >
-        <span class="w-24 h-1.5 bg-slate-300 rounded-full"></span>
+        <span class="w-20 h-1 bg-slate-300 rounded-full"></span>
       </div>
 
-      <!-- 모바일 전용 탭 스위처 ([📋 매물 목록] | [🏠 선택 매물 상세]) -->
+      <!-- 모바일 전용 슬림 탭 스위처 ([📋 매물 목록] | [🏠 상세 정보]) -->
       <div
-        class="flex xl:hidden items-center px-3 py-1.5 bg-slate-50 gap-2 shrink-0 select-none"
+        class="flex xl:hidden items-center px-3 py-1 bg-slate-50 border-b border-slate-100 gap-1.5 shrink-0 select-none"
       >
         <button
           type="button"
-          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold transition-all flex items-center justify-center gap-1"
           :class="[
             mobileSidebarTab === 'list'
-              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              ? 'bg-white text-blue-600 shadow-xs border border-slate-200/80 font-black'
               : 'text-slate-500 hover:text-slate-800',
           ]"
           @click="mobileSidebarTab = 'list'"
@@ -1845,10 +2026,10 @@ const {
         </button>
         <button
           type="button"
-          class="flex-1 py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-extrabold transition-all flex items-center justify-center gap-1"
           :class="[
             mobileSidebarTab === 'detail'
-              ? 'bg-white text-blue-600 shadow-sm border border-slate-200'
+              ? 'bg-white text-blue-600 shadow-xs border border-slate-200/80 font-black'
               : selectedProperty
                 ? 'text-slate-700 hover:text-slate-900'
                 : 'text-slate-300 cursor-not-allowed',
@@ -1860,7 +2041,7 @@ const {
           <span>상세 정보</span>
           <span
             v-if="selectedProperty"
-            class="w-2 h-2 rounded-full bg-blue-600 animate-pulse"
+            class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"
           ></span>
         </button>
       </div>
@@ -2008,11 +2189,12 @@ const {
           <template v-else-if="displayedProperties.length > 0">
             <PropertyCard
               v-for="prop in displayedProperties"
+              :id="`property-card-${prop.propertyId}`"
               :key="prop.propertyId"
               :property="prop"
               :is-selected="
                 selectedProperty &&
-                selectedProperty.propertyId === prop.propertyId
+                Number(selectedProperty.propertyId) === Number(prop.propertyId)
               "
               :is-bookmark-pending="pendingBookmarkIds.has(prop.propertyId)"
               @select="handleSelectProperty"
