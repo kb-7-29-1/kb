@@ -155,7 +155,32 @@ const handleToggleRouteFacilities = async () => {
       propertyId: selectedProperty.value.propertyId,
       destinationId: destinationConfig.value.id,
     });
-    routeFacilities.value = Array.isArray(facilities) ? facilities : [];
+
+    let result = Array.isArray(facilities) ? facilities : [];
+
+    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 안전 계산에서 완전히 배제
+    // 오직 실제 걸어가는 도보(WALK) 구간 주변(80m) 안전시설물만 선별 노출
+    const transitSegments = selectedSafetyRoute.value?.transitSegments;
+    if (Array.isArray(transitSegments) && transitSegments.length > 0) {
+      const walkPoints = transitSegments
+        .filter((seg) => String(seg.type || '').toUpperCase() === 'WALK')
+        .flatMap((seg) => seg.routePoints || []);
+
+      if (walkPoints.length > 0) {
+        result = result.filter((fac) => {
+          const fLat = Number(fac.latitude);
+          const fLng = Number(fac.longitude);
+          if (!Number.isFinite(fLat) || !Number.isFinite(fLng)) return false;
+          return walkPoints.some((wp) => {
+            const dLat = (Number(wp.latitude) - fLat) * 111000;
+            const dLng = (Number(wp.longitude) - fLng) * 88800;
+            return dLat * dLat + dLng * dLng <= 80 * 80;
+          });
+        });
+      }
+    }
+
+    routeFacilities.value = result;
     showRouteFacilities.value = true;
   } catch (error) {
     console.error('ROUTE FACILITIES LOAD ERROR:', error);
@@ -1462,33 +1487,16 @@ const loadSafetyRouteForProperty = async (property) => {
       throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
     }
 
-    // 🚌 대중교통 모드(TRANSIT)인 경우 백엔드 호퍼(GraphHopper GTFS) 연산 결과 기반 세그먼트 생성
+    // 🚌 대중교통 모드(TRANSIT)인 경우 백엔드 모티스(MOTIS GTFS C++) 실시간 연산 결과 적용
     const isTransitMode =
-      String(filterState.value?.transportMode || '').toUpperCase() ===
-      'TRANSIT';
-    if (isTransitMode && route.routePoints.length >= 4) {
-      const totalLen = route.routePoints.length;
-      const idx1 = Math.max(1, Math.floor(totalLen * 0.22));
-      const idx2 = Math.max(idx1 + 1, Math.floor(totalLen * 0.82));
-
-      let transitType = 'BUS';
-      let transitName = '시내버스';
-      let lineColor = '#2563eb';
-      let accessWalk = Math.max(
-        1,
-        Math.round(Number(response?.travelTimeMinutes || 20) * 0.2),
-      );
-      let transitMin = Math.max(
-        5,
-        Math.round(Number(response?.travelTimeMinutes || 20) * 0.65),
-      );
-      let egressWalk = Math.max(
-        1,
-        Math.round(Number(response?.travelTimeMinutes || 20) * 0.15),
-      );
-
+      String(
+        appliedFilterState.value?.transportMode ||
+          filterState.value?.transportMode ||
+          '',
+      ).toUpperCase() === 'TRANSIT';
+    if (isTransitMode && route.routePoints.length >= 2) {
       try {
-        const hopperRes = await api.get('/routing/hopper/transit', {
+        const motisRes = await api.get('/routing/motis/transit', {
           params: {
             startLat: property.latitude,
             startLon: property.longitude,
@@ -1496,44 +1504,84 @@ const loadSafetyRouteForProperty = async (property) => {
             destLon: destination.lng,
           },
         });
-        if (hopperRes?.data) {
-          const ht = hopperRes.data;
-          transitType = ht.transitType || 'BUS';
-          transitName =
+        if (motisRes?.data) {
+          const ht = motisRes.data;
+          const transitType = ht.transitType || 'BUS';
+          const transitName =
             ht.routeSummary ||
-            (transitType === 'SUBWAY' ? '지하철' : '시내버스');
-          lineColor =
-            ht.routeColor || (transitType === 'SUBWAY' ? '#7c3aed' : '#2563eb');
-          if (ht.hopperTransitMinutes)
-            transitMin = Math.round(ht.hopperTransitMinutes);
-          if (ht.accessWalkMinutes)
-            accessWalk = Math.max(1, Math.round(ht.accessWalkMinutes));
-          if (ht.egressWalkMinutes)
-            egressWalk = Math.max(1, Math.round(ht.egressWalkMinutes));
+            ht.routeShortName ||
+            (transitType === 'SUBWAY' ? '지하철' : '버스');
+          const lineColor =
+            ht.routeColor || (transitType === 'SUBWAY' ? '#3CB44A' : '#2563EB');
+          const accessWalk = Math.max(1, Math.round(ht.accessWalkMinutes || 5));
+          const transitMin = Math.max(
+            1,
+            Math.round(ht.hopperTransitMinutes || 15),
+          );
+          const egressWalk = Math.max(1, Math.round(ht.egressWalkMinutes || 5));
+
+          if (ht.totalTimeMinutes) {
+            response.travelTimeMinutes = Math.round(ht.totalTimeMinutes);
+          }
+
+          // 🚇 모티스에서 실제 지하철 선로 및 버스 도로의 정확한 GPS 좌표를 전달받아 세그먼트 생성
+          if (Array.isArray(ht.legs) && ht.legs.length > 0) {
+            route.transitSegments = ht.legs.map((leg) => {
+              const legMode = String(leg.mode || '').toUpperCase();
+              const isSubway = legMode === 'SUBWAY' || legMode === 'RAIL';
+              const isWalk = legMode === 'WALK';
+              const type = isSubway ? 'SUBWAY' : isWalk ? 'WALK' : 'BUS';
+
+              return {
+                type,
+                routeName:
+                  leg.routeName ||
+                  (isSubway ? '지하철' : isWalk ? '도보' : '버스'),
+                lineColor:
+                  leg.routeColor ||
+                  (isSubway ? '#3CB44A' : isWalk ? '#10B981' : '#2563EB'),
+                durationMinutes: Math.max(
+                  1,
+                  Math.round(leg.durationMinutes || 1),
+                ),
+                routePoints:
+                  Array.isArray(leg.routePoints) && leg.routePoints.length > 0
+                    ? leg.routePoints
+                    : [],
+              };
+            });
+          } else {
+            const totalLen = route.routePoints.length;
+            const idx1 = Math.max(1, Math.floor(totalLen * 0.22));
+            const idx2 = Math.max(idx1 + 1, Math.floor(totalLen * 0.82));
+
+            route.transitSegments = [
+              {
+                type: 'WALK',
+                durationMinutes: accessWalk,
+                routePoints: route.routePoints.slice(0, idx1 + 1),
+              },
+              {
+                type: transitType,
+                routeName: transitName,
+                lineColor,
+                durationMinutes: transitMin,
+                routePoints: route.routePoints.slice(idx1, idx2 + 1),
+              },
+              {
+                type: 'WALK',
+                durationMinutes: egressWalk,
+                routePoints: route.routePoints.slice(idx2),
+              },
+            ];
+          }
+        } else {
+          delete route.transitSegments;
         }
       } catch (err) {
-        console.warn('호퍼 GTFS 상세 조회 실패 (기본값 사용):', err);
+        console.warn('모티스 GTFS 상세 조회 실패:', err);
+        delete route.transitSegments;
       }
-
-      route.transitSegments = [
-        {
-          type: 'WALK',
-          durationMinutes: accessWalk,
-          routePoints: route.routePoints.slice(0, idx1 + 1),
-        },
-        {
-          type: transitType,
-          routeName: transitName,
-          lineColor,
-          durationMinutes: transitMin,
-          routePoints: route.routePoints.slice(idx1, idx2 + 1),
-        },
-        {
-          type: 'WALK',
-          durationMinutes: egressWalk,
-          routePoints: route.routePoints.slice(idx2),
-        },
-      ];
     } else {
       delete route.transitSegments;
     }

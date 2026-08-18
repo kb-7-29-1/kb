@@ -166,20 +166,25 @@ export function renderHybridRouteOverlays({
       const path = segPoints.map((p) => new window.naver.maps.LatLng(p.lat, p.lng));
       const type = String(seg.type || 'WALK').toUpperCase();
       let strokeColor = seg.lineColor || TRANSIT_COLORS.BUS;
-      let strokeStyle = 'shortdash'; // 🎯 촘촘하고 조밀한 점선 스타일!
-      let strokeWeight = 6;
+      let strokeStyle = 'solid'; // 🎯 시인성 높은 세련된 실선 스타일 적용!
+      let strokeWeight = 6.5;
       let strokeOpacity = 0.95;
+      let strokeLineCap = 'round';
+      let strokeLineJoin = 'round';
 
-      const isSegDataMissing = seg.isSupportedDistrict === false || safetyRoute?.safetyScore == null;
+      const isTransitVehicle = type === 'SUBWAY' || type === 'METRO' || type === 'BUS';
+      const isSegDataMissing = isTransitVehicle
+        ? false
+        : seg.isSupportedDistrict === false || safetyRoute?.safetyScore == null;
 
       if (type === 'SUBWAY' || type === 'METRO') {
         strokeColor = seg.lineColor || TRANSIT_COLORS.SUBWAY;
-        strokeStyle = 'shortdash';
-        strokeWeight = 6.5;
+        strokeStyle = 'solid'; // 🚇 지하철: 노선 고유색 굵은 실선
+        strokeWeight = 7;
       } else if (type === 'BUS') {
         strokeColor = seg.lineColor || TRANSIT_COLORS.BUS;
-        strokeStyle = 'shortdash';
-        strokeWeight = 6;
+        strokeStyle = 'solid'; // 🚌 버스: 간선/지선 고유색 굵은 실선
+        strokeWeight = 6.5;
       } else {
         // 🚶 도보 구간: 우리의 핵심 서비스이므로 또렷한 실선(solid, 7px) 적용!
         strokeColor = isSegDataMissing ? TRANSIT_COLORS.WALK_UNSUPPORTED : TRANSIT_COLORS.WALK_SUPPORTED;
@@ -195,6 +200,8 @@ export function renderHybridRouteOverlays({
         strokeWeight,
         strokeOpacity,
         strokeStyle,
+        strokeLineCap,
+        strokeLineJoin,
         zIndex: type === 'WALK' ? 19 : 17,
       });
       overlays.polylines.push(polyline);
