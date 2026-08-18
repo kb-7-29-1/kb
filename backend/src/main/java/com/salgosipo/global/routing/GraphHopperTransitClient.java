@@ -70,7 +70,8 @@ public class GraphHopperTransitClient {
     /**
      * 출발지 -> 목적지 대중교통 이동 시간 및 거리 계산 (출발 시각 지정 가능)
      */
-    public TransitSummaryDTO findTransitRoute(double startLat, double startLon, double endLat, double endLon, String departureTimeIso) {
+    public TransitSummaryDTO findTransitRoute(double startLat, double startLon, double endLat, double endLon,
+            String departureTimeIso) {
         try {
             String departure = (departureTimeIso != null && !departureTimeIso.isEmpty())
                     ? departureTimeIso
@@ -78,8 +79,7 @@ public class GraphHopperTransitClient {
 
             String url = String.format(
                     "%s/route?point=%.6f,%.6f&point=%.6f,%.6f&profile=pt&pt.earliest_departure_time=%s",
-                    baseUrl, startLat, startLon, endLat, endLon, departure
-            );
+                    baseUrl, startLat, startLon, endLat, endLon, departure);
 
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -117,7 +117,8 @@ public class GraphHopperTransitClient {
                     JsonNode leg = legs.get(i);
                     String type = leg.path("type").asText("");
                     if ("pt".equalsIgnoreCase(type)) {
-                        pureTransitMin += leg.path("time").asDouble(0) > 0 ? (leg.path("time").asDouble(0) / 60000.0) : 1.0;
+                        pureTransitMin += leg.path("time").asDouble(0) > 0 ? (leg.path("time").asDouble(0) / 60000.0)
+                                : 1.0;
                         String shortName = leg.path("route_short_name").asText("");
                         String longName = leg.path("route_long_name").asText("");
                         String headsign = leg.path("trip_headsign").asText("");
@@ -126,15 +127,22 @@ public class GraphHopperTransitClient {
                         String color = leg.path("route_color").asText("");
                         int rType = leg.path("route_type").asInt(3);
 
-                        if (!shortName.isEmpty()) detectedRouteShortName = shortName;
-                        else if (!longName.isEmpty()) detectedRouteShortName = longName;
-                        else if (!headsign.isEmpty()) detectedRouteShortName = headsign;
+                        if (!shortName.isEmpty())
+                            detectedRouteShortName = shortName;
+                        else if (!longName.isEmpty())
+                            detectedRouteShortName = longName;
+                        else if (!headsign.isEmpty())
+                            detectedRouteShortName = headsign;
 
-                        if (!depLoc.isEmpty()) departureLocation = depLoc;
-                        if (!arrLoc.isEmpty()) arrivalLocation = arrLoc;
-                        if (!color.isEmpty()) routeColor = color.startsWith("#") ? color : ("#" + color);
+                        if (!depLoc.isEmpty())
+                            departureLocation = depLoc;
+                        if (!arrLoc.isEmpty())
+                            arrivalLocation = arrLoc;
+                        if (!color.isEmpty())
+                            routeColor = color.startsWith("#") ? color : ("#" + color);
 
-                        if (rType == 1 || rType == 0 || rType == 2 || shortName.contains("호선") || headsign.contains("호선")) {
+                        if (rType == 1 || rType == 0 || rType == 2 || shortName.contains("호선")
+                                || headsign.contains("호선")) {
                             transitType = "SUBWAY";
                         } else {
                             transitType = "BUS";
@@ -158,14 +166,15 @@ public class GraphHopperTransitClient {
             if (!detectedRouteShortName.isEmpty()) {
                 summaryBuilder.append(detectedRouteShortName);
                 if (!departureLocation.isEmpty() && !arrivalLocation.isEmpty()) {
-                    summaryBuilder.append(" (").append(departureLocation).append(" ➡️ ").append(arrivalLocation).append(")");
+                    summaryBuilder.append(" (").append(departureLocation).append(" ➡️ ").append(arrivalLocation)
+                            .append(")");
                 } else if (!arrivalLocation.isEmpty()) {
                     summaryBuilder.append(" (").append(arrivalLocation).append(" 방면)");
                 } else if (!departureLocation.isEmpty()) {
                     summaryBuilder.append(" (").append(departureLocation).append(" 탑승)");
                 }
             } else {
-                summaryBuilder.append(transitType.equals("SUBWAY") ? "수도권 지하철" : "시내버스");
+                summaryBuilder.append(transitType.equals("SUBWAY") ? "수도권 지하철" : "버스");
             }
 
             return TransitSummaryDTO.builder()

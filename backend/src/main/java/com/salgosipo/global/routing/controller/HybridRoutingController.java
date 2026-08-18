@@ -19,7 +19,7 @@ import java.util.Map;
  * - 브라우저나 Postman에서 바로 호출 가능
  */
 @RestController
-@RequestMapping("/api/routing")
+@RequestMapping(value = "/api/routing", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
 public class HybridRoutingController {
 
     private final HybridRoutingService hybridRoutingService;
@@ -73,16 +73,16 @@ public class HybridRoutingController {
     }
 
     /**
-     * 3. [호퍼 전용 대중교통 이동시간 테스트]
-     * 예: /api/routing/hopper/transit?startLat=37.5575&startLon=126.9244&destLat=37.5258&destLon=126.9284
+     * 3. [모티스 전용 대중교통 이동시간 테스트]
+     * 예: /api/routing/motis/transit?startLat=37.5575&startLon=126.9244&destLat=37.5258&destLon=126.9284
      */
-    @GetMapping("/hopper/transit")
-    public ResponseEntity<TransitSummaryDTO> testHopperTransit(
+    @GetMapping({"/motis/transit", "/hopper/transit"})
+    public ResponseEntity<TransitSummaryDTO> testTransit(
             @RequestParam double startLat,
             @RequestParam double startLon,
             @RequestParam double destLat,
             @RequestParam double destLon) {
-        TransitSummaryDTO transit = hybridRoutingService.getGraphHopperClient()
+        TransitSummaryDTO transit = hybridRoutingService.getMotisTransitClient()
                 .findTransitRoute(startLat, startLon, destLat, destLon);
         return ResponseEntity.ok(transit);
     }

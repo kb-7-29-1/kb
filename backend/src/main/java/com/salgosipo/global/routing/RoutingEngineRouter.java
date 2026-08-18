@@ -21,6 +21,7 @@ public class RoutingEngineRouter {
 
     private final ValhallaPedestrianClient valhallaClient;
     private final GraphHopperTransitClient graphHopperClient;
+    private final MotisTransitClient motisTransitClient;
     private final SafetyRouteClient tmapClient;
     private final String engineMode;
 
@@ -28,11 +29,13 @@ public class RoutingEngineRouter {
     public RoutingEngineRouter(
             ValhallaPedestrianClient valhallaClient,
             GraphHopperTransitClient graphHopperClient,
+            MotisTransitClient motisTransitClient,
             @Value("${TMAP_API_KEY:}") String tmapApiKey,
             @Value("${routing.engine.mode:DOCKER}") String engineMode
     ) {
         this.valhallaClient = valhallaClient;
         this.graphHopperClient = graphHopperClient;
+        this.motisTransitClient = motisTransitClient;
         this.tmapClient = new SafetyRouteClient(tmapApiKey);
         this.engineMode = (engineMode != null && !engineMode.trim().isEmpty()) ? engineMode.trim().toUpperCase() : "DOCKER";
         log.info("[RoutingEngineRouter] 현재 활성화된 라우팅 모드: {}", this.engineMode);
@@ -73,5 +76,9 @@ public class RoutingEngineRouter {
 
     public GraphHopperTransitClient getGraphHopperClient() {
         return graphHopperClient;
+    }
+
+    public MotisTransitClient getMotisTransitClient() {
+        return motisTransitClient;
     }
 }

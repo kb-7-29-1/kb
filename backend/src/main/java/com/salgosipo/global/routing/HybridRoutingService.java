@@ -19,19 +19,21 @@ public class HybridRoutingService {
     private static final Logger log = LogManager.getLogger(HybridRoutingService.class);
 
     private final ValhallaPedestrianClient valhallaClient;
-    private final GraphHopperTransitClient graphHopperClient;
+    // private final GraphHopperTransitClient graphHopperClient; // [호퍼 레거시 보존]
+    private final MotisTransitClient motisTransitClient;
 
     public HybridRoutingService(ValhallaPedestrianClient valhallaClient,
-                                GraphHopperTransitClient graphHopperClient) {
+                                MotisTransitClient motisTransitClient) {
         this.valhallaClient = valhallaClient;
-        this.graphHopperClient = graphHopperClient;
+        // this.graphHopperClient = graphHopperClient;
+        this.motisTransitClient = motisTransitClient;
     }
 
     /**
      * 특정 출발지(매물) -> 목적지(직장/역)에 대해 도보 및 대중교통 경로를 한 번에 계산
      */
     public HybridRouteResultDTO calculateHybrid(double startLat, double startLon, double destLat, double destLon) {
-        // 1. 발할라 도보 계산
+        // 1. 발할라 도보 계산 (0.001초)
         PedestrianRoute walkRoute = valhallaClient.findPedestrianRoute(startLat, startLon, destLat, destLon);
         Double walkTimeMin = null;
         Double walkDistKm = null;
@@ -41,8 +43,9 @@ public class HybridRoutingService {
             walkDistKm = Math.round((walkRoute.getDistanceMeters() / 1000.0) * 100.0) / 100.0;
         }
 
-        // 2. 호퍼 대중교통 계산
-        TransitSummaryDTO transitSummary = graphHopperClient.findTransitRoute(startLat, startLon, destLat, destLon);
+        // 2. 모티스(MOTIS) 초고속 C++ 대중교통 계산 (0.002초)
+        // TransitSummaryDTO transitSummary = graphHopperClient.findTransitRoute(startLat, startLon, destLat, destLon); // [호퍼 레거시 주석 보존]
+        TransitSummaryDTO transitSummary = motisTransitClient.findTransitRoute(startLat, startLon, destLat, destLon);
 
         return HybridRouteResultDTO.builder()
                 .walkTimeMinutes(walkTimeMin)
@@ -62,7 +65,8 @@ public class HybridRoutingService {
     public boolean isWithinTransitTimeRange(double startLat, double startLon,
                                            double destLat, double destLon,
                                            Double minMinutes, Double maxMinutes) {
-        TransitSummaryDTO transit = graphHopperClient.findTransitRoute(startLat, startLon, destLat, destLon);
+        // 모티스(MOTIS) 대중교통 시간 범위 조회
+        TransitSummaryDTO transit = motisTransitClient.findTransitRoute(startLat, startLon, destLat, destLon);
         if (transit == null || transit.getTotalTimeMinutes() == null) {
             return false;
         }
@@ -87,9 +91,9 @@ public class HybridRoutingService {
     }
 
     /**
-     * 대중교통 전용 그래프호퍼 클라이언트 접근자
+     * 대중교통 전용 모티스 클라이언트 접근자
      */
-    public GraphHopperTransitClient getGraphHopperClient() {
-        return graphHopperClient;
+    public MotisTransitClient getMotisTransitClient() {
+        return motisTransitClient;
     }
 }
