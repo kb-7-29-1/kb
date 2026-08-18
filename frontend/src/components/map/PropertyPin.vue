@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import MapLoanChip from '@/components/map/MapLoanChip.vue';
+import { UNSUPPORTED_SAFETY_DISTRICTS, isSeoulServiceArea } from '@/utils/districtPolygonOverlay.js';
 
 const props = defineProps({
   property: {
@@ -17,6 +18,14 @@ const props = defineProps({
   },
 });
 
+const isEligible = computed(() => {
+  const addr = props.property?.address || props.property?.roadAddress || props.property?.title || '';
+  if (!isSeoulServiceArea(addr)) return false;
+  return !UNSUPPORTED_SAFETY_DISTRICTS.some((gu) => addr.includes(gu));
+});
+
+const isActuallyLoading = computed(() => isEligible.value && Boolean(props.property?.isSafetyLoading));
+
 const safetyScore = computed(() => {
   const value = props.property.safetyScore;
   if (value === null || value === undefined || value === '') return null;
@@ -25,7 +34,7 @@ const safetyScore = computed(() => {
 });
 
 const safetyPinTheme = computed(() => {
-  if (props.property.isSafetyLoading) {
+  if (isActuallyLoading.value) {
     return {
       border: 'border-blue-400 animate-pulse',
       badge: 'bg-blue-50 text-blue-600 animate-pulse',
@@ -100,7 +109,7 @@ const priceText = computed(() => {
           class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold"
           :class="isSelected ? 'bg-white/20 text-white' : safetyPinTheme.badge"
         >
-          {{ property.isSafetyLoading ? '계산 중...' : (safetyScore === null ? '점수 없음' : `${safetyScore}점`) }}
+          {{ isActuallyLoading ? '계산 중...' : (safetyScore === null ? '―' : `${safetyScore}점`) }}
         </span>
       </div>
 

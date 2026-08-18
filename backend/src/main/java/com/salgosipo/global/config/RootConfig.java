@@ -22,7 +22,7 @@ import javax.sql.DataSource;
 
 @Configuration
 @EnableScheduling
-@PropertySource(value = { "classpath:/application.properties" }, ignoreResourceNotFound = true)
+@PropertySource(value = { "classpath:/application.properties", "classpath:/docker-routing.properties" }, ignoreResourceNotFound = true)
 @MapperScan(basePackages = { "com.salgosipo.amenity.mapper",
         "com.salgosipo.auth.mapper",
         "com.salgosipo.bookmark.mapper",
@@ -47,7 +47,8 @@ import javax.sql.DataSource;
         "com.salgosipo.loan.service",
         "com.salgosipo.loan.client",
         "com.salgosipo.amenity.client",
-        "com.salgosipo.global.config" })
+        "com.salgosipo.global.config",
+        "com.salgosipo.global.routing" })
 public class RootConfig {
     // 프로젝트 전체에서 사용할 중요한 싱글톤 빈 생성 정의
     @Autowired

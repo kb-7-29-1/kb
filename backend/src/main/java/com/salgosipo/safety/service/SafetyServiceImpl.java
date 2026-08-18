@@ -34,838 +34,914 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 public class SafetyServiceImpl implements SafetyService {
 
-    private static final Logger log =
-            LogManager.getLogger(SafetyServiceImpl.class);
+        private static final Logger log = LogManager.getLogger(SafetyServiceImpl.class);
 
-    private static final double FACILITY_QUERY_MARGIN_METERS = 520.0;
+        private static final double FACILITY_QUERY_MARGIN_METERS = 520.0;
 
-    public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
-            "강서구", "관악구", "광진구", "구로구", "도봉구",
-            "동대문구", "동작구", "서대문구", "서초구", "양천구",
-            "은평구", "종로구", "중구", "중랑구"
-    );
+        public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
+                        "강서구", "관악구", "광진구", "구로구", "도봉구",
+                        "동대문구", "동작구", "서대문구", "서초구", "양천구",
+                        "은평구", "종로구", "중구", "중랑구");
 
-    public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
-            "강남구", "강북구", "금천구", "마포구", "성북구", "영등포구", "용산구"
-    );
+        public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
+                        "강남구", "강북구", "금천구", "마포구", "성북구", "영등포구", "용산구");
 
-    public static boolean isSupportedDistrict(String... texts) {
-        if (texts == null) {
-            return true;
-        }
-        for (String text : texts) {
-            if (text == null || text.isBlank()) {
-                continue;
-            }
-            for (String district : SUPPORTED_DISTRICTS) {
-                if (text.contains(district)) {
-                    return true;
+        public static boolean isSupportedDistrict(String... texts) {
+                if (texts == null) {
+                        return true;
                 }
-            }
-            if (text.contains("성동구")) {
-                if (text.contains("송정동") || text.contains("용답동")) {
-                    return true;
+                for (String text : texts) {
+                        if (text == null || text.isBlank()) {
+                                continue;
+                        }
+                        for (String district : SUPPORTED_DISTRICTS) {
+                                if (text.contains(district)) {
+                                        return true;
+                                }
+                        }
+                        if (text.contains("성동구")) {
+                                if (text.contains("송정동") || text.contains("용답동")) {
+                                        return true;
+                                }
+                                return false;
+                        }
+                        for (String unsupported : UNSUPPORTED_DISTRICTS) {
+                                if (text.contains(unsupported)) {
+                                        return false;
+                                }
+                        }
                 }
-                return false;
-            }
-            for (String unsupported : UNSUPPORTED_DISTRICTS) {
-                if (text.contains(unsupported)) {
-                    return false;
+                return true;
+        }
+
+        private final SafetyMapper safetyMapper;
+        private final SafetyRouteClient safetyRouteClient;
+        private final SafetyFacilityRepository safetyFacilityRepository;
+        private final SafetyScoreCalculator safetyScoreCalculator;
+        private final ObjectMapper objectMapper;
+
+        @Autowired
+        public SafetyServiceImpl(
+                        SafetyMapper safetyMapper,
+                        @Value("${TMAP_API_KEY:}") String tmapApiKey,
+                        @Value("${SAFETY_FACILITY_RESOURCE:"
+                                        + "public_data/safety_facility_normalized.csv}") String facilityResource) {
+                this(
+                                safetyMapper,
+                                new SafetyRouteClient(tmapApiKey),
+                                new SafetyFacilityRepository(facilityResource),
+                                new SafetyScoreCalculator());
+        }
+
+        SafetyServiceImpl(
+                        SafetyMapper safetyMapper,
+                        SafetyRouteClient safetyRouteClient,
+                        SafetyFacilityRepository safetyFacilityRepository,
+                        SafetyScoreCalculator safetyScoreCalculator) {
+                this.safetyMapper = safetyMapper;
+                this.safetyRouteClient = safetyRouteClient;
+                this.safetyFacilityRepository = safetyFacilityRepository;
+                this.safetyScoreCalculator = safetyScoreCalculator;
+                this.objectMapper = new ObjectMapper();
+        }
+
+        @Override
+        @Transactional
+        public SafetyRouteResponseDTO getOrCalculateSafety(
+                        SafetyRouteRequestDTO request) {
+                validateRequest(request);
+
+                SafetyPropertyCoordinateVO property = resolveProperty(
+                                request.getPropertyId());
+                SafetyDestinationVO destination = resolveDestination(
+                                request.getDestinationId(),
+                                request.getDestinationName(),
+                                request.getDestinationAddress(),
+                                request.getDestinationLatitude(),
+                                request.getDestinationLongitude());
+
+                if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName(),
+                                request.getDestinationAddress(), request.getDestinationName())) {
+                        SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
+                        uncalculated.setPropertyId(request.getPropertyId());
+                        uncalculated.setDestinationId(destination.getDestinationId());
+                        uncalculated.setCacheHit(false);
+                        uncalculated.setPersisted(false);
+                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        uncalculated.setSafetyScore(null);
+                        uncalculated.setSafetyGrade(null);
+                        uncalculated.setIsSupportedDistrict(false);
+                        return uncalculated;
                 }
-            }
-        }
-        return true;
-    }
 
-    private final SafetyMapper safetyMapper;
-    private final SafetyRouteClient safetyRouteClient;
-    private final SafetyFacilityRepository safetyFacilityRepository;
-    private final SafetyScoreCalculator safetyScoreCalculator;
-    private final ObjectMapper objectMapper;
+                PropertySafetyVO cached = safetyMapper.selectPropertySafety(
+                                request.getPropertyId(),
+                                destination.getDestinationId());
+                SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(
+                                request.getPropertyId(),
+                                destination.getDestinationId());
 
-    @Autowired
-    public SafetyServiceImpl(
-            SafetyMapper safetyMapper,
-            @Value("${TMAP_API_KEY:}") String tmapApiKey,
-            @Value(
-                    "${SAFETY_FACILITY_RESOURCE:"
-                            + "public_data/safety_facility_normalized.csv}"
-            ) String facilityResource
-    ) {
-        this(
-                safetyMapper,
-                new SafetyRouteClient(tmapApiKey),
-                new SafetyFacilityRepository(facilityResource),
-                new SafetyScoreCalculator()
-        );
-    }
+                // 점수와 실제 경로 좌표가 둘 다 있어야 완전한 캐시 hit입니다.
+                // 기존 DB에 점수만 있고 경로가 없는 경우에는 최초 클릭 시 TMAP을 1회 호출해
+                // 경로까지 보강한 뒤 다음 요청부터 완전한 DB 캐시를 사용합니다.
+                if (cached != null && cachedRoute != null) {
+                        return createCachedResponse(cached, cachedRoute);
+                }
 
-    SafetyServiceImpl(
-            SafetyMapper safetyMapper,
-            SafetyRouteClient safetyRouteClient,
-            SafetyFacilityRepository safetyFacilityRepository,
-            SafetyScoreCalculator safetyScoreCalculator
-    ) {
-        this.safetyMapper = safetyMapper;
-        this.safetyRouteClient = safetyRouteClient;
-        this.safetyFacilityRepository = safetyFacilityRepository;
-        this.safetyScoreCalculator = safetyScoreCalculator;
-        this.objectMapper = new ObjectMapper();
-    }
+                CalculationResult calculation = calculateAndPersist(
+                                property,
+                                destination,
+                                defaultName(request.getPropertyName(), property.getAddress()));
 
-    @Override
-    @Transactional
-    public SafetyRouteResponseDTO getOrCalculateSafety(
-            SafetyRouteRequestDTO request
-    ) {
-        validateRequest(request);
-
-        SafetyPropertyCoordinateVO property = resolveProperty(
-                request.getPropertyId()
-        );
-        SafetyDestinationVO destination = resolveDestination(
-                request.getDestinationId(),
-                request.getDestinationName(),
-                request.getDestinationAddress(),
-                request.getDestinationLatitude(),
-                request.getDestinationLongitude()
-        );
-
-        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName(), request.getDestinationAddress(), request.getDestinationName())) {
-            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
-            uncalculated.setPropertyId(request.getPropertyId());
-            uncalculated.setDestinationId(destination.getDestinationId());
-            uncalculated.setCacheHit(false);
-            uncalculated.setPersisted(false);
-            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
-            uncalculated.setSafetyScore(null);
-            uncalculated.setSafetyGrade(null);
-            uncalculated.setIsSupportedDistrict(false);
-            return uncalculated;
+                return createCalculatedResponse(calculation);
         }
 
-        PropertySafetyVO cached = safetyMapper.selectPropertySafety(
-                request.getPropertyId(),
-                destination.getDestinationId()
-        );
-        SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(
-                request.getPropertyId(),
-                destination.getDestinationId()
-        );
+        /**
+         * 외부 TMAP 호출 전체를 하나의 DB 트랜잭션으로 묶지 않습니다.
+         * 매물이 많아도 DB 커넥션을 장시간 점유하지 않고, 계산이 끝난 조합부터
+         * 계산이 끝난 조합부터 DB 캐시로 확정합니다.
+         */
+        @Override
+        public SafetyRouteResponseDTO calculateSafetyDetails(SafetyRouteRequestDTO request) {
+                validateRequest(request);
 
-        // 점수와 실제 경로 좌표가 둘 다 있어야 완전한 캐시 hit입니다.
-        // 기존 DB에 점수만 있고 경로가 없는 경우에는 최초 클릭 시 TMAP을 1회 호출해
-        // 경로까지 보강한 뒤 다음 요청부터 완전한 DB 캐시를 사용합니다.
-        if (cached != null && cachedRoute != null) {
-            return createCachedResponse(cached, cachedRoute);
+                SafetyPropertyCoordinateVO property = resolveProperty(request.getPropertyId());
+
+                if (!isSupportedDistrict(property.getAddress(), request.getDestinationAddress(),
+                                request.getDestinationName())) {
+                        SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
+                        uncalculated.setPropertyId(request.getPropertyId());
+                        uncalculated.setDestinationId(request.getDestinationId());
+                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        uncalculated.setSafetyScore(null);
+                        uncalculated.setSafetyGrade(null);
+                        uncalculated.setIsSupportedDistrict(false);
+                        return uncalculated;
+                }
+                SafetyDestinationVO destination = new SafetyDestinationVO();
+                destination.setDestinationId(request.getDestinationId());
+                destination.setLatitude(BigDecimal.valueOf(request.getDestinationLatitude()));
+                destination.setLongitude(BigDecimal.valueOf(request.getDestinationLongitude()));
+                destination.setName(request.getDestinationName());
+                destination.setAddress(request.getDestinationAddress());
+
+                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                                property.getLatitude(),
+                                property.getLongitude(),
+                                defaultName(request.getPropertyName(), property.getAddress()),
+                                destination.getLatitude().doubleValue(),
+                                destination.getLongitude().doubleValue(),
+                                defaultName(destination.getName(), "Selected destination"));
+                BoundingBox boundingBox = calculateBoundingBox(route);
+                SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(
+                                route,
+                                safetyFacilityRepository.findInBounds(
+                                                boundingBox.minLatitude(),
+                                                boundingBox.maxLatitude(),
+                                                boundingBox.minLongitude(),
+                                                boundingBox.maxLongitude()));
+                selectedRoute.setSelected(true);
+
+                SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
+                response.setPropertyId(property.getPropertyId());
+                response.setDestinationId(destination.getDestinationId());
+                response.setCacheHit(false);
+                response.setPersisted(false);
+                response.setMessage("Safety details calculated without persistence.");
+                response.setSafetyScore(selectedRoute.getSafetyScore());
+                response.setSafetyGrade(selectedRoute.getSafetyGrade());
+                response.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
+                response.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
+                response.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
+                response.setSelectedRoute(selectedRoute);
+                response.setCandidateRoutes(List.of(selectedRoute));
+                return response;
         }
 
-        CalculationResult calculation = calculateAndPersist(
-                property,
-                destination,
-                defaultName(request.getPropertyName(), property.getAddress())
-        );
+        @Override
+        public SafetyBatchResponseDTO getOrCalculateSafetyBatch(
+                        SafetyBatchRequestDTO request) {
+                validateBatchRequest(request);
 
-        return createCalculatedResponse(calculation);
-    }
+                SafetyDestinationVO destination = resolveDestination(
+                                request.getDestinationId(),
+                                request.getDestinationName(),
+                                request.getDestinationAddress(),
+                                request.getDestinationLatitude(),
+                                request.getDestinationLongitude());
 
-    /**
-     * 외부 TMAP 호출 전체를 하나의 DB 트랜잭션으로 묶지 않습니다.
-     * 매물이 많아도 DB 커넥션을 장시간 점유하지 않고, 계산이 끝난 조합부터
-     * 계산이 끝난 조합부터 DB 캐시로 확정합니다.
-     */
-    @Override
-    public SafetyRouteResponseDTO calculateSafetyDetails(SafetyRouteRequestDTO request) {
-        validateRequest(request);
+                Set<Long> uniquePropertyIds = request.getPropertyIds().stream()
+                                .filter(propertyId -> propertyId != null && propertyId > 0)
+                                .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        SafetyPropertyCoordinateVO property = resolveProperty(request.getPropertyId());
+                if (uniquePropertyIds.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                        "유효한 propertyId가 한 개 이상 필요합니다.");
+                }
 
-        if (!isSupportedDistrict(property.getAddress(), request.getDestinationAddress(), request.getDestinationName())) {
-            SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
-            uncalculated.setPropertyId(request.getPropertyId());
-            uncalculated.setDestinationId(request.getDestinationId());
-            uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
-            uncalculated.setSafetyScore(null);
-            uncalculated.setSafetyGrade(null);
-            uncalculated.setIsSupportedDistrict(false);
-            return uncalculated;
-        }
-        SafetyDestinationVO destination = new SafetyDestinationVO();
-        destination.setDestinationId(request.getDestinationId());
-        destination.setLatitude(BigDecimal.valueOf(request.getDestinationLatitude()));
-        destination.setLongitude(BigDecimal.valueOf(request.getDestinationLongitude()));
-        destination.setName(request.getDestinationName());
-        destination.setAddress(request.getDestinationAddress());
+                List<Long> propertyIds = new ArrayList<>(uniquePropertyIds);
+                if (propertyIds.size() > 50) {
+                        log.warn(
+                                        "안전점수 배치 요청이 큽니다. destinationId={}, count={}",
+                                        destination.getDestinationId(),
+                                        propertyIds.size());
+                }
 
-        PedestrianRoute route = safetyRouteClient.findPreferredRoute(
-                property.getLatitude(),
-                property.getLongitude(),
-                defaultName(request.getPropertyName(), property.getAddress()),
-                destination.getLatitude().doubleValue(),
-                destination.getLongitude().doubleValue(),
-                defaultName(destination.getName(), "Selected destination")
-        );
-        BoundingBox boundingBox = calculateBoundingBox(route);
-        SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(
-                route,
-                safetyFacilityRepository.findInBounds(
-                        boundingBox.minLatitude(),
-                        boundingBox.maxLatitude(),
-                        boundingBox.minLongitude(),
-                        boundingBox.maxLongitude()
-                )
-        );
-        selectedRoute.setSelected(true);
-
-        SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
-        response.setPropertyId(property.getPropertyId());
-        response.setDestinationId(destination.getDestinationId());
-        response.setCacheHit(false);
-        response.setPersisted(false);
-        response.setMessage("Safety details calculated without persistence.");
-        response.setSafetyScore(selectedRoute.getSafetyScore());
-        response.setSafetyGrade(selectedRoute.getSafetyGrade());
-        response.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
-        response.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
-        response.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
-        response.setSelectedRoute(selectedRoute);
-        response.setCandidateRoutes(List.of(selectedRoute));
-        return response;
-    }
-
-    @Override
-    public SafetyBatchResponseDTO getOrCalculateSafetyBatch(
-            SafetyBatchRequestDTO request
-    ) {
-        validateBatchRequest(request);
-
-        SafetyDestinationVO destination = resolveDestination(
-                request.getDestinationId(),
-                request.getDestinationName(),
-                request.getDestinationAddress(),
-                request.getDestinationLatitude(),
-                request.getDestinationLongitude()
-        );
-
-        Set<Long> uniquePropertyIds = request.getPropertyIds().stream()
-                .filter(propertyId -> propertyId != null && propertyId > 0)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
-        if (uniquePropertyIds.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "유효한 propertyId가 한 개 이상 필요합니다."
-            );
-        }
-
-        List<Long> propertyIds = new ArrayList<>(uniquePropertyIds);
-        if (propertyIds.size() > 50) {
-            log.warn(
-                    "안전점수 배치 요청이 큽니다. destinationId={}, count={}",
-                    destination.getDestinationId(),
-                    propertyIds.size()
-            );
-        }
-
-        Map<Long, PropertySafetyVO> cachedByPropertyId =
-                safetyMapper.selectPropertySafetyBatch(
+                Map<Long, PropertySafetyVO> cachedByPropertyId = safetyMapper.selectPropertySafetyBatch(
                                 propertyIds,
-                                destination.getDestinationId()
-                        )
-                        .stream()
-                        .collect(Collectors.toMap(
-                                PropertySafetyVO::getPropertyId,
-                                Function.identity()
-                        ));
+                                destination.getDestinationId())
+                                .stream()
+                                .collect(Collectors.toMap(
+                                                PropertySafetyVO::getPropertyId,
+                                                Function.identity()));
 
-        List<Long> missingPropertyIds = propertyIds.stream()
-                .filter(propertyId -> !cachedByPropertyId.containsKey(propertyId))
-                .toList();
+                List<Long> missingPropertyIds = propertyIds.stream()
+                                .filter(propertyId -> !cachedByPropertyId.containsKey(propertyId))
+                                .toList();
 
-        Map<Long, SafetyPropertyCoordinateVO> propertyById =
-                missingPropertyIds.isEmpty()
-                        ? Collections.emptyMap()
-                        : safetyMapper.selectPropertyCoordinates(missingPropertyIds)
-                        .stream()
-                        .collect(Collectors.toMap(
-                                SafetyPropertyCoordinateVO::getPropertyId,
-                                Function.identity()
-                        ));
+                Map<Long, SafetyPropertyCoordinateVO> propertyById = missingPropertyIds.isEmpty()
+                                ? Collections.emptyMap()
+                                : safetyMapper.selectPropertyCoordinates(missingPropertyIds)
+                                                .stream()
+                                                .collect(Collectors.toMap(
+                                                                SafetyPropertyCoordinateVO::getPropertyId,
+                                                                Function.identity()));
 
-        List<SafetyBatchItemDTO> items = new ArrayList<>();
-        int cacheHitCount = 0;
-        int calculatedCount = 0;
-        int failedCount = 0;
+                // =========================================================================
+                // [도커 전용 200개 초고속 멀티 병렬 연산]
+                // DOCKER 모드일 때는 최대 200개 매물을 멀티스레드 병렬로 1~2초 만에 완판
+                // =========================================================================
+                if (isDockerMode()) {
+                        return processDockerBatchParallel200(destination, propertyIds, cachedByPropertyId,
+                                        propertyById);
+                }
 
-        for (Long propertyId : propertyIds) {
-            PropertySafetyVO cached = cachedByPropertyId.get(propertyId);
-            if (cached != null) {
-                items.add(createBatchItem(
-                        cached,
-                        "CACHED",
-                        true,
-                        true,
-                        "DB에 저장된 안전점수를 반환했습니다."
-                ));
-                cacheHitCount++;
-                continue;
-            }
+                // =========================================================================
+                // [팀원 기존 원본 코드 100% 보존] TMAP 레거시 순차 실행
+                // =========================================================================
+                List<SafetyBatchItemDTO> items = new ArrayList<>();
+                int cacheHitCount = 0;
+                int calculatedCount = 0;
+                int failedCount = 0;
 
-            SafetyPropertyCoordinateVO property = propertyById.get(propertyId);
-            if (property == null) {
-                items.add(createFailedBatchItem(
-                        propertyId,
-                        destination.getDestinationId(),
-                        "존재하지 않거나 삭제된 매물입니다."
-                ));
-                failedCount++;
-                continue;
-            }
+                for (Long propertyId : propertyIds) {
+                        PropertySafetyVO cached = cachedByPropertyId.get(propertyId);
+                        if (cached != null) {
+                                items.add(createBatchItem(
+                                                cached,
+                                                "CACHED",
+                                                true,
+                                                true,
+                                                "DB에 저장된 안전점수를 반환했습니다."));
+                                cacheHitCount++;
+                                continue;
+                        }
 
-            if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName())) {
-                items.add(createFailedBatchItem(
-                        propertyId,
-                        destination.getDestinationId(),
-                        "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다."
-                ));
-                failedCount++;
-                continue;
-            }
+                        SafetyPropertyCoordinateVO property = propertyById.get(propertyId);
+                        if (property == null) {
+                                items.add(createFailedBatchItem(
+                                                propertyId,
+                                                destination.getDestinationId(),
+                                                "존재하지 않거나 삭제된 매물입니다."));
+                                failedCount++;
+                                continue;
+                        }
 
-            try {
-                CalculationResult calcResult = calculateAndPersist(
-                        property,
-                        destination,
-                        defaultName(property.getAddress(), "매물")
-                );
-                items.add(createBatchItem(
-                        calcResult.stored(),
-                        "CALCULATED",
-                        false,
-                        true,
-                        "TMAP 보행자 경로 기반으로 안전점수를 정밀 계산하여 DB에 저장했습니다."
-                ));
-                calculatedCount++;
-            } catch (Exception e) {
-                log.warn("TMAP 정밀 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
-                items.add(createFailedBatchItem(
-                        propertyId,
-                        destination.getDestinationId(),
-                        "TMAP 보행자 경로 정밀 연산에 실패했습니다."
-                ));
-                failedCount++;
-            }
+                        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(),
+                                        destination.getName())) {
+                                items.add(createFailedBatchItem(
+                                                propertyId,
+                                                destination.getDestinationId(),
+                                                "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다."));
+                                failedCount++;
+                                continue;
+                        }
+
+                        try {
+                                CalculationResult calcResult = calculateAndPersist(
+                                                property,
+                                                destination,
+                                                defaultName(property.getAddress(), "매물"));
+                                items.add(createBatchItem(
+                                                calcResult.stored(),
+                                                "CALCULATED",
+                                                false,
+                                                true,
+                                                "TMAP 보행자 경로 기반으로 안전점수를 정밀 계산하여 DB에 저장했습니다."));
+                                calculatedCount++;
+                        } catch (Exception e) {
+                                log.warn("TMAP 정밀 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
+                                items.add(createFailedBatchItem(
+                                                propertyId,
+                                                destination.getDestinationId(),
+                                                "TMAP 보행자 경로 정밀 연산에 실패했습니다."));
+                                failedCount++;
+                        }
+                }
+
+                SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
+                response.setDestinationId(destination.getDestinationId());
+                response.setRequestedCount(propertyIds.size());
+                response.setCacheHitCount(cacheHitCount);
+                response.setCalculatedCount(calculatedCount);
+                response.setFailedCount(failedCount);
+                response.setSuccessCount(cacheHitCount + calculatedCount);
+                response.setItems(items);
+                return response;
         }
 
-        SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
-        response.setDestinationId(destination.getDestinationId());
-        response.setRequestedCount(propertyIds.size());
-        response.setCacheHitCount(cacheHitCount);
-        response.setCalculatedCount(calculatedCount);
-        response.setFailedCount(failedCount);
-        response.setSuccessCount(cacheHitCount + calculatedCount);
-        response.setItems(items);
-        return response;
-    }
-
-    private CalculationResult calculateAndPersist(
-            SafetyPropertyCoordinateVO property,
-            SafetyDestinationVO destination,
-            String propertyName
-    ) {
-        validateCoordinate(
-                property.getLatitude(),
-                property.getLongitude(),
-                "매물"
-        );
-
-        PedestrianRoute route = safetyRouteClient.findPreferredRoute(
-                property.getLatitude(),
-                property.getLongitude(),
-                defaultName(propertyName, property.getAddress()),
-                destination.getLatitude().doubleValue(),
-                destination.getLongitude().doubleValue(),
-                defaultName(destination.getName(), "선택 목적지")
-        );
-
-        BoundingBox boundingBox = calculateBoundingBox(route);
-        List<SafetyFacilityVO> facilities =
-                safetyFacilityRepository.findInBounds(
-                        boundingBox.minLatitude(),
-                        boundingBox.maxLatitude(),
-                        boundingBox.minLongitude(),
-                        boundingBox.maxLongitude()
-                );
-
-        SafetyRouteCandidateDTO selectedRoute =
-                safetyScoreCalculator.calculate(route, facilities);
-        selectedRoute.setSelected(true);
-
-        PropertySafetyVO calculated = new PropertySafetyVO();
-        calculated.setPropertyId(property.getPropertyId());
-        calculated.setDestinationId(destination.getDestinationId());
-        calculated.setSafetyScore(selectedRoute.getSafetyScore());
-        calculated.setCctvCount(
-                selectedRoute.getBreakdown().getCctvCount()
-        );
-        calculated.setStreetLampCount(
-                selectedRoute.getBreakdown().getStreetLightCount()
-        );
-        calculated.setHasPoliceStation(
-                selectedRoute.getBreakdown().getHasPoliceStation()
-        );
-
-        // 경로와 안전점수는 반드시 같은 TMAP 결과를 기준으로 저장합니다.
-        // 예전 property_safety 데이터만 존재하던 조합이라도 첫 클릭에서 최신 경로와
-        // 점수를 한 번 맞춰 두면 이후에는 TMAP 호출 없이 그대로 재사용할 수 있습니다.
-        safetyMapper.upsertPropertySafety(calculated);
-
-        SafetyRouteCacheVO routeCache = new SafetyRouteCacheVO();
-        routeCache.setPropertyId(property.getPropertyId());
-        routeCache.setDestinationId(destination.getDestinationId());
-        routeCache.setRouteId(selectedRoute.getRouteId());
-        routeCache.setSearchOption(selectedRoute.getSearchOption());
-        routeCache.setRouteType(selectedRoute.getRouteType());
-        routeCache.setDistanceMeters(selectedRoute.getDistanceMeters());
-        routeCache.setTotalTimeSeconds(selectedRoute.getTotalTimeSeconds());
-        routeCache.setRoutePointsJson(serializeRoutePoints(selectedRoute.getRoutePoints()));
-        safetyMapper.upsertSafetyRouteCache(routeCache);
-
-        PropertySafetyVO stored = safetyMapper.selectPropertySafety(
-                property.getPropertyId(),
-                destination.getDestinationId()
-        );
-
-        if (stored == null) {
-            throw new IllegalStateException(
-                    "안전점수 계산은 완료했지만 property_safety 저장 결과를 읽지 못했습니다."
-            );
-        }
-
-        return new CalculationResult(stored, selectedRoute);
-    }
-
-    private SafetyRouteResponseDTO createCalculatedResponse(
-            CalculationResult calculation
-    ) {
-        PropertySafetyVO stored = calculation.stored();
-        SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
-        response.setPropertyId(stored.getPropertyId());
-        response.setDestinationId(stored.getDestinationId());
-        response.setCacheHit(false);
-        response.setPersisted(true);
-        response.setMessage(
-                "TMAP 대로 우선 보행 경로를 계산하고 안전점수와 경로 좌표를 DB에 저장했습니다."
-        );
-        applySummary(response, stored);
-        response.setSelectedRoute(calculation.selectedRoute());
-        response.setCandidateRoutes(List.of(calculation.selectedRoute()));
-        return response;
-    }
-
-    private SafetyRouteResponseDTO createCachedResponse(
-            PropertySafetyVO cached,
-            SafetyRouteCacheVO cachedRoute
-    ) {
-        SafetyRouteCandidateDTO selectedRoute = createRouteCandidateFromCache(
-                cached,
-                cachedRoute
-        );
-
-        SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
-        response.setPropertyId(cached.getPropertyId());
-        response.setDestinationId(cached.getDestinationId());
-        response.setCacheHit(true);
-        response.setPersisted(true);
-        response.setMessage(
-                "DB에 저장된 안전점수와 경로를 반환했습니다. TMAP API는 호출하지 않았습니다."
-        );
-        applySummary(response, cached);
-        response.setSelectedRoute(selectedRoute);
-        response.setCandidateRoutes(List.of(selectedRoute));
-        return response;
-    }
-
-    @Override
-    public PropertySafetyVO recalculateFromCachedRoute(
-            SafetyRouteCacheVO cachedRoute,
-            SafetyPropertyCoordinateVO property,
-            SafetyDestinationVO destination
-    ) {
-        if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
-            throw new IllegalArgumentException("재계산용 DB LineString 경로 데이터가 유효하지 않습니다.");
-        }
-
-        List<RoutePointDTO> points = deserializeRoutePoints(cachedRoute.getRoutePointsJson());
-        PedestrianRoute route = new PedestrianRoute();
-        route.setRouteId(cachedRoute.getRouteId());
-        route.setSearchOption(cachedRoute.getSearchOption());
-        route.setRouteType(cachedRoute.getRouteType());
-        route.setDistanceMeters(cachedRoute.getDistanceMeters());
-        route.setTotalTimeSeconds(cachedRoute.getTotalTimeSeconds());
-        route.setRoutePoints(points);
-
-        BoundingBox boundingBox = calculateBoundingBox(route);
-        List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
-                boundingBox.minLatitude(),
-                boundingBox.maxLatitude(),
-                boundingBox.minLongitude(),
-                boundingBox.maxLongitude()
-        );
-
-        SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
-
-        PropertySafetyVO calculated = new PropertySafetyVO();
-        calculated.setPropertyId(property.getPropertyId());
-        calculated.setDestinationId(destination.getDestinationId());
-        calculated.setSafetyScore(selectedRoute.getSafetyScore());
-        calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
-        calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
-        calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
-
-        safetyMapper.upsertPropertySafety(calculated);
-        return calculated;
-    }
-
-    @Override
-    public List<SafetyFacilityVO> getRouteFacilities(Long propertyId, Integer destinationId) {
-        SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(propertyId, destinationId);
-        if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
-            throw new IllegalArgumentException(
-                    "저장된 경로가 없습니다. 먼저 안전점수를 계산해주세요."
-            );
-        }
-
-        PedestrianRoute route = new PedestrianRoute();
-        route.setRoutePoints(deserializeRoutePoints(cachedRoute.getRoutePointsJson()));
-
-        BoundingBox boundingBox = calculateBoundingBox(route);
-        List<SafetyFacilityVO> candidates = safetyFacilityRepository.findInBounds(
-                boundingBox.minLatitude(),
-                boundingBox.maxLatitude(),
-                boundingBox.minLongitude(),
-                boundingBox.maxLongitude()
-        );
-
-        // bbox 조회 결과는 여유 마진(520m)이 포함돼 있어 범위가 넓으므로,
-        // 점수 계산과 동일한 반경 기준으로 실제 경로에 영향을 준 시설물만 다시 걸러냄
-        return safetyScoreCalculator.filterFacilitiesNearRoute(route, candidates);
-    }
-
-    private SafetyRouteCandidateDTO createRouteCandidateFromCache(
-            PropertySafetyVO safety,
-            SafetyRouteCacheVO routeCache
-    ) {
-        SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
-        breakdown.setCctvCount(safety.getCctvCount());
-        breakdown.setStreetLightCount(safety.getStreetLampCount());
-        breakdown.setHasPoliceStation(safety.getHasPoliceStation());
-
-        SafetyRouteCandidateDTO route = new SafetyRouteCandidateDTO();
-        route.setRouteId(routeCache.getRouteId());
-        route.setSearchOption(routeCache.getSearchOption());
-        route.setRouteType(routeCache.getRouteType());
-        route.setSelected(true);
-        route.setSafetyScore(safety.getSafetyScore());
-        route.setSafetyGrade(toGrade(safety.getSafetyScore()));
-        route.setDistanceMeters(routeCache.getDistanceMeters());
-        route.setTotalTimeSeconds(routeCache.getTotalTimeSeconds());
-        route.setBreakdown(breakdown);
-        route.setRoutePoints(deserializeRoutePoints(routeCache.getRoutePointsJson()));
-        return route;
-    }
-
-    private String serializeRoutePoints(List<RoutePointDTO> routePoints) {
-        try {
-            return objectMapper.writeValueAsString(routePoints);
-        } catch (Exception exception) {
-            throw new IllegalStateException("경로 좌표를 DB 저장 형식으로 변환하지 못했습니다.", exception);
-        }
-    }
-
-    private List<RoutePointDTO> deserializeRoutePoints(String routePointsJson) {
-        if (routePointsJson == null || routePointsJson.isBlank()) {
-            throw new IllegalStateException("DB에 저장된 경로 좌표가 비어 있습니다.");
-        }
-        try {
-            List<RoutePointDTO> points = objectMapper.readValue(
-                    routePointsJson,
-                    new TypeReference<List<RoutePointDTO>>() { }
-            );
-            if (points == null || points.size() < 2) {
-                throw new IllegalStateException("DB 경로 좌표가 2개 미만입니다.");
-            }
-            return points;
-        } catch (IllegalStateException exception) {
-            throw exception;
-        } catch (Exception exception) {
-            throw new IllegalStateException("DB에 저장된 경로 좌표를 읽지 못했습니다.", exception);
-        }
-    }
-
-    private void applySummary(
-            SafetyRouteResponseDTO response,
-            PropertySafetyVO propertySafety
-    ) {
-        response.setIsSupportedDistrict(true);
-        response.setSafetyScore(propertySafety.getSafetyScore());
-        response.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
-        response.setCctvCount(propertySafety.getCctvCount());
-        response.setStreetLampCount(propertySafety.getStreetLampCount());
-        response.setHasPoliceStation(propertySafety.getHasPoliceStation());
-    }
-
-    private SafetyBatchItemDTO createBatchItem(
-            PropertySafetyVO propertySafety,
-            String status,
-            boolean cacheHit,
-            boolean persisted,
-            String message
-    ) {
-        SafetyBatchItemDTO item = new SafetyBatchItemDTO();
-        item.setPropertyId(propertySafety.getPropertyId());
-        item.setDestinationId(propertySafety.getDestinationId());
-        item.setStatus(status);
-        item.setCacheHit(cacheHit);
-        item.setPersisted(persisted);
-        item.setMessage(message);
-        item.setSafetyScore(propertySafety.getSafetyScore());
-        item.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
-        item.setCctvCount(propertySafety.getCctvCount());
-        item.setStreetLampCount(propertySafety.getStreetLampCount());
-        item.setHasPoliceStation(propertySafety.getHasPoliceStation());
-        return item;
-    }
-
-    private SafetyBatchItemDTO createFailedBatchItem(
-            Long propertyId,
-            Integer destinationId,
-            String message
-    ) {
-        SafetyBatchItemDTO item = new SafetyBatchItemDTO();
-        item.setPropertyId(propertyId);
-        item.setDestinationId(destinationId);
-        item.setStatus("FAILED");
-        item.setCacheHit(false);
-        item.setPersisted(false);
-        item.setMessage(defaultName(message, "안전점수를 계산하지 못했습니다."));
-        return item;
-    }
-
-    private SafetyPropertyCoordinateVO resolveProperty(Long propertyId) {
-        SafetyPropertyCoordinateVO property =
-                safetyMapper.selectPropertyCoordinate(propertyId);
-
-        if (property == null) {
-            throw new IllegalArgumentException(
-                    "properties 테이블에 존재하는 propertyId가 필요합니다: "
-                            + propertyId
-            );
-        }
-        return property;
-    }
-
-    private SafetyDestinationVO resolveDestination(
-            Integer destinationId,
-            String destinationName,
-            String destinationAddress,
-            Double destinationLatitude,
-            Double destinationLongitude
-    ) {
-        if (destinationId != null && destinationId > 0) {
-            SafetyDestinationVO stored =
-                    safetyMapper.selectDestinationById(destinationId);
-
-            if (stored != null) {
+        private CalculationResult calculateAndPersist(
+                        SafetyPropertyCoordinateVO property,
+                        SafetyDestinationVO destination,
+                        String propertyName) {
                 validateCoordinate(
-                        stored.getLatitude().doubleValue(),
-                        stored.getLongitude().doubleValue(),
-                        "목적지"
-                );
-                log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
-                        stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
-                return stored;
-            }
+                                property.getLatitude(),
+                                property.getLongitude(),
+                                "매물");
+
+                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                                property.getLatitude(),
+                                property.getLongitude(),
+                                defaultName(propertyName, property.getAddress()),
+                                destination.getLatitude().doubleValue(),
+                                destination.getLongitude().doubleValue(),
+                                defaultName(destination.getName(), "선택 목적지"));
+
+                BoundingBox boundingBox = calculateBoundingBox(route);
+                List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
+                                boundingBox.minLatitude(),
+                                boundingBox.maxLatitude(),
+                                boundingBox.minLongitude(),
+                                boundingBox.maxLongitude());
+
+                SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
+                selectedRoute.setSelected(true);
+
+                PropertySafetyVO calculated = new PropertySafetyVO();
+                calculated.setPropertyId(property.getPropertyId());
+                calculated.setDestinationId(destination.getDestinationId());
+                calculated.setSafetyScore(selectedRoute.getSafetyScore());
+                calculated.setCctvCount(
+                                selectedRoute.getBreakdown().getCctvCount());
+                calculated.setStreetLampCount(
+                                selectedRoute.getBreakdown().getStreetLightCount());
+                calculated.setHasPoliceStation(
+                                selectedRoute.getBreakdown().getHasPoliceStation());
+
+                // 경로와 안전점수는 반드시 같은 TMAP 결과를 기준으로 저장합니다.
+                // 예전 property_safety 데이터만 존재하던 조합이라도 첫 클릭에서 최신 경로와
+                // 점수를 한 번 맞춰 두면 이후에는 TMAP 호출 없이 그대로 재사용할 수 있습니다.
+                safetyMapper.upsertPropertySafety(calculated);
+
+                // 도커 모드(발할라/호퍼)일 때는 메모리 연산이므로 무거운 DB 경로 저장을 스킵합니다.
+                // TMAP 모드일 때만 호출 비용/쿼터 절약을 위해 DB에 캐싱 저장합니다 (기존 로직 100% 보존).
+                if (!isDockerMode()) {
+                        SafetyRouteCacheVO routeCache = new SafetyRouteCacheVO();
+                        routeCache.setPropertyId(property.getPropertyId());
+                        routeCache.setDestinationId(destination.getDestinationId());
+                        routeCache.setRouteId(selectedRoute.getRouteId());
+                        routeCache.setSearchOption(selectedRoute.getSearchOption());
+                        routeCache.setRouteType(selectedRoute.getRouteType());
+                        routeCache.setDistanceMeters(selectedRoute.getDistanceMeters());
+                        routeCache.setTotalTimeSeconds(selectedRoute.getTotalTimeSeconds());
+                        routeCache.setRoutePointsJson(serializeRoutePoints(selectedRoute.getRoutePoints()));
+                        safetyMapper.upsertSafetyRouteCache(routeCache);
+                }
+
+                PropertySafetyVO stored = safetyMapper.selectPropertySafety(
+                                property.getPropertyId(),
+                                destination.getDestinationId());
+
+                if (stored == null) {
+                        throw new IllegalStateException(
+                                        "안전점수 계산은 완료했지만 property_safety 저장 결과를 읽지 못했습니다.");
+                }
+
+                return new CalculationResult(stored, selectedRoute);
         }
 
-        validateCoordinate(
-                destinationLatitude,
-                destinationLongitude,
-                "목적지"
-        );
-
-        String name = defaultName(destinationName, "선택 목적지");
-        BigDecimal latBd = toDatabaseCoordinate(destinationLatitude);
-        BigDecimal lngBd = toDatabaseCoordinate(destinationLongitude);
-
-        SafetyDestinationVO matched = safetyMapper.selectDestinationByMatch(name, latBd, lngBd);
-        if (matched != null) {
-            log.info("[Safety] matched existing destination by name/coords: id={}, name={}, lat={}, lng={}",
-                    matched.getDestinationId(), matched.getName(), matched.getLatitude(), matched.getLongitude());
-            return matched;
+        private SafetyRouteResponseDTO createCalculatedResponse(
+                        CalculationResult calculation) {
+                PropertySafetyVO stored = calculation.stored();
+                SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
+                response.setPropertyId(stored.getPropertyId());
+                response.setDestinationId(stored.getDestinationId());
+                response.setCacheHit(false);
+                response.setPersisted(true);
+                response.setMessage(
+                                "TMAP 대로 우선 보행 경로를 계산하고 안전점수와 경로 좌표를 DB에 저장했습니다.");
+                applySummary(response, stored);
+                response.setSelectedRoute(calculation.selectedRoute());
+                response.setCandidateRoutes(List.of(calculation.selectedRoute()));
+                return response;
         }
 
-        SafetyDestinationVO destination = new SafetyDestinationVO();
-        destination.setLatitude(latBd);
-        destination.setLongitude(lngBd);
-        destination.setName(name);
-        destination.setAddress(destinationAddress);
-        log.warn("[Safety] Reusing or creating new destination: name={}, lat={}, lng={}",
-                destination.getName(), destination.getLatitude(), destination.getLongitude());
-        safetyMapper.upsertDestination(destination);
+        private SafetyRouteResponseDTO createCachedResponse(
+                        PropertySafetyVO cached,
+                        SafetyRouteCacheVO cachedRoute) {
+                SafetyRouteCandidateDTO selectedRoute = createRouteCandidateFromCache(
+                                cached,
+                                cachedRoute);
 
-        if (destination.getDestinationId() == null
-                || destination.getDestinationId() <= 0) {
-            throw new IllegalStateException(
-                    "목적지 ID를 생성하거나 조회하지 못했습니다."
-            );
-        }
-        return destination;
-    }
-
-    private BoundingBox calculateBoundingBox(PedestrianRoute route) {
-        double minLatitude = Double.POSITIVE_INFINITY;
-        double maxLatitude = Double.NEGATIVE_INFINITY;
-        double minLongitude = Double.POSITIVE_INFINITY;
-        double maxLongitude = Double.NEGATIVE_INFINITY;
-
-        for (RoutePointDTO point : route.getRoutePoints()) {
-            minLatitude = Math.min(minLatitude, point.getLatitude());
-            maxLatitude = Math.max(maxLatitude, point.getLatitude());
-            minLongitude = Math.min(minLongitude, point.getLongitude());
-            maxLongitude = Math.max(maxLongitude, point.getLongitude());
+                SafetyRouteResponseDTO response = new SafetyRouteResponseDTO();
+                response.setPropertyId(cached.getPropertyId());
+                response.setDestinationId(cached.getDestinationId());
+                response.setCacheHit(true);
+                response.setPersisted(true);
+                response.setMessage(
+                                "DB에 저장된 안전점수와 경로를 반환했습니다. TMAP API는 호출하지 않았습니다.");
+                applySummary(response, cached);
+                response.setSelectedRoute(selectedRoute);
+                response.setCandidateRoutes(List.of(selectedRoute));
+                return response;
         }
 
-        if (!Double.isFinite(minLatitude)
-                || !Double.isFinite(maxLatitude)
-                || !Double.isFinite(minLongitude)
-                || !Double.isFinite(maxLongitude)) {
-            throw new IllegalStateException(
-                    "경로의 bounding box를 계산할 수 없습니다."
-            );
+        @Override
+        public PropertySafetyVO recalculateFromCachedRoute(
+                        SafetyRouteCacheVO cachedRoute,
+                        SafetyPropertyCoordinateVO property,
+                        SafetyDestinationVO destination) {
+                if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
+                        throw new IllegalArgumentException("재계산용 DB LineString 경로 데이터가 유효하지 않습니다.");
+                }
+
+                List<RoutePointDTO> points = deserializeRoutePoints(cachedRoute.getRoutePointsJson());
+                PedestrianRoute route = new PedestrianRoute();
+                route.setRouteId(cachedRoute.getRouteId());
+                route.setSearchOption(cachedRoute.getSearchOption());
+                route.setRouteType(cachedRoute.getRouteType());
+                route.setDistanceMeters(cachedRoute.getDistanceMeters());
+                route.setTotalTimeSeconds(cachedRoute.getTotalTimeSeconds());
+                route.setRoutePoints(points);
+
+                BoundingBox boundingBox = calculateBoundingBox(route);
+                List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
+                                boundingBox.minLatitude(),
+                                boundingBox.maxLatitude(),
+                                boundingBox.minLongitude(),
+                                boundingBox.maxLongitude());
+
+                SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
+
+                PropertySafetyVO calculated = new PropertySafetyVO();
+                calculated.setPropertyId(property.getPropertyId());
+                calculated.setDestinationId(destination.getDestinationId());
+                calculated.setSafetyScore(selectedRoute.getSafetyScore());
+                calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
+                calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
+                calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
+
+                safetyMapper.upsertPropertySafety(calculated);
+                return calculated;
         }
 
-        double centerLatitude = (minLatitude + maxLatitude) / 2.0;
-        double latitudeMargin = FACILITY_QUERY_MARGIN_METERS / 111_320.0;
-        double longitudeMargin = FACILITY_QUERY_MARGIN_METERS
-                / (
-                111_320.0
-                        * Math.max(
-                        0.2,
-                        Math.cos(Math.toRadians(centerLatitude))
-                )
-        );
+        @Override
+        public List<SafetyFacilityVO> getRouteFacilities(Long propertyId, Integer destinationId) {
+                // =========================================================================
+                // [기존 팀원 코드 100% 우선 실행] DB에 캐시된 경로가 있으면 기존 로직 그대로 사용
+                // =========================================================================
+                SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(propertyId, destinationId);
+                PedestrianRoute route;
 
-        return new BoundingBox(
-                minLatitude - latitudeMargin,
-                maxLatitude + latitudeMargin,
-                minLongitude - longitudeMargin,
-                maxLongitude + longitudeMargin
-        );
-    }
+                if (cachedRoute != null && cachedRoute.getRoutePointsJson() != null) {
+                        route = new PedestrianRoute();
+                        route.setRoutePoints(deserializeRoutePoints(cachedRoute.getRoutePointsJson()));
+                } else if (isDockerMode()) {
+                        // =========================================================================
+                        // [도커 발할라 전용 폴백] 발할라 모드는 DB 저장을 스킵하므로 실시간 연산으로 시설물 탐색
+                        // =========================================================================
+                        SafetyPropertyCoordinateVO property = safetyMapper.selectPropertyCoordinate(propertyId);
+                        SafetyDestinationVO destination = resolveDestination(destinationId, null, null, null, null);
+                        if (property == null || destination == null) {
+                                throw new IllegalArgumentException(
+                                                "매물 또는 목적지 정보를 찾을 수 없습니다.");
+                        }
+                        route = safetyRouteClient.findPreferredRoute(
+                                        property.getLatitude(),
+                                        property.getLongitude(),
+                                        defaultName(property.getAddress(), "매물"),
+                                        destination.getLatitude().doubleValue(),
+                                        destination.getLongitude().doubleValue(),
+                                        defaultName(destination.getName(), "선택 목적지"));
+                } else {
+                        // =========================================================================
+                        // [기존 TMAP 레거시 원본 보존] 도커 모드가 아닐 때는 기존 예외 처리 그대로 유지
+                        // =========================================================================
+                        throw new IllegalArgumentException(
+                                        "저장된 경로가 없습니다. 먼저 안전점수를 계산해주세요.");
+                }
 
-    private void validateRequest(SafetyRouteRequestDTO request) {
-        if (request == null) {
-            throw new IllegalArgumentException("요청 본문이 필요합니다.");
+                BoundingBox boundingBox = calculateBoundingBox(route);
+                List<SafetyFacilityVO> candidates = safetyFacilityRepository.findInBounds(
+                                boundingBox.minLatitude(),
+                                boundingBox.maxLatitude(),
+                                boundingBox.minLongitude(),
+                                boundingBox.maxLongitude());
+
+                // bbox 조회 결과는 여유 마진(520m)이 포함돼 있어 범위가 넓으므로,
+                // 점수 계산과 동일한 반경 기준으로 실제 경로에 영향을 준 시설물만 다시 걸러냄
+                return safetyScoreCalculator.filterFacilitiesNearRoute(route, candidates);
         }
-        if (request.getPropertyId() == null || request.getPropertyId() <= 0) {
-            throw new IllegalArgumentException("propertyId가 필요합니다.");
-        }
-        validateDestinationInput(
-                request.getDestinationId(),
-                request.getDestinationLatitude(),
-                request.getDestinationLongitude()
-        );
-    }
 
-    private void validateBatchRequest(SafetyBatchRequestDTO request) {
-        if (request == null) {
-            throw new IllegalArgumentException("요청 본문이 필요합니다.");
-        }
-        if (request.getPropertyIds() == null || request.getPropertyIds().isEmpty()) {
-            throw new IllegalArgumentException("propertyIds가 필요합니다.");
-        }
-        validateDestinationInput(
-                request.getDestinationId(),
-                request.getDestinationLatitude(),
-                request.getDestinationLongitude()
-        );
-    }
+        private SafetyRouteCandidateDTO createRouteCandidateFromCache(
+                        PropertySafetyVO safety,
+                        SafetyRouteCacheVO routeCache) {
+                SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
+                breakdown.setCctvCount(safety.getCctvCount());
+                breakdown.setStreetLightCount(safety.getStreetLampCount());
+                breakdown.setHasPoliceStation(safety.getHasPoliceStation());
 
-    private void validateDestinationInput(
-            Integer destinationId,
-            Double destinationLatitude,
-            Double destinationLongitude
-    ) {
-        boolean hasDestinationId = destinationId != null && destinationId > 0;
-        boolean hasDestinationCoordinate =
-                destinationLatitude != null && destinationLongitude != null;
-
-        if (!hasDestinationId && !hasDestinationCoordinate) {
-            throw new IllegalArgumentException(
-                    "destinationId 또는 목적지 위도·경도가 필요합니다."
-            );
+                SafetyRouteCandidateDTO route = new SafetyRouteCandidateDTO();
+                route.setRouteId(routeCache.getRouteId());
+                route.setSearchOption(routeCache.getSearchOption());
+                route.setRouteType(routeCache.getRouteType());
+                route.setSelected(true);
+                route.setSafetyScore(safety.getSafetyScore());
+                route.setSafetyGrade(toGrade(safety.getSafetyScore()));
+                route.setDistanceMeters(routeCache.getDistanceMeters());
+                route.setTotalTimeSeconds(routeCache.getTotalTimeSeconds());
+                route.setBreakdown(breakdown);
+                route.setRoutePoints(deserializeRoutePoints(routeCache.getRoutePointsJson()));
+                return route;
         }
-    }
 
-    private void validateCoordinate(
-            Double latitude,
-            Double longitude,
-            String label
-    ) {
-        if (latitude == null || longitude == null) {
-            throw new IllegalArgumentException(
-                    label + " 위도와 경도가 필요합니다."
-            );
+        private String serializeRoutePoints(List<RoutePointDTO> routePoints) {
+                try {
+                        return objectMapper.writeValueAsString(routePoints);
+                } catch (Exception exception) {
+                        throw new IllegalStateException("경로 좌표를 DB 저장 형식으로 변환하지 못했습니다.", exception);
+                }
         }
-        if (latitude < -90.0 || latitude > 90.0) {
-            throw new IllegalArgumentException(
-                    label + " 위도 범위가 올바르지 않습니다."
-            );
+
+        private List<RoutePointDTO> deserializeRoutePoints(String routePointsJson) {
+                if (routePointsJson == null || routePointsJson.isBlank()) {
+                        throw new IllegalStateException("DB에 저장된 경로 좌표가 비어 있습니다.");
+                }
+                try {
+                        List<RoutePointDTO> points = objectMapper.readValue(
+                                        routePointsJson,
+                                        new TypeReference<List<RoutePointDTO>>() {
+                                        });
+                        if (points == null || points.size() < 2) {
+                                throw new IllegalStateException("DB 경로 좌표가 2개 미만입니다.");
+                        }
+                        return points;
+                } catch (IllegalStateException exception) {
+                        throw exception;
+                } catch (Exception exception) {
+                        throw new IllegalStateException("DB에 저장된 경로 좌표를 읽지 못했습니다.", exception);
+                }
         }
-        if (longitude < -180.0 || longitude > 180.0) {
-            throw new IllegalArgumentException(
-                    label + " 경도 범위가 올바르지 않습니다."
-            );
+
+        private void applySummary(
+                        SafetyRouteResponseDTO response,
+                        PropertySafetyVO propertySafety) {
+                response.setIsSupportedDistrict(true);
+                response.setSafetyScore(propertySafety.getSafetyScore());
+                response.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
+                response.setCctvCount(propertySafety.getCctvCount());
+                response.setStreetLampCount(propertySafety.getStreetLampCount());
+                response.setHasPoliceStation(propertySafety.getHasPoliceStation());
         }
-    }
 
-    private BigDecimal toDatabaseCoordinate(double value) {
-        return BigDecimal.valueOf(value)
-                .setScale(8, RoundingMode.HALF_UP);
-    }
-
-    private String defaultName(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private String toGrade(Integer safetyScore) {
-        int score = safetyScore == null ? 0 : safetyScore;
-        if (score >= 80) {
-            return "SAFE";
+        private SafetyBatchItemDTO createBatchItem(
+                        PropertySafetyVO propertySafety,
+                        String status,
+                        boolean cacheHit,
+                        boolean persisted,
+                        String message) {
+                SafetyBatchItemDTO item = new SafetyBatchItemDTO();
+                item.setPropertyId(propertySafety.getPropertyId());
+                item.setDestinationId(propertySafety.getDestinationId());
+                item.setStatus(status);
+                item.setCacheHit(cacheHit);
+                item.setPersisted(persisted);
+                item.setMessage(message);
+                item.setSafetyScore(propertySafety.getSafetyScore());
+                item.setSafetyGrade(toGrade(propertySafety.getSafetyScore()));
+                item.setCctvCount(propertySafety.getCctvCount());
+                item.setStreetLampCount(propertySafety.getStreetLampCount());
+                item.setHasPoliceStation(propertySafety.getHasPoliceStation());
+                return item;
         }
-        if (score >= 60) {
-            return "WARNING";
+
+        private SafetyBatchItemDTO createFailedBatchItem(
+                        Long propertyId,
+                        Integer destinationId,
+                        String message) {
+                SafetyBatchItemDTO item = new SafetyBatchItemDTO();
+                item.setPropertyId(propertyId);
+                item.setDestinationId(destinationId);
+                item.setStatus("FAILED");
+                item.setCacheHit(false);
+                item.setPersisted(false);
+                item.setMessage(defaultName(message, "안전점수를 계산하지 못했습니다."));
+                return item;
         }
-        return "DANGER";
-    }
 
-    private record CalculationResult(
-            PropertySafetyVO stored,
-            SafetyRouteCandidateDTO selectedRoute
-    ) {
-    }
+        private SafetyPropertyCoordinateVO resolveProperty(Long propertyId) {
+                SafetyPropertyCoordinateVO property = safetyMapper.selectPropertyCoordinate(propertyId);
 
-    private record BoundingBox(
-            double minLatitude,
-            double maxLatitude,
-            double minLongitude,
-            double maxLongitude
-    ) {
-    }
+                if (property == null) {
+                        throw new IllegalArgumentException(
+                                        "properties 테이블에 존재하는 propertyId가 필요합니다: "
+                                                        + propertyId);
+                }
+                return property;
+        }
+
+        private SafetyDestinationVO resolveDestination(
+                        Integer destinationId,
+                        String destinationName,
+                        String destinationAddress,
+                        Double destinationLatitude,
+                        Double destinationLongitude) {
+                if (destinationId != null && destinationId > 0) {
+                        SafetyDestinationVO stored = safetyMapper.selectDestinationById(destinationId);
+
+                        if (stored != null) {
+                                validateCoordinate(
+                                                stored.getLatitude().doubleValue(),
+                                                stored.getLongitude().doubleValue(),
+                                                "목적지");
+                                log.info("[Safety] using stored destination: id={}, lat={}, lng={}",
+                                                stored.getDestinationId(), stored.getLatitude(), stored.getLongitude());
+                                return stored;
+                        }
+                }
+
+                validateCoordinate(
+                                destinationLatitude,
+                                destinationLongitude,
+                                "목적지");
+
+                String name = defaultName(destinationName, "선택 목적지");
+                BigDecimal latBd = toDatabaseCoordinate(destinationLatitude);
+                BigDecimal lngBd = toDatabaseCoordinate(destinationLongitude);
+
+                SafetyDestinationVO matched = safetyMapper.selectDestinationByMatch(name, latBd, lngBd);
+                if (matched != null) {
+                        log.info("[Safety] matched existing destination by name/coords: id={}, name={}, lat={}, lng={}",
+                                        matched.getDestinationId(), matched.getName(), matched.getLatitude(),
+                                        matched.getLongitude());
+                        return matched;
+                }
+
+                SafetyDestinationVO destination = new SafetyDestinationVO();
+                destination.setLatitude(latBd);
+                destination.setLongitude(lngBd);
+                destination.setName(name);
+                destination.setAddress(destinationAddress);
+                log.warn("[Safety] Reusing or creating new destination: name={}, lat={}, lng={}",
+                                destination.getName(), destination.getLatitude(), destination.getLongitude());
+                safetyMapper.upsertDestination(destination);
+
+                if (destination.getDestinationId() == null
+                                || destination.getDestinationId() <= 0) {
+                        throw new IllegalStateException(
+                                        "목적지 ID를 생성하거나 조회하지 못했습니다.");
+                }
+                return destination;
+        }
+
+        private BoundingBox calculateBoundingBox(PedestrianRoute route) {
+                double minLatitude = Double.POSITIVE_INFINITY;
+                double maxLatitude = Double.NEGATIVE_INFINITY;
+                double minLongitude = Double.POSITIVE_INFINITY;
+                double maxLongitude = Double.NEGATIVE_INFINITY;
+
+                for (RoutePointDTO point : route.getRoutePoints()) {
+                        minLatitude = Math.min(minLatitude, point.getLatitude());
+                        maxLatitude = Math.max(maxLatitude, point.getLatitude());
+                        minLongitude = Math.min(minLongitude, point.getLongitude());
+                        maxLongitude = Math.max(maxLongitude, point.getLongitude());
+                }
+
+                if (!Double.isFinite(minLatitude)
+                                || !Double.isFinite(maxLatitude)
+                                || !Double.isFinite(minLongitude)
+                                || !Double.isFinite(maxLongitude)) {
+                        throw new IllegalStateException(
+                                        "경로의 bounding box를 계산할 수 없습니다.");
+                }
+
+                double centerLatitude = (minLatitude + maxLatitude) / 2.0;
+                double latitudeMargin = FACILITY_QUERY_MARGIN_METERS / 111_320.0;
+                double longitudeMargin = FACILITY_QUERY_MARGIN_METERS
+                                / (111_320.0
+                                                * Math.max(
+                                                                0.2,
+                                                                Math.cos(Math.toRadians(centerLatitude))));
+
+                return new BoundingBox(
+                                minLatitude - latitudeMargin,
+                                maxLatitude + latitudeMargin,
+                                minLongitude - longitudeMargin,
+                                maxLongitude + longitudeMargin);
+        }
+
+        private void validateRequest(SafetyRouteRequestDTO request) {
+                if (request == null) {
+                        throw new IllegalArgumentException("요청 본문이 필요합니다.");
+                }
+                if (request.getPropertyId() == null || request.getPropertyId() <= 0) {
+                        throw new IllegalArgumentException("propertyId가 필요합니다.");
+                }
+                validateDestinationInput(
+                                request.getDestinationId(),
+                                request.getDestinationLatitude(),
+                                request.getDestinationLongitude());
+        }
+
+        private void validateBatchRequest(SafetyBatchRequestDTO request) {
+                if (request == null) {
+                        throw new IllegalArgumentException("요청 본문이 필요합니다.");
+                }
+                if (request.getPropertyIds() == null || request.getPropertyIds().isEmpty()) {
+                        throw new IllegalArgumentException("propertyIds가 필요합니다.");
+                }
+                validateDestinationInput(
+                                request.getDestinationId(),
+                                request.getDestinationLatitude(),
+                                request.getDestinationLongitude());
+        }
+
+        private void validateDestinationInput(
+                        Integer destinationId,
+                        Double destinationLatitude,
+                        Double destinationLongitude) {
+                boolean hasDestinationId = destinationId != null && destinationId > 0;
+                boolean hasDestinationCoordinate = destinationLatitude != null && destinationLongitude != null;
+
+                if (!hasDestinationId && !hasDestinationCoordinate) {
+                        throw new IllegalArgumentException(
+                                        "destinationId 또는 목적지 위도·경도가 필요합니다.");
+                }
+        }
+
+        private void validateCoordinate(
+                        Double latitude,
+                        Double longitude,
+                        String label) {
+                if (latitude == null || longitude == null) {
+                        throw new IllegalArgumentException(
+                                        label + " 위도와 경도가 필요합니다.");
+                }
+                if (latitude < -90.0 || latitude > 90.0) {
+                        throw new IllegalArgumentException(
+                                        label + " 위도 범위가 올바르지 않습니다.");
+                }
+                if (longitude < -180.0 || longitude > 180.0) {
+                        throw new IllegalArgumentException(
+                                        label + " 경도 범위가 올바르지 않습니다.");
+                }
+        }
+
+        private BigDecimal toDatabaseCoordinate(double value) {
+                return BigDecimal.valueOf(value)
+                                .setScale(8, RoundingMode.HALF_UP);
+        }
+
+        private String defaultName(String value, String fallback) {
+                return value == null || value.isBlank() ? fallback : value;
+        }
+
+        private String toGrade(Integer safetyScore) {
+                int score = safetyScore == null ? 0 : safetyScore;
+                if (score >= 80) {
+                        return "SAFE";
+                }
+                if (score >= 60) {
+                        return "WARNING";
+                }
+                return "DANGER";
+        }
+
+        // =========================================================================
+        // [도커 전용] 최대 200개 매물 초고속 멀티스레드 병렬 처리 & 비동기 백그라운드 DB 캐싱
+        // =========================================================================
+        private SafetyBatchResponseDTO processDockerBatchParallel200(
+                        SafetyDestinationVO destination,
+                        List<Long> propertyIds,
+                        Map<Long, PropertySafetyVO> cachedByPropertyId,
+                        Map<Long, SafetyPropertyCoordinateVO> propertyById) {
+                java.util.List<PropertySafetyVO> toPersistList = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+                List<SafetyBatchItemDTO> items = propertyIds.parallelStream().map(propertyId -> {
+                        PropertySafetyVO cached = cachedByPropertyId.get(propertyId);
+                        if (cached != null) {
+                                return createBatchItem(cached, "CACHED", true, true, "DB에 저장된 안전점수를 반환했습니다.");
+                        }
+
+                        SafetyPropertyCoordinateVO property = propertyById.get(propertyId);
+                        if (property == null) {
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "존재하지 않거나 삭제된 매물입니다.");
+                        }
+
+                        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(),
+                                        destination.getName())) {
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        }
+
+                        try {
+                                CalculationResult calcResult = calculateAndPersistDocker(property, destination,
+                                                defaultName(property.getAddress(), "매물"));
+                                if (calcResult != null && calcResult.stored() != null) {
+                                        toPersistList.add(calcResult.stored());
+                                }
+                                return createBatchItem(calcResult.stored(), "CALCULATED", false, true,
+                                                "도커 발할라 경로 기반으로 안전점수를 정밀 계산했습니다.");
+                        } catch (Exception e) {
+                                log.warn("도커 발할라 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "보행자 경로 정밀 연산에 실패했습니다.");
+                        }
+                }).collect(Collectors.toList());
+
+                // ⚡ [도커 전용 비동기 백그라운드 DB 저장] 사용자는 아주아주 빠르게~ 결과를 받고, DB 저장은 백그라운드에서 비동기 처리
+                if (!toPersistList.isEmpty()) {
+                        CompletableFuture.runAsync(() -> {
+                                for (PropertySafetyVO vo : toPersistList) {
+                                        try {
+                                                safetyMapper.upsertPropertySafety(vo);
+                                        } catch (Exception e) {
+                                                log.warn("[DockerBatch] 백그라운드 DB 캐시 저장 실패 (propertyId: {}): {}",
+                                                                vo.getPropertyId(), e.getMessage());
+                                        }
+                                }
+                        });
+                }
+
+                int cacheHitCount = (int) items.stream().filter(SafetyBatchItemDTO::getCacheHit).count();
+                int calculatedCount = (int) items.stream().filter(i -> "CALCULATED".equals(i.getStatus())).count();
+                int failedCount = items.size() - cacheHitCount - calculatedCount;
+
+                SafetyBatchResponseDTO response = new SafetyBatchResponseDTO();
+                response.setDestinationId(destination.getDestinationId());
+                response.setRequestedCount(propertyIds.size());
+                response.setCacheHitCount(cacheHitCount);
+                response.setCalculatedCount(calculatedCount);
+                response.setFailedCount(failedCount);
+                response.setSuccessCount(cacheHitCount + calculatedCount);
+                response.setItems(items);
+                return response;
+        }
+
+        private CalculationResult calculateAndPersistDocker(
+                        SafetyPropertyCoordinateVO property,
+                        SafetyDestinationVO destination,
+                        String propertyName) {
+                validateCoordinate(property.getLatitude(), property.getLongitude(), "매물");
+
+                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                                property.getLatitude(),
+                                property.getLongitude(),
+                                defaultName(propertyName, property.getAddress()),
+                                destination.getLatitude().doubleValue(),
+                                destination.getLongitude().doubleValue(),
+                                defaultName(destination.getName(), "선택 목적지"));
+
+                BoundingBox boundingBox = calculateBoundingBox(route);
+                List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
+                                boundingBox.minLatitude(), boundingBox.maxLatitude(),
+                                boundingBox.minLongitude(), boundingBox.maxLongitude());
+
+                SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(route, facilities);
+                selectedRoute.setSelected(true);
+
+                PropertySafetyVO calculated = new PropertySafetyVO();
+                calculated.setPropertyId(property.getPropertyId());
+                calculated.setDestinationId(destination.getDestinationId());
+                calculated.setSafetyScore(selectedRoute.getSafetyScore());
+                calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
+                calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
+                calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
+
+                return new CalculationResult(calculated, selectedRoute);
+        }
+
+        private boolean isDockerMode() {
+                return com.salgosipo.global.routing.RoutingConfigLoader.isDockerMode();
+        }
+
+        private record CalculationResult(
+                        PropertySafetyVO stored,
+                        SafetyRouteCandidateDTO selectedRoute) {
+        }
+
+        private record BoundingBox(
+                        double minLatitude,
+                        double maxLatitude,
+                        double minLongitude,
+                        double maxLongitude) {
+        }
 }

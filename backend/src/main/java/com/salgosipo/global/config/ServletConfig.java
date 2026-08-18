@@ -27,7 +27,8 @@ import java.util.List;
         "com.salgosipo.safety.controller",
         "com.salgosipo.user.controller",
         "com.salgosipo.loan.controller",
-        "com.salgosipo.global.exception"
+        "com.salgosipo.global.exception",
+        "com.salgosipo.global.routing.controller"
 })
 public class ServletConfig implements WebMvcConfigurer {
     //스프링 내부에서 사용하는 서블릿(jsp)와 관련된 설정하는 파일.

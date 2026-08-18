@@ -21,7 +21,9 @@ const emit = defineEmits(['select', 'toggle-bookmark']);
 // 건물 종류 텍스트 변환
 const buildingTypeText = computed(() => {
   const types = { 1: '빌라/연립', 2: '다가구', 3: '오피스텔' };
-  return types[props.property.buildingType] || props.property.propertyType || '주택';
+  return (
+    types[props.property.buildingType] || props.property.propertyType || '주택'
+  );
 });
 
 // 방 종류 텍스트 변환
@@ -36,7 +38,9 @@ const formatPriceAmount = (amount, rent = false) => {
   if (value >= 10000) {
     const eok = value / 10000;
     return {
-      value: Number.isInteger(eok) ? String(eok) : eok.toFixed(1).replace(/\.0$/, ''),
+      value: Number.isInteger(eok)
+        ? String(eok)
+        : eok.toFixed(1).replace(/\.0$/, ''),
       unit: rent ? '억' : '억원',
     };
   }
@@ -47,13 +51,22 @@ const formatPriceAmount = (amount, rent = false) => {
   };
 };
 
-const formattedDeposit = computed(() => formatPriceAmount(props.property.deposit));
-const formattedMonthlyRent = computed(() => formatPriceAmount(props.property.monthlyRent, true));
+const formattedDeposit = computed(() =>
+  formatPriceAmount(props.property.deposit),
+);
+const formattedMonthlyRent = computed(() =>
+  formatPriceAmount(props.property.monthlyRent, true),
+);
 const isJeonse = computed(() => Number(props.property.monthlyRent || 0) === 0);
 
 const hasSafetyScore = computed(() => {
   const value = props.property.safetyScore;
-  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  return (
+    value !== null &&
+    value !== undefined &&
+    value !== '' &&
+    Number.isFinite(Number(value))
+  );
 });
 
 // 안전점수 색상 클래스
@@ -78,7 +91,9 @@ const SAMPLE_PROPERTY_IMAGES = [
 
 const cardThumbnailUrl = computed(() => {
   if (props.property.thumbnailUrl) return props.property.thumbnailUrl;
-  const idx = Math.abs(Number(props.property.propertyId || 0)) % SAMPLE_PROPERTY_IMAGES.length;
+  const idx =
+    Math.abs(Number(props.property.propertyId || 0)) %
+    SAMPLE_PROPERTY_IMAGES.length;
   return SAMPLE_PROPERTY_IMAGES[idx];
 });
 </script>
@@ -107,19 +122,40 @@ const cardThumbnailUrl = computed(() => {
     <!-- 매물 정보 -->
     <div class="flex-1 flex flex-col justify-between min-w-0 pr-8 md:pr-9">
       <div>
-        <div class="flex items-center gap-1.5 mb-1">
+        <div class="flex items-center gap-1.5 mb-1 flex-nowrap shrink-0">
           <span
-            class="inline-flex items-center rounded-md bg-[#eef1ff] px-1.5 py-0.5 text-[10px] font-bold text-[#4767f7] md:text-[11px]"
+            class="inline-flex items-center whitespace-nowrap shrink-0 rounded-md bg-[#eef1ff] px-1.5 py-0.5 text-[10px] font-bold text-[#4767f7] md:text-[11px]"
           >
             {{ buildingTypeText }} · {{ roomTypeText }}
           </span>
           <span
-            v-if="hasSafetyScore"
-            class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold md:text-[11px]"
+            v-if="property.isSafetyLoading"
+            class="inline-flex items-center whitespace-nowrap shrink-0 gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse md:text-[11px]"
+          >
+            <i class="fa-solid fa-spinner fa-spin text-[9px]" aria-hidden="true"></i>
+            계산 중...
+          </span>
+          <span
+            v-else-if="hasSafetyScore"
+            class="inline-flex items-center whitespace-nowrap shrink-0 gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold md:text-[11px]"
             :class="safetyScoreClass"
           >
-            <i class="fa-solid fa-shield-halved text-[9px]" aria-hidden="true"></i>
+            <i
+              class="fa-solid fa-shield-halved text-[9px]"
+              aria-hidden="true"
+            ></i>
             {{ property.safetyScore }}점
+          </span>
+          <span
+            v-else
+            class="inline-flex items-center whitespace-nowrap shrink-0 gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 md:text-[11px]"
+            title="보안등 공공데이터 미구축 자치구"
+          >
+            <i
+              class="fa-solid fa-shield-slash text-[9px] text-slate-400"
+              aria-hidden="true"
+            ></i>
+            데이터 부족
           </span>
         </div>
 
