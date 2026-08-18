@@ -9,7 +9,8 @@ import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
- * application.properties와 독립된 로컬 전용 라우팅 설정 파일(docker-routing.properties)을 로드합니다.
+ * application.properties와 독립된 로컬 전용 라우팅 설정 파일(docker-routing.properties)을
+ * 로드합니다.
  */
 @Slf4j
 public class RoutingConfigLoader {
@@ -44,23 +45,7 @@ public class RoutingConfigLoader {
     }
 
     public static String getEngineMode() {
-        // 우선순위 1: 시스템 프로퍼티 / 환경변수
-        String env = System.getenv("ROUTING_ENGINE_MODE");
-        if (env != null && !env.isBlank()) {
-            return env.trim();
-        }
-        String sysProp = System.getProperty("routing.engine.mode");
-        if (sysProp != null && !sysProp.isBlank()) {
-            return sysProp.trim();
-        }
-
-        // 우선순위 2: docker-routing.properties 파일
-        String fileVal = props.getProperty("routing.engine.mode");
-        if (fileVal != null && !fileVal.isBlank()) {
-            return fileVal.trim();
-        }
-
-        return "DOCKER"; // 기본값
+        return resolvePlaceholder(props.getProperty("routing.engine.mode"), "ROUTING_ENGINE_MODE", "DOCKER");
     }
 
     public static boolean isDockerMode() {
@@ -68,12 +53,44 @@ public class RoutingConfigLoader {
     }
 
     public static String getValhallaUrl() {
-        String val = props.getProperty("routing.valhalla.url");
-        return (val != null && !val.isBlank()) ? val.trim() : "http://localhost:8000";
+        return resolvePlaceholder(props.getProperty("routing.valhalla.url"), "ROUTING_VALHALLA_URL", "http://localhost:8000");
+    }
+
+    public static String getMotisUrl() {
+        return resolvePlaceholder(props.getProperty("routing.motis.url"), "ROUTING_MOTIS_URL", "http://localhost:8001");
     }
 
     public static String getGraphhopperUrl() {
-        String val = props.getProperty("routing.graphhopper.url");
-        return (val != null && !val.isBlank()) ? val.trim() : "http://localhost:8001";
+        return resolvePlaceholder(props.getProperty("routing.graphhopper.url"), "ROUTING_GRAPHHOPPER_URL", "http://localhost:8001");
+    }
+
+    /**
+     * 환경변수, 시스템 프로퍼티, Spring 템플릿 문법(${KEY:DEFAULT})을 100% 자동 파싱하여 안전하게 반환
+     */
+    private static String resolvePlaceholder(String val, String envKey, String fallback) {
+        // 1. OS 환경변수 1순위 (Railway 배포 환경)
+        String env = System.getenv(envKey);
+        if (env != null && !env.isBlank()) {
+            return env.trim();
+        }
+
+        // 2. JVM System Property 2순위 (-Drouting.engine.mode=...)
+        String sys = System.getProperty(envKey.toLowerCase().replace('_', '.'));
+        if (sys != null && !sys.isBlank()) {
+            return sys.trim();
+        }
+
+        // 3. properties 파일 값 파싱
+        if (val == null || val.isBlank()) {
+            return fallback;
+        }
+        val = val.trim();
+
+        // 4. Spring 템플릿 문법 지원: ${ENV_NAME:DEFAULT_VALUE} -> DEFAULT_VALUE 추출
+        if (val.startsWith("${") && val.contains(":")) {
+            int colonIdx = val.indexOf(":");
+            return val.substring(colonIdx + 1).replace("}", "").trim();
+        }
+        return val;
     }
 }

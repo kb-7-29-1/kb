@@ -34,6 +34,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -824,13 +825,15 @@ public class SafetyServiceImpl implements SafetyService {
         }
 
         // =========================================================================
-        // [도커 전용] 최대 200개 매물 초고속 멀티스레드 병렬 처리 & LineString DB 저장 제외
+        // [도커 전용] 최대 200개 매물 초고속 멀티스레드 병렬 처리 & 비동기 백그라운드 DB 캐싱
         // =========================================================================
         private SafetyBatchResponseDTO processDockerBatchParallel200(
                         SafetyDestinationVO destination,
                         List<Long> propertyIds,
                         Map<Long, PropertySafetyVO> cachedByPropertyId,
                         Map<Long, SafetyPropertyCoordinateVO> propertyById) {
+                java.util.List<PropertySafetyVO> toPersistList = new java.util.concurrent.CopyOnWriteArrayList<>();
+
                 List<SafetyBatchItemDTO> items = propertyIds.parallelStream().map(propertyId -> {
                         PropertySafetyVO cached = cachedByPropertyId.get(propertyId);
                         if (cached != null) {
@@ -852,6 +855,9 @@ public class SafetyServiceImpl implements SafetyService {
                         try {
                                 CalculationResult calcResult = calculateAndPersistDocker(property, destination,
                                                 defaultName(property.getAddress(), "매물"));
+                                if (calcResult != null && calcResult.stored() != null) {
+                                        toPersistList.add(calcResult.stored());
+                                }
                                 return createBatchItem(calcResult.stored(), "CALCULATED", false, true,
                                                 "도커 발할라 경로 기반으로 안전점수를 정밀 계산했습니다.");
                         } catch (Exception e) {
@@ -860,6 +866,20 @@ public class SafetyServiceImpl implements SafetyService {
                                                 "보행자 경로 정밀 연산에 실패했습니다.");
                         }
                 }).collect(Collectors.toList());
+
+                // ⚡ [도커 전용 비동기 백그라운드 DB 저장] 사용자는 아주아주 빠르게~ 결과를 받고, DB 저장은 백그라운드에서 비동기 처리
+                if (!toPersistList.isEmpty()) {
+                        CompletableFuture.runAsync(() -> {
+                                for (PropertySafetyVO vo : toPersistList) {
+                                        try {
+                                                safetyMapper.upsertPropertySafety(vo);
+                                        } catch (Exception e) {
+                                                log.warn("[DockerBatch] 백그라운드 DB 캐시 저장 실패 (propertyId: {}): {}",
+                                                                vo.getPropertyId(), e.getMessage());
+                                        }
+                                }
+                        });
+                }
 
                 int cacheHitCount = (int) items.stream().filter(SafetyBatchItemDTO::getCacheHit).count();
                 int calculatedCount = (int) items.stream().filter(i -> "CALCULATED".equals(i.getStatus())).count();
@@ -905,9 +925,6 @@ public class SafetyServiceImpl implements SafetyService {
                 calculated.setCctvCount(selectedRoute.getBreakdown().getCctvCount());
                 calculated.setStreetLampCount(selectedRoute.getBreakdown().getStreetLightCount());
                 calculated.setHasPoliceStation(selectedRoute.getBreakdown().getHasPoliceStation());
-
-                // 안전점수만 가볍게 저장 (무거운 LineString 저장은 제외하여 200개 초고속 처리)
-                safetyMapper.upsertPropertySafety(calculated);
 
                 return new CalculationResult(calculated, selectedRoute);
         }
