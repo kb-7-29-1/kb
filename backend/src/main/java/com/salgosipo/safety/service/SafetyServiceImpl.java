@@ -278,7 +278,8 @@ public class SafetyServiceImpl implements SafetyService {
                 // DOCKER 모드일 때는 최대 200개 매물을 멀티스레드 병렬로 1~2초 만에 완판
                 // =========================================================================
                 if (isDockerMode()) {
-                        return processDockerBatchParallel200(destination, propertyIds, cachedByPropertyId, propertyById);
+                        return processDockerBatchParallel200(destination, propertyIds, cachedByPropertyId,
+                                        propertyById);
                 }
 
                 // =========================================================================
@@ -398,16 +399,20 @@ public class SafetyServiceImpl implements SafetyService {
                 // 점수를 한 번 맞춰 두면 이후에는 TMAP 호출 없이 그대로 재사용할 수 있습니다.
                 safetyMapper.upsertPropertySafety(calculated);
 
-                SafetyRouteCacheVO routeCache = new SafetyRouteCacheVO();
-                routeCache.setPropertyId(property.getPropertyId());
-                routeCache.setDestinationId(destination.getDestinationId());
-                routeCache.setRouteId(selectedRoute.getRouteId());
-                routeCache.setSearchOption(selectedRoute.getSearchOption());
-                routeCache.setRouteType(selectedRoute.getRouteType());
-                routeCache.setDistanceMeters(selectedRoute.getDistanceMeters());
-                routeCache.setTotalTimeSeconds(selectedRoute.getTotalTimeSeconds());
-                routeCache.setRoutePointsJson(serializeRoutePoints(selectedRoute.getRoutePoints()));
-                safetyMapper.upsertSafetyRouteCache(routeCache);
+                // 도커 모드(발할라/호퍼)일 때는 메모리 연산이므로 무거운 DB 경로 저장을 스킵합니다.
+                // TMAP 모드일 때만 호출 비용/쿼터 절약을 위해 DB에 캐싱 저장합니다 (기존 로직 100% 보존).
+                if (!isDockerMode()) {
+                        SafetyRouteCacheVO routeCache = new SafetyRouteCacheVO();
+                        routeCache.setPropertyId(property.getPropertyId());
+                        routeCache.setDestinationId(destination.getDestinationId());
+                        routeCache.setRouteId(selectedRoute.getRouteId());
+                        routeCache.setSearchOption(selectedRoute.getSearchOption());
+                        routeCache.setRouteType(selectedRoute.getRouteType());
+                        routeCache.setDistanceMeters(selectedRoute.getDistanceMeters());
+                        routeCache.setTotalTimeSeconds(selectedRoute.getTotalTimeSeconds());
+                        routeCache.setRoutePointsJson(serializeRoutePoints(selectedRoute.getRoutePoints()));
+                        safetyMapper.upsertSafetyRouteCache(routeCache);
+                }
 
                 PropertySafetyVO stored = safetyMapper.selectPropertySafety(
                                 property.getPropertyId(),
@@ -498,14 +503,39 @@ public class SafetyServiceImpl implements SafetyService {
 
         @Override
         public List<SafetyFacilityVO> getRouteFacilities(Long propertyId, Integer destinationId) {
+                // =========================================================================
+                // [기존 팀원 코드 100% 우선 실행] DB에 캐시된 경로가 있으면 기존 로직 그대로 사용
+                // =========================================================================
                 SafetyRouteCacheVO cachedRoute = safetyMapper.selectSafetyRouteCache(propertyId, destinationId);
-                if (cachedRoute == null || cachedRoute.getRoutePointsJson() == null) {
+                PedestrianRoute route;
+
+                if (cachedRoute != null && cachedRoute.getRoutePointsJson() != null) {
+                        route = new PedestrianRoute();
+                        route.setRoutePoints(deserializeRoutePoints(cachedRoute.getRoutePointsJson()));
+                } else if (isDockerMode()) {
+                        // =========================================================================
+                        // [도커 발할라 전용 폴백] 발할라 모드는 DB 저장을 스킵하므로 실시간 연산으로 시설물 탐색
+                        // =========================================================================
+                        SafetyPropertyCoordinateVO property = safetyMapper.selectPropertyCoordinate(propertyId);
+                        SafetyDestinationVO destination = resolveDestination(destinationId, null, null, null, null);
+                        if (property == null || destination == null) {
+                                throw new IllegalArgumentException(
+                                                "매물 또는 목적지 정보를 찾을 수 없습니다.");
+                        }
+                        route = safetyRouteClient.findPreferredRoute(
+                                        property.getLatitude(),
+                                        property.getLongitude(),
+                                        defaultName(property.getAddress(), "매물"),
+                                        destination.getLatitude().doubleValue(),
+                                        destination.getLongitude().doubleValue(),
+                                        defaultName(destination.getName(), "선택 목적지"));
+                } else {
+                        // =========================================================================
+                        // [기존 TMAP 레거시 원본 보존] 도커 모드가 아닐 때는 기존 예외 처리 그대로 유지
+                        // =========================================================================
                         throw new IllegalArgumentException(
                                         "저장된 경로가 없습니다. 먼저 안전점수를 계산해주세요.");
                 }
-
-                PedestrianRoute route = new PedestrianRoute();
-                route.setRoutePoints(deserializeRoutePoints(cachedRoute.getRoutePointsJson()));
 
                 BoundingBox boundingBox = calculateBoundingBox(route);
                 List<SafetyFacilityVO> candidates = safetyFacilityRepository.findInBounds(
@@ -809,19 +839,25 @@ public class SafetyServiceImpl implements SafetyService {
 
                         SafetyPropertyCoordinateVO property = propertyById.get(propertyId);
                         if (property == null) {
-                                return createFailedBatchItem(propertyId, destination.getDestinationId(), "존재하지 않거나 삭제된 매물입니다.");
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "존재하지 않거나 삭제된 매물입니다.");
                         }
 
-                        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(), destination.getName())) {
-                                return createFailedBatchItem(propertyId, destination.getDestinationId(), "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(),
+                                        destination.getName())) {
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
                         }
 
                         try {
-                                CalculationResult calcResult = calculateAndPersistDocker(property, destination, defaultName(property.getAddress(), "매물"));
-                                return createBatchItem(calcResult.stored(), "CALCULATED", false, true, "도커 발할라 경로 기반으로 안전점수를 정밀 계산했습니다.");
+                                CalculationResult calcResult = calculateAndPersistDocker(property, destination,
+                                                defaultName(property.getAddress(), "매물"));
+                                return createBatchItem(calcResult.stored(), "CALCULATED", false, true,
+                                                "도커 발할라 경로 기반으로 안전점수를 정밀 계산했습니다.");
                         } catch (Exception e) {
                                 log.warn("도커 발할라 연산 실패: propertyId={}, msg={}", propertyId, e.getMessage());
-                                return createFailedBatchItem(propertyId, destination.getDestinationId(), "보행자 경로 정밀 연산에 실패했습니다.");
+                                return createFailedBatchItem(propertyId, destination.getDestinationId(),
+                                                "보행자 경로 정밀 연산에 실패했습니다.");
                         }
                 }).collect(Collectors.toList());
 

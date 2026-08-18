@@ -28,4 +28,7 @@ public class TransitSummaryDTO {
     private String routeColor;              // 노선 고유 Hex Color (예: "#00a84d")
     private String departureLocation;       // 탑승 정류장/역 이름 (예: "어린이대공원역")
     private String arrivalLocation;         // 하차 정류장/역 이름 (예: "건대입구역")
+
+    // 실제 지하철 선로 및 버스 도로 세부 구간 목록 (GPS 좌표 포함)
+    private java.util.List<TransitLegDTO> legs;
 }
