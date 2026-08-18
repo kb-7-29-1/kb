@@ -1,5 +1,6 @@
 package com.salgosipo.safety.controller;
 
+import com.salgosipo.safety.domain.SafetyFacilityVO;
 import com.salgosipo.safety.dto.SafetyBatchRequestDTO;
 import com.salgosipo.safety.dto.SafetyBatchResponseDTO;
 import com.salgosipo.safety.dto.SafetyRouteRequestDTO;
@@ -8,11 +9,14 @@ import com.salgosipo.safety.service.SafetyService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -54,6 +58,20 @@ public class SafetyController {
     ) {
         return ResponseEntity.ok(
                 safetyService.getOrCalculateSafetyBatch(request)
+        );
+    }
+
+    /**
+     * 이미 계산된 경로(캐시)의 bounding box 안에 있는 CCTV/가로등/파출소 원본 좌표를 반환합니다.
+     * "경로 자세히 보기" 토글을 켰을 때만 호출되는 지연 로딩용 엔드포인트입니다.
+     */
+    @GetMapping("/route/facilities")
+    public ResponseEntity<List<SafetyFacilityVO>> getRouteFacilities(
+            @RequestParam Long propertyId,
+            @RequestParam Integer destinationId
+    ) {
+        return ResponseEntity.ok(
+                safetyService.getRouteFacilities(propertyId, destinationId)
         );
     }
 

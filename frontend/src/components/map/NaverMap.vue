@@ -84,6 +84,11 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  // "경로 자세히 보기" 토글 ON 시 표시할 CCTV/가로등/파출소 원본 좌표 목록
+  routeFacilities: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits([
@@ -147,8 +152,32 @@ let activeDestMarker = null;
 const destinationMarkers = new Set();
 let pendingRenderFrame = null;
 let safetyRoutePolyline = null;
+let safetyRouteScoreLabel = null;
 let lastSafetyRouteKey = '';
 let selectedContextFitFrame = null;
+let routeFacilityOverlays = [];
+
+// SafetyScoreCalculator.java의 반경 상수와 반드시 일치시켜야 함
+const ROUTE_FACILITY_COLOR = {
+  CCTV: '#2a60f7',
+  STREET_LIGHT: '#f5b301',
+  POLICE: '#7c3aed',
+};
+const ROUTE_FACILITY_RADIUS = {
+  CCTV: 50,
+  STREET_LIGHT: 15,
+  POLICE: 500,
+};
+const ROUTE_FACILITY_LABEL = {
+  CCTV: '📷 CCTV',
+  STREET_LIGHT: '💡 가로등',
+  POLICE: '👮 파출소',
+};
+const GRADE_COLOR = {
+  SAFE: '#22a06b',
+  WARNING: '#e69a1d',
+  DANGER: '#dc4b5d',
+};
 
 const getSelectedContextFitMargin = () => {
   const mapElement = document.getElementById('naver-map-container');
@@ -242,6 +271,10 @@ const clearSafetyRoutePolyline = () => {
     safetyRoutePolyline.setMap(null);
     safetyRoutePolyline = null;
   }
+  if (safetyRouteScoreLabel) {
+    safetyRouteScoreLabel.setMap(null);
+    safetyRouteScoreLabel = null;
+  }
   lastSafetyRouteKey = '';
 };
 
@@ -282,15 +315,22 @@ const renderSafetyRoute = () => {
   if (safetyRoutePolyline) {
     safetyRoutePolyline.setMap(null);
   }
+  if (safetyRouteScoreLabel) {
+    safetyRouteScoreLabel.setMap(null);
+    safetyRouteScoreLabel = null;
+  }
 
   const path = points.map(
     (point) => new window.naver.maps.LatLng(point.lat, point.lng),
   );
 
+  const grade = props.safetyRoute?.safetyGrade;
+  const color = GRADE_COLOR[grade] || '#4058f5';
+
   safetyRoutePolyline = new window.naver.maps.Polyline({
     map: mapInstance.value,
     path,
-    strokeColor: '#4058f5',
+    strokeColor: color,
     strokeWeight: 7,
     strokeOpacity: 0.92,
     strokeStyle: 'solid',
@@ -298,8 +338,76 @@ const renderSafetyRoute = () => {
   });
   lastSafetyRouteKey = routeKey;
 
+  const score = props.safetyRoute?.safetyScore;
+  if (score != null) {
+    const midPoint = path[Math.floor(path.length / 2)];
+    safetyRouteScoreLabel = new window.naver.maps.Marker({
+      map: mapInstance.value,
+      position: midPoint,
+      icon: {
+        content: `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`,
+        anchor: new window.naver.maps.Point(24, 12),
+      },
+      zIndex: 19,
+    });
+  }
+
   // 경로·목적지·선택 매물·편의시설을 포함하도록 카메라 조정
   scheduleSelectedPropertyContextFit();
+};
+
+const clearRouteFacilityOverlays = () => {
+  routeFacilityOverlays.forEach(({ circle, dot }) => {
+    circle.setMap(null);
+    dot.setMap(null);
+  });
+  routeFacilityOverlays = [];
+};
+
+const renderRouteFacilities = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  clearRouteFacilityOverlays();
+
+  const facilities = props.routeFacilities;
+  if (!Array.isArray(facilities) || facilities.length === 0) return;
+
+  facilities.forEach((facility) => {
+    const lat = Number(facility.latitude);
+    const lng = Number(facility.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const color = ROUTE_FACILITY_COLOR[facility.facilityType] || '#94a3b8';
+    const radius = ROUTE_FACILITY_RADIUS[facility.facilityType] || 50;
+    const labelText =
+      ROUTE_FACILITY_LABEL[facility.facilityType] || facility.facilityType;
+    const unitCount = Math.max(1, Number(facility.facilityCount) || 1);
+    const countBadge = unitCount > 1 ? ` ×${unitCount}` : '';
+
+    const circle = new window.naver.maps.Circle({
+      map: mapInstance.value,
+      center: new window.naver.maps.LatLng(lat, lng),
+      radius,
+      strokeWeight: 1.5,
+      strokeColor: color,
+      strokeOpacity: 0.8,
+      fillColor: color,
+      fillOpacity: 0.15,
+      zIndex: 15,
+    });
+
+    const dot = new window.naver.maps.Marker({
+      map: mapInstance.value,
+      position: new window.naver.maps.LatLng(lat, lng),
+      icon: {
+        content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}${countBadge}</div>`,
+        anchor: new window.naver.maps.Point(20, 8),
+      },
+      zIndex: 16,
+    });
+
+    routeFacilityOverlays.push({ circle, dot });
+  });
 };
 
 const clearDestinationMarkers = () => {
@@ -1022,8 +1130,15 @@ watch(
   () => props.safetyRoute,
   () => {
     renderSafetyRoute();
+    clearRouteFacilityOverlays();
     scheduleSelectedPropertyContextFit();
   },
+  { deep: true },
+);
+
+watch(
+  () => props.routeFacilities,
+  () => renderRouteFacilities(),
   { deep: true },
 );
 
@@ -1131,6 +1246,7 @@ onUnmounted(() => {
   clearDestinationMarkers();
   clearAmenityMarkers();
   clearSafetyRoutePolyline();
+  clearRouteFacilityOverlays();
   clearPendingDestinationOverlay();
   if (debugViewportRectangleInstance) {
     debugViewportRectangleInstance.setMap(null);

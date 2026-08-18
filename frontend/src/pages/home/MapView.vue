@@ -127,6 +127,47 @@ const isSafetyRouteLoading = ref(false);
 const safetyRouteError = ref('');
 let safetyRouteRequestSequence = 0;
 
+// "경로 자세히 보기" 토글 상태. 모바일/데스크탑 SlidingDoorPanel 두 인스턴스가
+// 이 값을 함께 props로 받아서 보여주기만 하므로, 어느 쪽이 화면에 있든 지도 상태와 항상 일치함
+const showRouteFacilities = ref(false);
+const isRouteFacilitiesLoading = ref(false);
+const routeFacilities = ref([]);
+
+const handleToggleRouteFacilities = async () => {
+  if (isRouteFacilitiesLoading.value) return;
+
+  if (showRouteFacilities.value) {
+    showRouteFacilities.value = false;
+    routeFacilities.value = [];
+    return;
+  }
+
+  if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id) return;
+
+  isRouteFacilitiesLoading.value = true;
+  try {
+    const facilities = await safetyService.getRouteFacilities({
+      propertyId: selectedProperty.value.propertyId,
+      destinationId: destinationConfig.value.id,
+    });
+    routeFacilities.value = Array.isArray(facilities) ? facilities : [];
+    showRouteFacilities.value = true;
+  } catch (error) {
+    console.error('ROUTE FACILITIES LOAD ERROR:', error);
+  } finally {
+    isRouteFacilitiesLoading.value = false;
+  }
+};
+
+// 선택 매물이 바뀌면(다른 매물 선택 또는 패널 닫힘) 토글/지도 표시를 함께 초기화
+watch(
+  () => selectedProperty.value?.propertyId,
+  () => {
+    showRouteFacilities.value = false;
+    routeFacilities.value = [];
+  },
+);
+
 // 매물 목록 데이터 (기본값: mockProperties 더미 데이터 백업)
 const amenitiesByProperty = ref({});
 const amenityFilterLoading = ref(false);
@@ -1247,6 +1288,7 @@ const clearSelectedProperty = () => {
   isPanelOpen.value = false;
   mobileSidebarTab.value = 'list';
   externallyOpenedPropertyId.value = null;
+  routeFacilities.value = [];
 };
 
 watch(
@@ -1838,8 +1880,11 @@ const {
             selectedProperty &&
             pendingBookmarkIds.has(selectedProperty.propertyId)
           "
+          :show-route-facilities="showRouteFacilities"
+          :is-route-facilities-loading="isRouteFacilitiesLoading"
           @close="clearSelectedProperty"
           @toggle-bookmark="handleToggleBookmark"
+          @toggle-route-facilities="handleToggleRouteFacilities"
         />
       </div>
 
@@ -2069,6 +2114,7 @@ const {
         :live-filter="filterState"
         :is-preview-mode="isPreviewingIsochrone"
         :safety-route="selectedSafetyRoute"
+        :route-facilities="routeFacilities"
         @select-property="handleSelectProperty"
         @change-destination="handleChangeDestination"
         @bounds-change="handleBoundsChange"
@@ -2148,8 +2194,11 @@ const {
       :is-bookmark-pending="
         selectedProperty && pendingBookmarkIds.has(selectedProperty.propertyId)
       "
+      :show-route-facilities="showRouteFacilities"
+      :is-route-facilities-loading="isRouteFacilitiesLoading"
       @close="clearSelectedProperty"
       @toggle-bookmark="handleToggleBookmark"
+      @toggle-route-facilities="handleToggleRouteFacilities"
     />
   </div>
 </template>

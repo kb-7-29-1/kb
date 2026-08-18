@@ -30,4 +30,13 @@ public interface SafetyService {
             com.salgosipo.safety.domain.SafetyPropertyCoordinateVO property,
             com.salgosipo.safety.domain.SafetyDestinationVO destination
     );
+
+    /**
+     * property_id + destination_id에 이미 저장된 경로의 bounding box 안에 있는
+     * CCTV/가로등/파출소 원본 좌표를 조회합니다. TMAP은 호출하지 않습니다.
+     */
+    java.util.List<com.salgosipo.safety.domain.SafetyFacilityVO> getRouteFacilities(
+            Long propertyId,
+            Integer destinationId
+    );
 }
