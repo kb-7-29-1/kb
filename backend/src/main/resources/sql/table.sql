@@ -229,8 +229,10 @@ CREATE TABLE property_amenities (
 CREATE TABLE bookmarks (
     user_id INT NOT NULL,
     property_id INT NOT NULL,
+    destination_id INT NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, property_id),
     CONSTRAINT fk_bookmarks_users FOREIGN KEY (user_id) REFERENCES users (user_id),
-    CONSTRAINT fk_bookmarks_properties FOREIGN KEY (property_id) REFERENCES properties (property_id)
+    CONSTRAINT fk_bookmarks_properties FOREIGN KEY (property_id) REFERENCES properties (property_id),
+    CONSTRAINT fk_bookmarks_destinations FOREIGN KEY (destination_id) REFERENCES destinations (destination_id)
 );
