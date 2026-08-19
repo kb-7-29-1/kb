@@ -14,7 +14,11 @@
 
 ---
 
-## 📊 1. Mermaid ERD 다이어그램
+> ⚠️ **최신 ERD는 [`backend/src/main/resources/sql/kbfinal.png`](../backend/src/main/resources/sql/kbfinal.png)를 기준으로 봐주세요.**
+> 아래 Mermaid 다이어그램과 DDL은 `property_safety_route` 테이블, `bookmarks.destination_id` 컬럼이
+> 반영되기 전 버전이라 실제 스키마(`backend/src/main/resources/sql/table.sql`)와 다를 수 있습니다.
+
+## 📊 1. Mermaid ERD 다이어그램 (구버전)
 
 ```mermaid
 erDiagram
