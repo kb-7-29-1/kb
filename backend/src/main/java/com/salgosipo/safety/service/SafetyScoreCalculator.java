@@ -78,7 +78,7 @@ public class SafetyScoreCalculator {
                 + policePenalty;
         int safetyScore = Math.max(
                 0,
-                (int) Math.round(100 - totalPenalty / 2.0)
+                (int) Math.round(100 - totalPenalty / 3.0)
         );
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
