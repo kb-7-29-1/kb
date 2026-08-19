@@ -3,7 +3,7 @@
 
 ### 낯선 동네에서도, 안심하고 살 곳을 찾다
 
-**주거 안전 + 귀갓길 안전 + 개인화 금융을 하나의 지도에서 해결하는 안심 주거 매칭 솔루션**
+**주거 안전 + 귀갓길 안전 + 조건별 대출 매칭을 하나의 지도에서 해결하는 안심 주거 매칭 솔루션**
 
 [![Vue](https://img.shields.io/badge/Vue-3-4FC08D?logo=vuedotjs&logoColor=white)](https://vuejs.org/)
 [![Spring](https://img.shields.io/badge/Spring-Legacy%205-6DB33F?logo=spring&logoColor=white)](https://spring.io/)
@@ -33,17 +33,17 @@
 
 ## ✨ 핵심 기능
 
-| # | 기능 | 설명 |
-|---|---|---|
-| 1 | 🎯 **초개인화 온보딩** | 목적지(직장/학교) · 이동 수단 · 보증금/월세 예산 · 안전 선호도를 단계별 수집 |
-| 2 | 🗺️ **지도 & 매물 탐색** | 목적지 기준 도보권 시각화, 편의시설(편의점/카페/마트) 필터, 매물 마커 |
-| 3 | 🏢 **건물 안전 정보** | 위반건축물 여부, 준공연식 표시 |
+| # | 기능                      | 설명 |
+|---|-------------------------|---|
+| 1 | 🎯 **초개인화 온보딩**         | 목적지(직장/학교) · 이동 수단 · 보증금/월세 예산 · 안전 선호도를 단계별 수집 |
+| 2 | 🗺️ **지도 & 매물 탐색**      | 목적지 기준 도보권 시각화, 편의시설(편의점/카페/마트) 필터, 매물 마커 |
+| 3 | 🏢 **건물 안전 정보**         | 위반건축물 여부, 준공연식 표시 |
 | 4 | 🚨 **거리 안전 점수 (CPTED)** | CCTV·가로등 밀도, 파출소 접근성 기반 **0~100점 안전 점수** + 안심 귀갓길 경로 시각화 + 경로 만족도 투표 |
-| 5 | 💬 **실거주 댓글 & 태그** | 댓글 키워드를 자동 추출해 매물 특징 태그 배지 생성 |
-| 6 | ⭐ **관심 매물(찜)** | 찜하기/해제, 마이페이지 목록 관리 |
-| 7 | 💰 **개인화 금융 매칭** | 예산·나이 조건 기반 대출 상품 추천, 은행 로고 표시, 클릭 시 은행 사이트 이동 |
-| 8 | 👤 **회원 관리** | 회원가입/로그인(JWT), 아이디·비밀번호 찾기, 프로필 수정, 회원 탈퇴 |
-| 9 | 🔐 **세션 관리** | 멀티탭 로그아웃 동기화, 세션 만료 임박 알림 및 연장 |
+| 5 | 💬 **실거주 댓글 & 태그**      | 댓글 키워드를 자동 추출해 매물 특징 태그 배지 생성 |
+| 6 | ⭐ **관심 매물(찜)**          | 찜하기/해제, 마이페이지 목록 관리 |
+| 7 | 💰 **예산·나이 기반 금융 매칭**   | 예산·나이 조건 기반 대출 상품 추천, 은행 로고 표시, 클릭 시 은행 사이트 이동 |
+| 8 | 👤 **회원 관리**            | 회원가입/로그인(JWT), 아이디·비밀번호 찾기, 프로필 수정, 회원 탈퇴 |
+| 9 | 🔐 **세션 관리**            | 멀티탭 로그아웃 동기화, 세션 만료 임박 알림 및 연장 |
  
 ---
 
@@ -67,12 +67,21 @@
 - **Java 17** · Spring Framework 5 (Legacy, WAR) + Gretty(Tomcat 9)
 - Spring Security + JWT (`jjwt`)
 - MyBatis + MySQL + HikariCP
-- 외부 연동: 국토교통부 공공데이터, 금감원 finlife(전세자금대출 상품 검색), Naver 지도/검색, Tmap 보행자, ODsay 대중교통
+- 외부 연동: 국토교통부 공공데이터, 금감원 finlife(전세자금대출 상품 검색), Naver 지도/검색, 하이브리드 라우팅(Valhalla·MOTIS Docker + Tmap 자동 폴백)
 </td>
 </tr>
 </table>
 **공통/인프라**: Docker · GitHub 기반 협업 (main / develop / feature 브랜치 전략)
  
+---
+
+## 🏗️ 시스템 아키텍처
+
+Vue 3 SPA가 Spring MVC(WAR)에 붙고, Tomcat이 정적 리소스와 API 요청을 분기합니다.
+도보/대중교통 경로는 Valhalla·MOTIS(Docker) 하이브리드 엔진이 기본이며, 컨테이너가 죽으면 Tmap으로 자동 폴백합니다.
+
+![시스템 아키텍처](architecture.png)
+
 ---
 
 ## 📁 프로젝트 구조
@@ -101,7 +110,7 @@ kb/
 │       ├── comment/                    # 댓글 및 태그 자동 추출
 │       ├── safety/                      # CPTED 안전 점수, 안심 경로, 투표
 │       ├── bookmark/                     # 관심 매물(찜)
-│       └── loan/                          # 개인화 대출 상품 추천
+│       └── loan/                          # 나이·예산 조건 기반 대출 상품 추천
 │
 └── .agents/                  # 기획/설계 참고 문서 모음
 ```
@@ -120,8 +129,10 @@ kb/
 | `NAVER_SEARCH_CLIENT_ID` / `NAVER_SEARCH_CLIENT_SECRET` | Naver 검색(목적지 검색) |
 | `PUBLIC_DATA_SERVICE_KEY` | 공공데이터(건축물대장 등) |
 | `SECURITY_LIGHT_API_KEY` | CCTV/가로등 등 안전 데이터 |
-| `TMAP_API_KEY` | 보행자 경로 |
-| `ODSAY_API_KEY` | 대중교통 경로 |
+| `TMAP_API_KEY` | 보행자 경로 (Docker 라우팅 엔진 다운 시 자동 폴백) |
+| `ODSAY_API_KEY` | 대중교통 경로 (예비 키, 현재 코드 미연동 — MOTIS/GraphHopper 사용 중) |
+| `ROUTING_ENGINE_MODE` | `DOCKER`(기본) / `TMAP` — 라우팅 엔진 모드 |
+| `ROUTING_VALHALLA_URL` / `ROUTING_MOTIS_URL` | 하이브리드 라우팅 엔진(Valhalla/MOTIS) 접속 URL |
 | `OPENAI_API_KEY` | AI 관련 기능 |
 | `LOAN_JEONSE_API_KEY` | 금감원 finlife 전세자금대출 상품 검색(`rentHouseLoanProductsSearch`) |
 
@@ -149,8 +160,12 @@ cd backend
 
 MySQL 8.0+ · `utf8mb4` / `utf8mb4_unicode_ci` 기준
 
-회원·목적지·온보딩·매물·이미지·댓글·태그·안전점수·투표·편의시설·관심매물 등 핵심 테이블 DDL과 ERD는
-[`.agents/db_schema_reference.md`](.agents/db_schema_reference.md)에서 확인할 수 있습니다.
+회원·목적지·온보딩·매물·이미지·댓글·태그·안전점수·안심경로·투표·편의시설·관심매물 등 12개 테이블로 구성됩니다.
+
+![ERD](backend/src/main/resources/sql/kbfinal.png)
+
+DDL은 [`backend/src/main/resources/sql/table.sql`](backend/src/main/resources/sql/table.sql), 컬럼별 설명은
+[`.agents/db_schema_reference.md`](.agents/db_schema_reference.md)에서 확인할 수 있습니다 (ERD는 위 이미지가 최신 기준).
  
 ---
 
@@ -187,7 +202,7 @@ main (배포/제출용, PR로만 merge)
 |---|---|
 | [agent.md](.agents/agent.md) | 프로젝트 마스터 허브 인덱스 |
 | [scaffolding_guide.md](.agents/scaffolding_guide.md) | 프론트/백엔드 디렉토리 구조 및 초기 세팅 명령어 |
-| [db_schema_reference.md](.agents/db_schema_reference.md) | 11개 테이블 DDL 및 ERD |
+| [db_schema_reference.md](.agents/db_schema_reference.md) | 12개 테이블 컬럼 설명 (ERD는 `kbfinal.png` 참고) |
 | [notion_summary_reference.md](.agents/notion_summary_reference.md) | 노션 정리 종합 가이드 & Git 컨벤션 |
 | [wbs_reference.md](.agents/wbs_reference.md) | 8주차 마일스톤 및 과업 WBS |
 | [e2e_test_guide.md](.agents/e2e_test_guide.md) | Playwright E2E 테스트 시나리오 |
