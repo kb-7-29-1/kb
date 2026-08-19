@@ -72,7 +72,7 @@
             </div>
             <div class="info-content">
               <div class="info-title">가로등 분포</div>
-              <div class="info-desc">경로 반경 30m 내 {{ streetLampCount }}개</div>
+              <div class="info-desc">경로 반경 20m 내 {{ streetLampCount }}개</div>
               <div class="info-desc">
                 {{ formatAverageGap('가로등', streetLampAverageGapMeters) }}
               </div>
@@ -87,7 +87,7 @@
             <div class="info-content">
               <div class="info-title">치안시설 접근성</div>
               <!-- 조건문을 사용하여 텍스트를 두 줄로 분리 -->
-              <template v-if="nearestPoliceDistanceMeters !== null && nearestPoliceDistanceMeters <= 100">
+              <template v-if="nearestPoliceDistanceMeters !== null && nearestPoliceDistanceMeters <= 500">
                 <div class="info-desc">가장 가까운 파출소 약 {{ nearestPoliceDistanceMeters }}m</div>
                 <div class="info-desc">도보 약 {{ nearestPoliceWalkMinutes }}분</div>
               </template>
@@ -145,7 +145,7 @@ const safetyScore = computed(() => {
 });
 
 const safetyGrade = computed(() => {
-  if (safetyScore.value === null) return '점수 없음';
+  if (safetyScore.value === null) return '데이터 부족';
   if (safetyScore.value >= 80) return '안심';
   if (safetyScore.value >= 60) return '보통';
   return '주의 필요';
@@ -195,7 +195,7 @@ const nearestPoliceDistanceMeters = computed(
     },
 );
 const nearestPoliceWalkMinutes = computed(() => {
-  if (nearestPoliceDistanceMeters.value === null || nearestPoliceDistanceMeters.value > 100) return null;
+  if (nearestPoliceDistanceMeters.value === null || nearestPoliceDistanceMeters.value > 500) return null;
   return Math.max(1, Math.ceil(nearestPoliceDistanceMeters.value / 75));
 });
 

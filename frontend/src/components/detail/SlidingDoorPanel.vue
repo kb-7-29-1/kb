@@ -52,9 +52,19 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  // "경로 자세히 보기" 토글 상태. 모바일/데스크탑 두 인스턴스가 항상 같은 값을 보여주도록
+  // MapView.vue가 소유하고, 이 컴포넌트는 표시와 클릭 emit만 담당함
+  showRouteFacilities: {
+    type: Boolean,
+    default: false,
+  },
+  isRouteFacilitiesLoading: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-const emit = defineEmits(['close', 'toggle-bookmark']);
+const emit = defineEmits(['close', 'toggle-bookmark', 'toggle-route-facilities']);
 
 const detailScrollRef = ref(null);
 const detailSessionKey = ref(0);
@@ -279,6 +289,11 @@ const openSafetyModal = async () => {
   }
 };
 
+const toggleRouteFacilities = () => {
+  if (props.isRouteFacilitiesLoading) return;
+  emit('toggle-route-facilities');
+};
+
 watch(
   () => props.property?.propertyId,
   (propertyId) => {
@@ -388,10 +403,12 @@ const detailImageUrl = computed(() => {
               </span>
               <span
                 class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold"
-                :class="safetyScoreClass"
+                :class="property.isSafetyLoading ? 'bg-blue-50 text-blue-600 animate-pulse' : safetyScoreClass"
               >
-                <i class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
-                {{ hasSafetyScore ? `${property.safetyScore}점` : '점수 없음' }}
+                <i v-if="property.isSafetyLoading" class="fa-solid fa-spinner fa-spin text-[10px]" aria-hidden="true"></i>
+                <i v-else-if="hasSafetyScore" class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
+                <i v-else class="fa-solid fa-shield-slash text-[10px]" aria-hidden="true"></i>
+                {{ property.isSafetyLoading ? '계산 중...' : (hasSafetyScore ? `${property.safetyScore}점` : '데이터 부족') }}
               </span>
             </div>
             <p class="truncate text-[15px] font-bold text-slate-800">
@@ -755,6 +772,24 @@ const detailImageUrl = computed(() => {
                     <strong>{{ property.hasPoliceStation ? '근처' : '확인 필요' }}</strong>
                   </div>
                 </div>
+
+                <div class="route-facility-toggle-row">
+                  <span class="route-facility-toggle-label">
+                    안전 시설 지도에 표시
+                    <span v-if="isRouteFacilitiesLoading" class="route-facility-toggle-loading">불러오는 중…</span>
+                  </span>
+                  <button
+                    type="button"
+                    class="route-facility-toggle-switch"
+                    :class="{ 'is-on': showRouteFacilities }"
+                    role="switch"
+                    :aria-checked="showRouteFacilities"
+                    :disabled="isRouteFacilitiesLoading"
+                    @click="toggleRouteFacilities"
+                  >
+                    <span class="route-facility-toggle-knob"></span>
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -1078,6 +1113,68 @@ const detailImageUrl = computed(() => {
 
 .safety-metric-card--police i {
   color: #22a06b;
+}
+
+.route-facility-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.route-facility-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.route-facility-toggle-loading {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.route-facility-toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.route-facility-toggle-switch.is-on {
+  background: #4058f5;
+}
+
+.route-facility-toggle-switch:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.route-facility-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.route-facility-toggle-switch.is-on .route-facility-toggle-knob {
+  transform: translateX(18px);
 }
 
 .safety-report-card.is-safe {

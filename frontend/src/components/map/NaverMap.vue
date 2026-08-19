@@ -25,6 +25,14 @@ import {
   getRecentDestinations,
   findMatchingDestination,
 } from '@/utils/recentDestinations.js';
+import {
+  renderUnsupportedDistrictGeoJson,
+  clearUnsupportedDistrictGeoJson,
+} from '@/utils/districtPolygonOverlay.js';
+import {
+  renderHybridRouteOverlays,
+  clearHybridRouteOverlays,
+} from '@/utils/hybridRouteOverlay.js';
 
 const props = defineProps({
   properties: {
@@ -84,6 +92,11 @@ const props = defineProps({
     type: Object,
     default: null,
   },
+  // "경로 자세히 보기" 토글 ON 시 표시할 CCTV/가로등/파출소 원본 좌표 목록
+  routeFacilities: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits([
@@ -98,6 +111,12 @@ const markersMap = ref([]);
 const amenityMarkers = new Map();
 const expandedAmenityMarkerKeys = ref(new Set());
 let resizeObserver = null;
+
+// 길(경로)을 보는 동안에는 겉에 어둡게 하는 이소크론 원&마스크를 숨기고,
+// 모바일/PC 상세정보에서 X 버튼을 눌러 경로를 닫으면 이소크론 원이 즉시 다시 나타납니다.
+const showIsochroneOverlay = computed(() => {
+  return !props.selectedProperty;
+});
 
 // 편의시설 마커 핀 (순수 초고속 HTML 스트링 템플릿)
 const amenityIcons = {
@@ -147,8 +166,32 @@ let activeDestMarker = null;
 const destinationMarkers = new Set();
 let pendingRenderFrame = null;
 let safetyRoutePolyline = null;
+let safetyRouteScoreLabel = null;
 let lastSafetyRouteKey = '';
 let selectedContextFitFrame = null;
+let routeFacilityOverlays = [];
+
+// SafetyScoreCalculator.java의 반경 상수와 반드시 일치시켜야 함
+const ROUTE_FACILITY_COLOR = {
+  CCTV: '#2a60f7',
+  STREET_LIGHT: '#f5b301',
+  POLICE: '#7c3aed',
+};
+const ROUTE_FACILITY_RADIUS = {
+  CCTV: 50,
+  STREET_LIGHT: 15,
+  POLICE: 500,
+};
+const ROUTE_FACILITY_LABEL = {
+  CCTV: '📷 CCTV',
+  STREET_LIGHT: '💡 가로등',
+  POLICE: '👮 파출소',
+};
+const GRADE_COLOR = {
+  SAFE: '#22a06b',
+  WARNING: '#e69a1d',
+  DANGER: '#dc4b5d',
+};
 
 const getSelectedContextFitMargin = () => {
   const mapElement = document.getElementById('naver-map-container');
@@ -237,17 +280,38 @@ const scheduleSelectedPropertyContextFit = () => {
   });
 };
 
+let activeHybridRouteState = { polylines: [], markers: [], lastRouteKey: '' };
+
 const clearSafetyRoutePolyline = () => {
   if (safetyRoutePolyline) {
     safetyRoutePolyline.setMap(null);
     safetyRoutePolyline = null;
   }
+  if (safetyRouteScoreLabel) {
+    safetyRouteScoreLabel.setMap(null);
+    safetyRouteScoreLabel = null;
+  }
+  clearHybridRouteOverlays(activeHybridRouteState);
+  activeHybridRouteState = { polylines: [], markers: [], lastRouteKey: '' };
   lastSafetyRouteKey = '';
 };
 
 const renderSafetyRoute = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
 
+  // 🚌 [발할라/호퍼 하이브리드 라우트 및 미지원 구역 분할 렌더러 우선 실행]
+  clearSafetyRoutePolyline();
+  activeHybridRouteState = renderHybridRouteOverlays({
+    mapInstance: mapInstance.value,
+    safetyRoute: props.safetyRoute,
+    gradeColors: GRADE_COLOR,
+  });
+  if (activeHybridRouteState.polylines.length > 0) {
+    scheduleSelectedPropertyContextFit();
+    return;
+  }
+
+  // 🚶 [기존 단일 안전 경로 및 미지원 구역 렌더링 원본 로직 100% 보존]
   const rawPoints = props.safetyRoute?.routePoints;
   if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
     clearSafetyRoutePolyline();
@@ -282,24 +346,102 @@ const renderSafetyRoute = () => {
   if (safetyRoutePolyline) {
     safetyRoutePolyline.setMap(null);
   }
+  if (safetyRouteScoreLabel) {
+    safetyRouteScoreLabel.setMap(null);
+    safetyRouteScoreLabel = null;
+  }
 
   const path = points.map(
     (point) => new window.naver.maps.LatLng(point.lat, point.lng),
   );
 
+  const score = props.safetyRoute?.safetyScore;
+  const grade = props.safetyRoute?.safetyGrade;
+  const isDataMissing = score == null;
+  const color = isDataMissing ? '#94a3b8' : GRADE_COLOR[grade] || '#4058f5';
+
   safetyRoutePolyline = new window.naver.maps.Polyline({
     map: mapInstance.value,
     path,
-    strokeColor: '#4058f5',
-    strokeWeight: 7,
-    strokeOpacity: 0.92,
-    strokeStyle: 'solid',
+    strokeColor: color,
+    strokeWeight: isDataMissing ? 6 : 7,
+    strokeOpacity: isDataMissing ? 0.82 : 0.92,
+    strokeStyle: isDataMissing ? 'dash' : 'solid',
     zIndex: 18,
   });
   lastSafetyRouteKey = routeKey;
 
+  const midPoint = path[Math.floor(path.length / 2)];
+  const labelContent = isDataMissing
+    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 부족</div>`
+    : `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`;
+
+  safetyRouteScoreLabel = new window.naver.maps.Marker({
+    map: mapInstance.value,
+    position: midPoint,
+    icon: {
+      content: labelContent,
+      anchor: new window.naver.maps.Point(isDataMissing ? 38 : 24, 12),
+    },
+    zIndex: 19,
+  });
+
   // 경로·목적지·선택 매물·편의시설을 포함하도록 카메라 조정
   scheduleSelectedPropertyContextFit();
+};
+
+const clearRouteFacilityOverlays = () => {
+  routeFacilityOverlays.forEach(({ circle, dot }) => {
+    circle.setMap(null);
+    dot.setMap(null);
+  });
+  routeFacilityOverlays = [];
+};
+
+const renderRouteFacilities = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  clearRouteFacilityOverlays();
+
+  const facilities = props.routeFacilities;
+  if (!Array.isArray(facilities) || facilities.length === 0) return;
+
+  facilities.forEach((facility) => {
+    const lat = Number(facility.latitude);
+    const lng = Number(facility.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const color = ROUTE_FACILITY_COLOR[facility.facilityType] || '#94a3b8';
+    const radius = ROUTE_FACILITY_RADIUS[facility.facilityType] || 50;
+    const labelText =
+      ROUTE_FACILITY_LABEL[facility.facilityType] || facility.facilityType;
+    const unitCount = Math.max(1, Number(facility.facilityCount) || 1);
+    const countBadge = unitCount > 1 ? ` ×${unitCount}` : '';
+
+    const circle = new window.naver.maps.Circle({
+      map: mapInstance.value,
+      center: new window.naver.maps.LatLng(lat, lng),
+      radius,
+      strokeWeight: 1.5,
+      strokeColor: color,
+      strokeOpacity: 0.8,
+      fillColor: color,
+      fillOpacity: 0.15,
+      zIndex: 15,
+    });
+
+    const dot = new window.naver.maps.Marker({
+      map: mapInstance.value,
+      position: new window.naver.maps.LatLng(lat, lng),
+      icon: {
+        content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}${countBadge}</div>`,
+        anchor: new window.naver.maps.Point(20, 8),
+      },
+      zIndex: 16,
+    });
+
+    routeFacilityOverlays.push({ circle, dot });
+  });
 };
 
 const clearDestinationMarkers = () => {
@@ -387,7 +529,13 @@ const renderMarkers = () => {
       nextMarkerKeys.add(propKey);
 
       if (!activePropertyMarkersMap.has(propKey)) {
-        nodesToCreate.push({ type: 'prop', key: propKey, prop, isSelected, isFeaturedLoan });
+        nodesToCreate.push({
+          type: 'prop',
+          key: propKey,
+          prop,
+          isSelected,
+          isFeaturedLoan,
+        });
       }
     }
   });
@@ -692,6 +840,7 @@ const initMap = () => {
       renderMarkers();
       renderAmenityMarkers();
       renderSafetyRoute();
+      renderUnsupportedDistrictGeoJson(mapInstance.value);
       renderDebugViewportRectangle();
       setupResizeObserver();
       checkDistanceToDestination();
@@ -1022,8 +1171,15 @@ watch(
   () => props.safetyRoute,
   () => {
     renderSafetyRoute();
+    clearRouteFacilityOverlays();
     scheduleSelectedPropertyContextFit();
   },
+  { deep: true },
+);
+
+watch(
+  () => props.routeFacilities,
+  () => renderRouteFacilities(),
   { deep: true },
 );
 
@@ -1131,7 +1287,9 @@ onUnmounted(() => {
   clearDestinationMarkers();
   clearAmenityMarkers();
   clearSafetyRoutePolyline();
+  clearRouteFacilityOverlays();
   clearPendingDestinationOverlay();
+  clearUnsupportedDistrictGeoJson(mapInstance.value);
   if (debugViewportRectangleInstance) {
     debugViewportRectangleInstance.setMap(null);
     debugViewportRectangleInstance = null;
@@ -1241,7 +1399,7 @@ const moveMapToDestination = () => {
 
     <!-- 2. 이소크론 동심원 & 외부 암영 마스크 분리 전용 오버레이 컴포넌트 -->
     <IsochroneOverlay
-      v-if="!selectedProperty"
+      v-if="showIsochroneOverlay"
       :map-instance="mapInstance"
       :destination="destination"
       :applied-filter="appliedFilter"

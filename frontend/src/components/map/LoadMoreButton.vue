@@ -47,7 +47,7 @@ const subText = computed(() => {
 
 <template>
   <div
-    class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-2"
+    class="absolute bottom-14 xl:bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-2"
   >
     <!-- 🎉 모든 매물 수집 완료 토스트 알림 배너 (버튼과 100% 동일 센터 정렬) -->
     <Transition name="toast">

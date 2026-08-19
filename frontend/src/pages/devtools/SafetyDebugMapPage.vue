@@ -31,8 +31,8 @@ const FACILITY_COLOR = {
 // SafetyScoreCalculator.java의 반경 상수와 반드시 일치시켜야 함
 const FACILITY_RADIUS = {
   CCTV: 50,
-  STREET_LIGHT: 30,
-  POLICE: 100,
+  STREET_LIGHT: 20,
+  POLICE: 500,
 };
 
 const FACILITY_LABEL = {
@@ -714,8 +714,8 @@ onUnmounted(() => {
         <label><input v-model="showInfluenceRadius" type="checkbox" /> 안전 시설 영향권 반경 원형</label>
         <div class="toggle-sub-group">
           <label><input v-model="showCctv" type="checkbox" /> CCTV (50m 반경)</label>
-          <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (30m 반경)</label>
-          <label><input v-model="showPolice" type="checkbox" /> 파출소 (100m 반경)</label>
+          <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (15m 반경)</label>
+          <label><input v-model="showPolice" type="checkbox" /> 파출소 (500m 반경)</label>
         </div>
       </div>
 
@@ -726,8 +726,8 @@ onUnmounted(() => {
         <span><i style="background: #dc4b5d"></i> DANGER (~59점)</span>
         <div class="border-t pt-1 mt-1 space-y-0.5 text-[11px]">
           <span><i style="background: #2a60f7"></i> 📷 파란색 = CCTV (50m 반경)</span>
-          <span><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (30m 반경)</span>
-          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (100m 반경)</span>
+          <span><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (15m 반경)</span>
+          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (500m 반경)</span>
         </div>
       </div>
 
@@ -739,7 +739,7 @@ onUnmounted(() => {
         <ul>
           <li>CCTV {{ selectedDetail.breakdown.cctvCount }}개 (커버리지 {{ selectedDetail.breakdown.cctvCoveragePercent }}%)</li>
           <li>가로등 {{ selectedDetail.breakdown.streetLightCount }}개 (커버리지 {{ selectedDetail.breakdown.streetLightCoveragePercent }}%)</li>
-          <li>파출소 100m 이내: {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}</li>
+          <li>파출소 500m 이내: {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}</li>
           <li>총 페널티: {{ selectedDetail.breakdown.totalPenalty }}</li>
         </ul>
       </div>

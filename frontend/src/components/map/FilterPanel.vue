@@ -87,7 +87,9 @@ const handleApply = async () => {
       <div class="filter-content">
         <OnboardingSummary
           :destination="
-            props.appliedFilters?.destination?.destName ?? onboarding?.destination?.destName
+            props.appliedFilters?.destination?.destName ??
+            (typeof props.appliedFilters?.destination === 'string' ? props.appliedFilters?.destination : null) ??
+            onboarding?.destination?.destName
           "
           :transport-mode="props.appliedFilters?.transportMode ?? onboarding?.transportMode"
           :travel-time="props.appliedFilters?.maxTravelTime ?? onboarding?.maxTravelTime"

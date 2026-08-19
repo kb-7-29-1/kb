@@ -7,9 +7,13 @@ import com.salgosipo.amenity.dto.AmenityRequestDTO;
 import com.salgosipo.amenity.dto.AmenityResponseDTO;
 import com.salgosipo.amenity.mapper.AmenityMapper;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -20,7 +24,7 @@ import java.util.LinkedHashMap;
 
 @Log4j2
 @Service
-public class AmenityServiceImpl implements AmenityService {
+public class AmenityServiceImpl implements AmenityService, DisposableBean {
 
     // 직선거리 기반 예상 도보 시간 계산에 사용하는 기준값
     // 지구 반지름을 미터 단위로 둔 값, 위도·경도 두 점의 직선거리를 계산할 때 사용
@@ -35,6 +39,7 @@ public class AmenityServiceImpl implements AmenityService {
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
     private final AmenityCacheService amenityCacheService;
+    private final ExecutorService amenityLookupExecutor = Executors.newFixedThreadPool(4);
 
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
@@ -78,6 +83,20 @@ public class AmenityServiceImpl implements AmenityService {
             return filterByRequest(storedAmenities, request.getAmenities());
         }
 
+        Map<Integer, CompletableFuture<double[]>> nearestPlaceLookups = new HashMap<>();
+        for (AmenityFilter filter : request.getAmenities()) {
+            Integer type = filter.getAmenityType();
+            String keyword = getKeywordByType(type);
+            if (storedTypes.contains(type) || keyword == null || nearestPlaceLookups.containsKey(type)) {
+                continue;
+            }
+
+            nearestPlaceLookups.put(type, CompletableFuture.supplyAsync(
+                    () -> walkingApiClient.findNearestPlace(startLat, startLng, keyword),
+                    amenityLookupExecutor
+            ));
+        }
+
         for (AmenityFilter filter : request.getAmenities()) {
             Integer type = filter.getAmenityType();
             if (storedTypes.contains(type)) {
@@ -89,7 +108,7 @@ public class AmenityServiceImpl implements AmenityService {
                 continue;
             }
 
-            double[] nearestPlaceCoords = walkingApiClient.findNearestPlace(startLat, startLng, keyword);
+            double[] nearestPlaceCoords = nearestPlaceLookups.get(type).join();
             if (nearestPlaceCoords == null) {
                 continue;
             }
@@ -181,6 +200,11 @@ public class AmenityServiceImpl implements AmenityService {
     }
 
     // 매물 ID와 편의시설 유형·시간 조건이 모두 있어야 계산 가능
+    @Override
+    public void destroy() {
+        amenityLookupExecutor.shutdown();
+    }
+
     private boolean isValidRequest(AmenityRequestDTO request) {
         return request != null
                 && request.getPropertyId() != null

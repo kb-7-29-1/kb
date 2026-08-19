@@ -3,6 +3,7 @@
  */
 
 import { renderLoanChipHTML } from '@/utils/loanChip.js';
+import { UNSUPPORTED_SAFETY_DISTRICTS, isSeoulServiceArea } from '@/utils/districtPolygonOverlay.js';
 
 // 매물 마커 핀 HTML 렌더러 (순수 초고속 HTML 스트링 템플릿)
 export const renderPropertyPinHTML = (
@@ -11,7 +12,9 @@ export const renderPropertyPinHTML = (
   hasSelectedProperty = false,
   isFeaturedLoan = false,
 ) => {
-  const isLoading = Boolean(prop.isSafetyLoading);
+  const addr = prop.address || prop.roadAddress || prop.jibunAddress || prop.title || '';
+  const isEligible = isSeoulServiceArea(addr) && !UNSUPPORTED_SAFETY_DISTRICTS.some((gu) => addr.includes(gu));
+  const isLoading = isEligible && Boolean(prop.isSafetyLoading);
   const rawScore = prop.safetyScore;
   const hasScore =
     !isLoading &&
@@ -72,7 +75,7 @@ export const renderPropertyPinHTML = (
     ? `${theme.background} text-white z-30`
     : 'bg-white text-slate-800 hover:-translate-y-0.5 z-10';
   const badgeStyle = isSelected ? 'bg-white/20 text-white' : theme.badge;
-  const badgeText = isLoading ? '계산 중...' : (hasScore ? `${numericScore}점` : '점수 없음');
+  const badgeText = isLoading ? '계산 중...' : (hasScore ? `${numericScore}점` : '―');
   // 선택하지 않은 매물은 경로를 가리지 않도록 흐리게 두고, hover 시 선명하게 표시
   const opacityStyle =
     hasSelectedProperty && !isSelected ? 'opacity-60 hover:opacity-100' : 'opacity-100';

@@ -44,7 +44,8 @@ const monthlyRentLabel = computed(() => {
 
 const authStore = useAuthStore();
 const loan = ref(null);
-const loanLoading = ref(false);
+// 예산 단계 진입 직후에도 추천 영역의 자리를 먼저 확보해 카드 높이가 흔들리지 않도록 처리
+const loanLoading = ref(true);
 const justUpdated = ref(false);
 let highlightTimer = null;
 
@@ -151,7 +152,10 @@ const loanLimitParts = computed(() => {
   const notes = text.match(/\(초과분[^)]*\)/g);
   if (!notes) return { main: text, note: null };
   return {
-    main: text.replace(/\(초과분[^)]*\)/g, '').replace(/\s{2,}/g, ' ').trim(),
+    main: text
+      .replace(/\(초과분[^)]*\)/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim(),
     note: notes.join(' '),
   };
 });
@@ -213,9 +217,17 @@ const rangeStyle = (value, min, max) => {
           <span>{{ RENT_MIN_LABEL }}</span>
           <span>{{ RENT_MAX_LABEL }}</span>
         </div>
+        <p class="rent-guide">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          월세를 0원으로 설정하면 전세 조건으로 자동 적용돼요
+        </p>
       </div>
 
-      <p v-if="loan" class="loan-panel-hint">상품 클릭 시 해당 은행 사이트로 이동합니다</p>
+      <p v-if="loan || loanLoading" class="loan-panel-hint">
+        {{
+          loan ? '상품 클릭 시 해당 은행 사이트로 이동합니다' : '맞춤 금융 상품을 확인하고 있어요'
+        }}
+      </p>
       <aside
         v-if="loan"
         class="loan-panel"
@@ -230,7 +242,12 @@ const rangeStyle = (value, min, max) => {
         @keydown.enter="openBankLink"
       >
         <div class="loan-icon" aria-hidden="true">
-          <img v-if="bankLogoUrl" :src="bankLogoUrl" :alt="loan.companyName" class="loan-icon__logo" />
+          <img
+            v-if="bankLogoUrl"
+            :src="bankLogoUrl"
+            :alt="loan.companyName"
+            class="loan-icon__logo"
+          />
           <i v-else class="fa-solid fa-building-columns"></i>
         </div>
         <div class="loan-copy">
@@ -244,7 +261,9 @@ const rangeStyle = (value, min, max) => {
             <p>
               보유 자금 <b>{{ depositLabel }}</b> + 예상 대출
               <b>{{ formatAmount(loan.expectedLoanAmount) }}</b>
-              <template v-if="loan.loanRatio > 0">({{ Math.round(loan.loanRatio * 100) }}% 적용)</template>
+              <template v-if="loan.loanRatio > 0"
+                >({{ Math.round(loan.loanRatio * 100) }}% 적용)</template
+              >
             </p>
             <strong>최대 {{ formatAmount(loan.maxSearchAmount) }} 매물 탐색 가능</strong>
           </template>
@@ -258,8 +277,17 @@ const rangeStyle = (value, min, max) => {
         </div>
       </aside>
 
-      <aside v-else-if="loanLoading" class="loan-panel loan-panel--skeleton">
-        <p style="color: #64748b; font-size: 12px">맞춤 금융 상품을 찾고 있어요...</p>
+      <aside
+        v-else-if="loanLoading"
+        class="loan-panel loan-panel--skeleton"
+        aria-label="맞춤 금융 상품 조회 중"
+      >
+        <div class="skeleton-line skeleton-line--short"></div>
+        <div class="skeleton-line skeleton-line--title"></div>
+        <div class="skeleton-result">
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line skeleton-line--medium"></div>
+        </div>
       </aside>
     </div>
 
@@ -381,6 +409,21 @@ input[type='range']::-moz-range-thumb {
   font-size: 11px;
 }
 
+.rent-guide {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.rent-guide i {
+  color: #2a60f7;
+  font-size: 11px;
+}
+
 .loan-panel-hint {
   margin: 30px 0 6px;
   color: #94a3b8;
@@ -398,7 +441,10 @@ input[type='range']::-moz-range-thumb {
   border: 1px solid #dbeafe;
   border-radius: 14px;
   background: #eff6ff;
-  transition: background-color 0.5s ease, border-color 0.5s ease, opacity 0.2s ease;
+  transition:
+    background-color 0.5s ease,
+    border-color 0.5s ease,
+    opacity 0.2s ease;
 }
 
 .loan-panel--clickable {
@@ -407,6 +453,55 @@ input[type='range']::-moz-range-thumb {
 
 .loan-panel--clickable:hover {
   border-color: #60a5fa;
+}
+
+.loan-panel--skeleton {
+  display: block;
+  min-height: 132px;
+  box-sizing: border-box;
+  cursor: wait;
+}
+
+.skeleton-line {
+  width: 100%;
+  height: 11px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #dbeafe 25%, #f8fbff 50%, #dbeafe 75%);
+  background-size: 200% 100%;
+  animation: loan-skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+.skeleton-line--short {
+  width: 28%;
+  height: 10px;
+}
+
+.skeleton-line--title {
+  width: 48%;
+  height: 15px;
+  margin-top: 9px;
+}
+
+.skeleton-line--medium {
+  width: 68%;
+  margin-top: 9px;
+}
+
+.skeleton-result {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fff;
+}
+
+@keyframes loan-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .loan-panel.is-refreshing {
