@@ -373,7 +373,7 @@ const renderSafetyRoute = () => {
 
   const midPoint = path[Math.floor(path.length / 2)];
   const labelContent = isDataMissing
-    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 부족</div>`
+    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 미제공</div>`
     : `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`;
 
   safetyRouteScoreLabel = new window.naver.maps.Marker({

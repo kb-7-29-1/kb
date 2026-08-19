@@ -27,7 +27,7 @@ export function createTransitChipHTML({ type, routeName, durationMinutes, isData
   } else {
     chipEmoji = '🚶';
     chipText = isDataMissing
-      ? `도보 ${durationMinutes ? `${durationMinutes}분` : ''} (데이터 부족)`
+      ? `도보 ${durationMinutes ? `${durationMinutes}분` : ''} (데이터 미제공)`
       : `도보 ${durationMinutes ? `${durationMinutes}분` : ''}`;
   }
 
@@ -80,7 +80,7 @@ export function createSafetyScoreChipHTML({ score, color, isDataMissing }) {
         gap: 3px;
         user-select: none;
       ">
-        <span style="font-size: 9.5px;">🛡️</span> 데이터 부족
+        <span style="font-size: 9.5px;">🛡️</span> 데이터 미제공
       </div>
     `;
   }

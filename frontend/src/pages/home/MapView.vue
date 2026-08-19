@@ -1479,11 +1479,13 @@ const loadSafetyRouteForProperty = async (property) => {
           '선택하신 자치구는 보안등 공공데이터가 구축되지 않아 안전 점수가 제공되지 않습니다.',
       );
       syncSafetySummaryToProperty(property.propertyId, response);
-      return;
     }
 
     const route = response?.selectedRoute;
     if (!Array.isArray(route?.routePoints) || route.routePoints.length < 2) {
+      if (response && response.isSupportedDistrict === false) {
+        return;
+      }
       throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
     }
 
