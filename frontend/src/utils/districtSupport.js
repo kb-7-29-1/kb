@@ -1,12 +1,11 @@
 /**
- * 보안등 공공데이터가 구축된 서울시 17개 자치구 목록
+ * 보안등 공공데이터가 충분히 구축된 서울시 14개 자치구 목록
  */
 export const SUPPORTED_SAFETY_DISTRICTS = [
   '강동구',
-  '강서구',
-  '관악구',
   '광진구',
   '구로구',
+  '금천구',
   '노원구',
   '도봉구',
   '동대문구',
@@ -17,22 +16,23 @@ export const SUPPORTED_SAFETY_DISTRICTS = [
   '양천구',
   '은평구',
   '종로구',
-  '중구',
-  '중랑구',
 ];
 
 /**
- * 보안등 공공데이터 미구축 확정 8개 자치구 목록 (17 + 8 = 서울 25개 자치구 100% 매핑)
+ * 보안등 공공데이터 미구축/데이터 미제공 11개 자치구 목록 (14 + 11 = 서울 25개 자치구 100% 매핑)
  */
 export const UNSUPPORTED_SAFETY_DISTRICTS = [
   '강남구',
   '강북구',
-  '금천구',
+  '강서구',
+  '관악구',
   '마포구',
   '성동구',
   '성북구',
   '영등포구',
   '용산구',
+  '중구',
+  '중랑구',
 ];
 
 /**
@@ -43,14 +43,14 @@ export const UNSUPPORTED_SAFETY_DISTRICTS = [
 export function isSupportedSafetyDistrict(text) {
   if (!text || !text.trim()) return true;
 
-  // 1. 14개 지원 자치구 명시 포함 시 통과
+  // 1. 지원 자치구 명시 포함 시 통과
   for (const district of SUPPORTED_SAFETY_DISTRICTS) {
     if (text.includes(district)) {
       return true;
     }
   }
 
-  // 2. 미구축 11개 자치구 텍스트 명시 시 미구축(false) 리턴
+  // 2. 미구축 자치구 텍스트 명시 시 미구축(false) 리턴
   for (const unsupported of UNSUPPORTED_SAFETY_DISTRICTS) {
     if (text.includes(unsupported)) {
       return false;

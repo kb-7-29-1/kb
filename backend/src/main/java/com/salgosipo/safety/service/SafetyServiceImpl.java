@@ -46,12 +46,12 @@ public class SafetyServiceImpl implements SafetyService {
         private static final double FACILITY_QUERY_MARGIN_METERS = 520.0;
 
         public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
-                        "강서구", "관악구", "광진구", "구로구", "도봉구",
-                        "동대문구", "동작구", "서대문구", "서초구", "양천구",
-                        "은평구", "종로구", "중구", "중랑구");
+                        "강동구", "광진구", "구로구", "금천구", "노원구", "도봉구",
+                        "동대문구", "동작구", "서대문구", "서초구", "송파구", "양천구",
+                        "은평구", "종로구");
 
         public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
-                        "강남구", "강북구", "금천구", "마포구", "성북구", "영등포구", "용산구");
+                        "강남구", "강북구", "강서구", "관악구", "마포구", "성동구", "성북구", "영등포구", "용산구", "중구", "중랑구");
 
         public static boolean isSupportedDistrict(String... texts) {
                 if (texts == null) {
@@ -138,6 +138,32 @@ public class SafetyServiceImpl implements SafetyService {
                         uncalculated.setSafetyScore(null);
                         uncalculated.setSafetyGrade(null);
                         uncalculated.setIsSupportedDistrict(false);
+
+                        // 미제공 지역 매물도 지도 위에 도보 경로는 그려주기 위해 경로 좌표 계산 및 주입
+                        try {
+                                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                                                property.getLatitude(),
+                                                property.getLongitude(),
+                                                defaultName(request.getPropertyName(), property.getAddress()),
+                                                destination.getLatitude().doubleValue(),
+                                                destination.getLongitude().doubleValue(),
+                                                defaultName(destination.getName(), "선택 목적지"));
+                                if (route != null && route.getRoutePoints() != null && route.getRoutePoints().size() >= 2) {
+                                        SafetyRouteCandidateDTO candidate = new SafetyRouteCandidateDTO();
+                                        candidate.setRouteId("UNSUPPORTED_ROUTE");
+                                        candidate.setSelected(true);
+                                        candidate.setSafetyScore(null);
+                                        candidate.setSafetyGrade(null);
+                                        candidate.setDistanceMeters(route.getDistanceMeters());
+                                        candidate.setTotalTimeSeconds(route.getTotalTimeSeconds());
+                                        candidate.setRoutePoints(route.getRoutePoints());
+                                        uncalculated.setSelectedRoute(candidate);
+                                        uncalculated.setCandidateRoutes(List.of(candidate));
+                                }
+                        } catch (Exception e) {
+                                log.warn("[Safety] 미제공 지역 경로 좌표 조회 실패: propertyId={}, msg={}", property.getPropertyId(), e.getMessage());
+                        }
+
                         return uncalculated;
                 }
 

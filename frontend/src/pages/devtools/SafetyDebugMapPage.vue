@@ -9,6 +9,21 @@ import api from '@/api/api.js';
 const route = useRoute();
 const router = useRouter();
 
+// ============================================================================
+// 🛡️ [안전점수 핵심 산출 공식 & 가중치 상수] (SafetyScoreCalculator.java와 100% 동기화)
+// 공식: Safety Score = Math.max(0, Math.round(100 - (Total Penalty / 3.0)))
+// ============================================================================
+const SAFETY_SCORE_FORMULA = {
+  DIVISOR: 3.0, // ✅ 핵심 감점 완화 분모 (/ 3.0)
+  MAX_PENALTIES: {
+    CCTV_DENSITY: 20, // CCTV 평균 간격 감점 (최대 20점)
+    CCTV_COVERAGE: 15, // CCTV 커버리지 감점 (최대 15점)
+    STREET_LIGHT: 55, // 가로등 커버리지 감점 (최대 55점)
+    POLICE: 10, // 파출소 500m 부재 감점 (10점)
+  },
+  MAX_TOTAL_PENALTY: 100, // 20 + 15 + 55 + 10 = 100점
+};
+
 // destinations 테이블은 고정 시드 없이 동적 생성되는 테이블이라 ID가 항상
 // 같은 장소를 가리킨다고 가정하면 안 됨. URL 쿼리(?destinationId=)로 지정하고,
 // 없으면 1을 기본값으로 시도하되 실제 목적지 이름은 API 응답으로 화면에 표시해 확인한다.
@@ -93,7 +108,9 @@ async function openStatsModal() {
     const items = res.data.items || [];
     if (!items.length) return;
 
-    const scores = items.map((i) => Number(i.safetyScore)).sort((a, b) => a - b);
+    const scores = items
+      .map((i) => Number(i.safetyScore))
+      .sort((a, b) => a - b);
     const totalCnt = scores.length;
     const sum = scores.reduce((acc, v) => acc + v, 0);
     const avg = (sum / totalCnt).toFixed(1);
@@ -108,7 +125,8 @@ async function openStatsModal() {
     const max = scores[scores.length - 1];
 
     const variance =
-      scores.reduce((acc, v) => acc + Math.pow(v - Number(avg), 2), 0) / totalCnt;
+      scores.reduce((acc, v) => acc + Math.pow(v - Number(avg), 2), 0) /
+      totalCnt;
     const stdDev = Math.sqrt(variance).toFixed(1);
 
     const safeCnt = items.filter((i) => i.safetyGrade === 'SAFE').length;
@@ -290,13 +308,17 @@ function renderFacilitiesForActiveItems() {
   relevantFacilities.forEach((facility) => {
     const color = FACILITY_COLOR[facility.facilityType] || '#94a3b8';
     const radius = FACILITY_RADIUS[facility.facilityType] || 50;
-    const labelText = FACILITY_LABEL[facility.facilityType] || facility.facilityType;
+    const labelText =
+      FACILITY_LABEL[facility.facilityType] || facility.facilityType;
     const unitCount = Math.max(1, Number(facility.facilityCount) || 1);
     const countBadge = unitCount > 1 ? ` ×${unitCount}` : '';
 
     const circle = new window.naver.maps.Circle({
       map: mapInstance,
-      center: new window.naver.maps.LatLng(facility.latitude, facility.longitude),
+      center: new window.naver.maps.LatLng(
+        facility.latitude,
+        facility.longitude,
+      ),
       radius: radius,
       strokeWeight: 1.5,
       strokeColor: color,
@@ -307,7 +329,10 @@ function renderFacilitiesForActiveItems() {
 
     const dot = new window.naver.maps.Marker({
       map: mapInstance,
-      position: new window.naver.maps.LatLng(facility.latitude, facility.longitude),
+      position: new window.naver.maps.LatLng(
+        facility.latitude,
+        facility.longitude,
+      ),
       icon: {
         content: `<div style="background:${color};color:#fff;font-size:9px;font-weight:900;padding:1.5px 5px;border-radius:4px;white-space:nowrap;box-shadow:0 1.5px 4px rgba(0,0,0,0.35);border:1px solid #fff;">${labelText}${countBadge}</div>`,
         anchor: new window.naver.maps.Point(20, 8),
@@ -437,7 +462,10 @@ function applyFacilityVisibility() {
       (type === 'STREET_LIGHT' && showStreetLight.value) ||
       (type === 'POLICE' && showPolice.value);
 
-    if (circle) circle.setMap(typeVisible && showInfluenceRadius.value ? mapInstance : null);
+    if (circle)
+      circle.setMap(
+        typeVisible && showInfluenceRadius.value ? mapInstance : null,
+      );
     if (dot) dot.setMap(typeVisible ? mapInstance : null);
   });
 }
@@ -446,7 +474,9 @@ function toggleItemIndex(idx) {
   if (activeItemIndices.value.includes(idx)) {
     activeItemIndices.value = activeItemIndices.value.filter((i) => i !== idx);
   } else {
-    activeItemIndices.value = [...activeItemIndices.value, idx].sort((a, b) => a - b);
+    activeItemIndices.value = [...activeItemIndices.value, idx].sort(
+      (a, b) => a - b,
+    );
   }
   updateItemVisibilities();
 }
@@ -533,7 +563,9 @@ async function loadDestination({ resetPage = true } = {}) {
     },
   });
 
-  const initialPage = resetPage ? 1 : Math.max(1, Number(route.query.page) || 1);
+  const initialPage = resetPage
+    ? 1
+    : Math.max(1, Number(route.query.page) || 1);
   await fetchPage(initialPage, false);
 }
 
@@ -585,7 +617,10 @@ watch(
 
 watch(showRoutes, updateItemVisibilities);
 watch(showScoreLabel, updateItemVisibilities);
-watch([showCctv, showStreetLight, showPolice, showInfluenceRadius], applyFacilityVisibility);
+watch(
+  [showCctv, showStreetLight, showPolice, showInfluenceRadius],
+  applyFacilityVisibility,
+);
 
 onMounted(initMap);
 
@@ -600,8 +635,9 @@ onUnmounted(() => {
     <aside class="safety-debug-panel">
       <h2>안전점수 디버그 지도</h2>
       <p class="safety-debug-subtitle">
-        도보 15분권 · 10개 단위 개별 ON/OFF 검증 ·
-        목적지: <strong>{{ resolvedDestinationName || '로딩중...' }}</strong> (ID {{ destinationId }})
+        도보 15분권 · 10개 단위 개별 ON/OFF 검증 · 목적지:
+        <strong>{{ resolvedDestinationName || '로딩중...' }}</strong> (ID
+        {{ destinationId }})
       </p>
 
       <div class="safety-debug-destination-input">
@@ -618,12 +654,17 @@ onUnmounted(() => {
       </div>
       <p class="safety-debug-hint">
         destinations 테이블은 검색/선택할 때마다 동적으로 생성되는 테이블이라
-        ID가 항상 같은 장소를 가리키지 않습니다. 위 목적지 이름으로 실제 조회된 곳이
-        맞는지 꼭 확인하세요.
+        ID가 항상 같은 장소를 가리키지 않습니다. 위 목적지 이름으로 실제 조회된
+        곳이 맞는지 꼭 확인하세요.
       </p>
 
       <div class="safety-debug-progress">
-        총 {{ totalCount }}개 중 <strong>{{ (currentPage - 1) * PAGE_SIZE + 1 }} ~ {{ Math.min(currentPage * PAGE_SIZE, totalCount) }}번</strong> 표시
+        총 {{ totalCount }}개 중
+        <strong
+          >{{ (currentPage - 1) * PAGE_SIZE + 1 }} ~
+          {{ Math.min(currentPage * PAGE_SIZE, totalCount) }}번</strong
+        >
+        표시
       </div>
 
       <!-- 페이지 이동 버튼 -->
@@ -662,7 +703,9 @@ onUnmounted(() => {
       <!-- 10개 매물 개별 ON/OFF 및 전체 제어 -->
       <div v-if="currentItems.length > 0" class="space-y-2 pt-1">
         <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-slate-700">매물 개별 토글 (#1~#10)</span>
+          <span class="text-xs font-bold text-slate-700"
+            >매물 개별 토글 (#1~#10)</span
+          >
           <div class="flex items-center gap-1">
             <button
               type="button"
@@ -700,7 +743,11 @@ onUnmounted(() => {
             <span class="chip-num">#{{ idx + 1 }}</span>
             <span
               class="chip-score"
-              :style="{ color: activeItemIndices.includes(idx) ? GRADE_COLOR[item.safetyGrade] : '#94a3b8' }"
+              :style="{
+                color: activeItemIndices.includes(idx)
+                  ? GRADE_COLOR[item.safetyGrade]
+                  : '#94a3b8',
+              }"
             >
               {{ item.safetyScore }}점
             </span>
@@ -709,38 +756,84 @@ onUnmounted(() => {
       </div>
 
       <div class="safety-debug-toggle-group">
-        <label><input v-model="showRoutes" type="checkbox" /> 경로선 표시</label>
-        <label><input v-model="showScoreLabel" type="checkbox" /> 점수 라벨</label>
-        <label><input v-model="showInfluenceRadius" type="checkbox" /> 안전 시설 영향권 반경 원형</label>
+        <label
+          ><input v-model="showRoutes" type="checkbox" /> 경로선 표시</label
+        >
+        <label
+          ><input v-model="showScoreLabel" type="checkbox" /> 점수 라벨</label
+        >
+        <label
+          ><input v-model="showInfluenceRadius" type="checkbox" /> 안전 시설
+          영향권 반경 원형</label
+        >
         <div class="toggle-sub-group">
-          <label><input v-model="showCctv" type="checkbox" /> CCTV (50m 반경)</label>
-          <label><input v-model="showStreetLight" type="checkbox" /> 가로등 (15m 반경)</label>
-          <label><input v-model="showPolice" type="checkbox" /> 파출소 (500m 반경)</label>
+          <label
+            ><input v-model="showCctv" type="checkbox" /> CCTV (50m 반경)</label
+          >
+          <label
+            ><input v-model="showStreetLight" type="checkbox" /> 가로등 (20m
+            반경)</label
+          >
+          <label
+            ><input v-model="showPolice" type="checkbox" /> 파출소 (500m
+            반경)</label
+          >
         </div>
       </div>
 
       <div class="safety-debug-legend">
-        <div class="font-bold text-slate-700 text-[11px] mb-1">범례 (Legend)</div>
+        <div class="font-bold text-slate-700 text-[11px] mb-1">
+          범례 (Legend)
+        </div>
         <span><i style="background: #22a06b"></i> SAFE (80~100점)</span>
         <span><i style="background: #e69a1d"></i> WARNING (60~79점)</span>
         <span><i style="background: #dc4b5d"></i> DANGER (~59점)</span>
         <div class="border-t pt-1 mt-1 space-y-0.5 text-[11px]">
-          <span><i style="background: #2a60f7"></i> 📷 파란색 = CCTV (50m 반경)</span>
-          <span><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (15m 반경)</span>
-          <span><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (500m 반경)</span>
+          <span
+            ><i style="background: #2a60f7"></i> 📷 파란색 = CCTV (50m
+            반경)</span
+          >
+          <span
+            ><i style="background: #f5b301"></i> 💡 노란색 = 보안등/가로등 (20m
+            반경)</span
+          >
+          <span
+            ><i style="background: #7c3aed"></i> 👮 보라색 = 파출소 (500m
+            반경)</span
+          >
         </div>
       </div>
 
       <div v-if="selectedDetail" class="safety-debug-detail">
-        <h3>매물 #{{ selectedDetail.displayNumber }} (ID: {{ selectedDetail.propertyId }})</h3>
+        <h3>
+          매물 #{{ selectedDetail.displayNumber }} (ID:
+          {{ selectedDetail.propertyId }})
+        </h3>
         <p class="safety-debug-detail-score">
           {{ selectedDetail.safetyScore }}점 · {{ selectedDetail.safetyGrade }}
         </p>
         <ul>
-          <li>CCTV {{ selectedDetail.breakdown.cctvCount }}개 (커버리지 {{ selectedDetail.breakdown.cctvCoveragePercent }}%)</li>
-          <li>가로등 {{ selectedDetail.breakdown.streetLightCount }}개 (커버리지 {{ selectedDetail.breakdown.streetLightCoveragePercent }}%)</li>
-          <li>파출소 500m 이내: {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}</li>
-          <li>총 페널티: {{ selectedDetail.breakdown.totalPenalty }}</li>
+          <li>
+            CCTV {{ selectedDetail.breakdown.cctvCount }}개 (커버리지
+            {{ selectedDetail.breakdown.cctvCoveragePercent }}%)
+          </li>
+          <li>
+            가로등 {{ selectedDetail.breakdown.streetLightCount }}개 (커버리지
+            {{ selectedDetail.breakdown.streetLightCoveragePercent }}%)
+          </li>
+          <li>
+            파출소 500m 이내:
+            {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}
+          </li>
+          <li>
+            총 페널티: {{ selectedDetail.breakdown.totalPenalty }} (실제 감점:
+            -{{
+              Math.round(
+                (selectedDetail.breakdown.totalPenalty || 0) /
+                  SAFETY_SCORE_FORMULA.DIVISOR,
+              )
+            }}점)
+          </li>
         </ul>
       </div>
 
@@ -757,8 +850,8 @@ onUnmounted(() => {
             {{ mapFacilitySummary.CCTV.totalCount }}대
           </li>
           <li>
-            💡 가로등: {{ mapFacilitySummary.STREET_LIGHT.locations }}개 지점 · 총
-            {{ mapFacilitySummary.STREET_LIGHT.totalCount }}대
+            💡 가로등: {{ mapFacilitySummary.STREET_LIGHT.locations }}개 지점 ·
+            총 {{ mapFacilitySummary.STREET_LIGHT.totalCount }}대
           </li>
           <li>
             👮 파출소: {{ mapFacilitySummary.POLICE.locations }}개 지점 · 총
@@ -774,13 +867,15 @@ onUnmounted(() => {
         @click="openStatsModal"
       >
         <span class="text-sm">📊</span>
-        <span>세종대 540여개 전체 통계 분석 모달</span>
+        <span
+          >{{ resolvedDestinationName || '목적지' }} 전체 통계 분석 모달</span
+        >
       </button>
     </aside>
 
     <div ref="mapEl" class="safety-debug-map"></div>
 
-    <!-- 📊 세종대 540개 매물 안전점수 통계 분석 모달 -->
+    <!-- 📊 안전점수 통계 분석 모달 -->
     <Transition name="fade">
       <div
         v-if="isStatsModalOpen"
@@ -791,12 +886,20 @@ onUnmounted(() => {
           class="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[90vh] flex flex-col"
         >
           <!-- 헤더 -->
-          <div class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
+          <div
+            class="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80"
+          >
             <div class="flex items-center gap-2">
               <span class="text-lg">📊</span>
               <div>
-                <h3 class="text-base font-black text-slate-900 leading-tight">세종대 도보 15분권 안전점수 수치 통계</h3>
-                <p class="text-xs text-slate-500 font-medium mt-0.5">전체 {{ statsData?.totalCnt || 540 }}개 매물의 분포 및 정규분포 히스토그램</p>
+                <h3 class="text-base font-black text-slate-900 leading-tight">
+                  {{ resolvedDestinationName || '선택 목적지' }} 도보 15분권
+                  안전점수 수치 통계
+                </h3>
+                <p class="text-xs text-slate-500 font-medium mt-0.5">
+                  전체 {{ statsData?.totalCnt || totalCount || 0 }}개 매물의
+                  분포 및 정규분포 히스토그램
+                </p>
               </div>
             </div>
             <button
@@ -810,109 +913,202 @@ onUnmounted(() => {
 
           <!-- 로딩 상태 -->
           <div v-if="isStatsLoading" class="p-12 text-center space-y-3">
-            <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-600"></i>
-            <p class="text-xs font-bold text-slate-600">540여개 매물의 점수를 실시간 집계 계산 중이에요...</p>
+            <i
+              class="fa-solid fa-spinner animate-spin text-2xl text-blue-600"
+            ></i>
+            <p class="text-xs font-bold text-slate-600">
+              전체 매물의 점수를 실시간 집계 계산 중이에요...
+            </p>
           </div>
 
           <!-- 메인 데이터 콘텐츠 -->
           <div v-else-if="statsData" class="p-6 overflow-y-auto space-y-6">
             <!-- 1. 핵심 수치 요약 카운터 (4 컬럼) -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                <span class="text-[11px] font-bold text-slate-400 block">평균 점수 (Mean)</span>
-                <strong class="text-xl font-black text-blue-600 mt-1 block">{{ statsData.avg }}점</strong>
+              <div
+                class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center"
+              >
+                <span class="text-[11px] font-bold text-slate-400 block"
+                  >평균 점수 (Mean)</span
+                >
+                <strong class="text-xl font-black text-blue-600 mt-1 block"
+                  >{{ statsData.avg }}점</strong
+                >
               </div>
-              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                <span class="text-[11px] font-bold text-slate-400 block">중앙값 (Median)</span>
-                <strong class="text-xl font-black text-indigo-600 mt-1 block">{{ statsData.median }}점</strong>
+              <div
+                class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center"
+              >
+                <span class="text-[11px] font-bold text-slate-400 block"
+                  >중앙값 (Median)</span
+                >
+                <strong class="text-xl font-black text-indigo-600 mt-1 block"
+                  >{{ statsData.median }}점</strong
+                >
               </div>
-              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                <span class="text-[11px] font-bold text-slate-400 block">최저 / 최고점</span>
-                <strong class="text-xl font-black text-slate-800 mt-1 block">{{ statsData.min }}~{{ statsData.max }}점</strong>
+              <div
+                class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center"
+              >
+                <span class="text-[11px] font-bold text-slate-400 block"
+                  >최저 / 최고점</span
+                >
+                <strong class="text-xl font-black text-slate-800 mt-1 block"
+                  >{{ statsData.min }}~{{ statsData.max }}점</strong
+                >
               </div>
-              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center">
-                <span class="text-[11px] font-bold text-slate-400 block">표준 편차 (σ)</span>
-                <strong class="text-xl font-black text-slate-700 mt-1 block">±{{ statsData.stdDev }}점</strong>
+              <div
+                class="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 text-center"
+              >
+                <span class="text-[11px] font-bold text-slate-400 block"
+                  >표준 편차 (σ)</span
+                >
+                <strong class="text-xl font-black text-slate-700 mt-1 block"
+                  >±{{ statsData.stdDev }}점</strong
+                >
               </div>
             </div>
 
             <!-- 2. 점수 구간별 정규분포 히스토그램 바 차트 -->
-            <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+            <div
+              class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3"
+            >
               <div class="flex items-center justify-between">
-                <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                <h4
+                  class="text-xs font-black text-slate-800 flex items-center gap-1.5"
+                >
                   <span>📈</span>
                   <span>점수 구간별 분포 (정규분포 히스토그램)</span>
                 </h4>
-                <span class="text-[11px] text-slate-400 font-medium">10점 단위 구간</span>
+                <span class="text-[11px] text-slate-400 font-medium"
+                  >10점 단위 구간</span
+                >
               </div>
 
               <!-- Bar Chart -->
-              <div class="flex items-end gap-1.5 h-36 pt-4 pb-2 px-2 bg-white rounded-xl border border-slate-100">
+              <div
+                class="flex items-end gap-1.5 h-36 pt-4 pb-2 px-2 bg-white rounded-xl border border-slate-100"
+              >
                 <div
                   v-for="(count, idx) in statsData.histogram"
                   :key="idx"
                   class="flex-1 flex flex-col items-center gap-1 group relative h-full justify-end"
                 >
                   <!-- Tooltip -->
-                  <div class="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-10">
+                  <div
+                    class="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow pointer-events-none whitespace-nowrap z-10"
+                  >
                     {{ idx * 10 }}~{{ idx * 10 + 9 }}점: {{ count }}개
                   </div>
                   <!-- Bar Value -->
-                  <span class="text-[9px] font-extrabold text-slate-500 leading-none mb-0.5">{{ count }}</span>
+                  <span
+                    class="text-[9px] font-extrabold text-slate-500 leading-none mb-0.5"
+                    >{{ count }}</span
+                  >
                   <!-- Bar Fill -->
                   <div
                     class="w-full rounded-t-md transition-all duration-300 group-hover:brightness-110"
                     :style="{
                       height: `${Math.max(6, (count / statsData.maxBucketCnt) * 100)}%`,
-                      backgroundColor: idx >= 8 ? '#22a06b' : idx >= 6 ? '#e69a1d' : '#dc4b5d',
+                      backgroundColor:
+                        idx >= 8 ? '#22a06b' : idx >= 6 ? '#e69a1d' : '#dc4b5d',
                     }"
                   ></div>
                   <!-- Axis Label -->
-                  <span class="text-[9px] font-bold text-slate-400 leading-none shrink-0 mt-1">{{ idx * 10 }}대</span>
+                  <span
+                    class="text-[9px] font-bold text-slate-400 leading-none shrink-0 mt-1"
+                    >{{ idx * 10 }}대</span
+                  >
                 </div>
               </div>
             </div>
 
             <!-- 3. 안전 등급별 비율 (SAFE / WARNING / DANGER) -->
             <div class="space-y-2">
-              <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+              <h4
+                class="text-xs font-black text-slate-800 flex items-center gap-1.5"
+              >
                 <span>🏷️</span>
                 <span>안전 등급별 분포 비율</span>
               </h4>
               <div class="grid grid-cols-3 gap-2">
-                <div class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center">
-                  <div class="text-[11px] font-black text-emerald-700">🟢 SAFE (80점~)</div>
-                  <div class="text-base font-black text-emerald-800 mt-1">{{ statsData.safeCnt }}개 <span class="text-xs opacity-75">({{ statsData.safePct }}%)</span></div>
+                <div
+                  class="p-3 rounded-xl bg-emerald-50/70 border border-emerald-100 text-center"
+                >
+                  <div class="text-[11px] font-black text-emerald-700">
+                    🟢 SAFE (80점~)
+                  </div>
+                  <div class="text-base font-black text-emerald-800 mt-1">
+                    {{ statsData.safeCnt }}개
+                    <span class="text-xs opacity-75"
+                      >({{ statsData.safePct }}%)</span
+                    >
+                  </div>
                 </div>
-                <div class="p-3 rounded-xl bg-amber-50/70 border border-amber-100 text-center">
-                  <div class="text-[11px] font-black text-amber-700">🟡 WARNING (60~79점)</div>
-                  <div class="text-base font-black text-amber-800 mt-1">{{ statsData.warningCnt }}개 <span class="text-xs opacity-75">({{ statsData.warningPct }}%)</span></div>
+                <div
+                  class="p-3 rounded-xl bg-amber-50/70 border border-amber-100 text-center"
+                >
+                  <div class="text-[11px] font-black text-amber-700">
+                    🟡 WARNING (60~79점)
+                  </div>
+                  <div class="text-base font-black text-amber-800 mt-1">
+                    {{ statsData.warningCnt }}개
+                    <span class="text-xs opacity-75"
+                      >({{ statsData.warningPct }}%)</span
+                    >
+                  </div>
                 </div>
-                <div class="p-3 rounded-xl bg-rose-50/70 border border-rose-100 text-center">
-                  <div class="text-[11px] font-black text-rose-700">🔴 DANGER (~59점)</div>
-                  <div class="text-base font-black text-rose-800 mt-1">{{ statsData.dangerCnt }}개 <span class="text-xs opacity-75">({{ statsData.dangerPct }}%)</span></div>
+                <div
+                  class="p-3 rounded-xl bg-rose-50/70 border border-rose-100 text-center"
+                >
+                  <div class="text-[11px] font-black text-rose-700">
+                    🔴 DANGER (~59점)
+                  </div>
+                  <div class="text-base font-black text-rose-800 mt-1">
+                    {{ statsData.dangerCnt }}개
+                    <span class="text-xs opacity-75"
+                      >({{ statsData.dangerPct }}%)</span
+                    >
+                  </div>
                 </div>
               </div>
             </div>
 
             <!-- 4. 3대 주요 감점 요인 평균 -->
-            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
-              <h4 class="text-xs font-black text-slate-800 flex items-center gap-1.5">
+            <div
+              class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5"
+            >
+              <h4
+                class="text-xs font-black text-slate-800 flex items-center gap-1.5"
+              >
                 <span>⚠️</span>
                 <span>3대 치안 요소별 평균 감점 분석</span>
               </h4>
               <ul class="text-xs space-y-1.5 text-slate-700 font-medium">
-                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                <li
+                  class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100"
+                >
                   <span>💡 가로등(보안등) 사각지대 평균 감점</span>
-                  <strong class="text-amber-600 font-black">-{{ statsData.avgStreetLightPenalty }}점</strong>
+                  <strong class="text-amber-600 font-black"
+                    >-{{ statsData.avgStreetLightPenalty }}점</strong
+                  >
                 </li>
-                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
+                <li
+                  class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100"
+                >
                   <span>📷 CCTV 사각지대 평균 감점</span>
-                  <strong class="text-blue-600 font-black">-{{ statsData.avgCctvPenalty }}점</strong>
+                  <strong class="text-blue-600 font-black"
+                    >-{{ statsData.avgCctvPenalty }}점</strong
+                  >
                 </li>
-                <li class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100">
-                  <span>👮 파출소 100m 이내 미존재 비율</span>
-                  <strong class="text-rose-600 font-black">{{ statsData.policeMissingRatio }}% <span class="text-[11px] text-slate-400 font-normal">({{ statsData.policeMissingCnt }}개 매물)</span></strong>
+                <li
+                  class="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-100"
+                >
+                  <span>👮 파출소 500m 이내 미존재 비율</span>
+                  <strong class="text-rose-600 font-black"
+                    >{{ statsData.policeMissingRatio }}%
+                    <span class="text-[11px] text-slate-400 font-normal"
+                      >({{ statsData.policeMissingCnt }}개 매물)</span
+                    ></strong
+                  >
                 </li>
               </ul>
             </div>
