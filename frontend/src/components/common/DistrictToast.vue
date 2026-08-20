@@ -4,11 +4,12 @@
       v-if="toastMessage"
       class="district-toast fixed left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/95 text-amber-100 px-5 py-3 rounded-2xl text-xs font-bold shadow-2xl backdrop-blur-md flex items-center gap-3 border border-amber-500/40 pointer-events-auto"
     >
-      <span class="text-base">⚠️</span>
-      <span class="toast-message">{{ toastMessage }}</span>
+      <span class="text-base shrink-0">⚠️</span>
+      <span class="toast-message flex-1">{{ toastMessage }}</span>
       <button
         type="button"
-        class="ml-2 text-slate-400 hover:text-white text-xs font-bold"
+        class="ml-auto shrink-0 text-slate-400 hover:text-white text-xs font-bold p-1 transition-colors"
+        aria-label="닫기"
         @click="hideToast"
       >
         ✕
@@ -29,6 +30,11 @@ const { toastMessage, hideToast } = useDistrictToast();
   top: calc(var(--app-header-height, 56px) + 80px);
 }
 
+.toast-message {
+  white-space: pre-line;
+  line-height: 1.5;
+}
+
 @media (max-width: 767px) {
   .district-toast {
     width: calc(100vw - 24px);
@@ -37,7 +43,6 @@ const { toastMessage, hideToast } = useDistrictToast();
 
   .toast-message {
     min-width: 0;
-    line-height: 1.5;
   }
 }
 

@@ -212,13 +212,15 @@ const showFindModal = ref(false);
 
 @media (max-width: 720px) {
   .auth-page {
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
     padding: 0;
     background: #fff;
   }
   .auth-card {
     min-height: 100dvh;
-    padding: max(142px, calc(env(safe-area-inset-top) + 108px)) 24px 32px;
+    box-sizing: border-box;
+    padding: max(40px, calc(env(safe-area-inset-top) + 20px)) 24px max(32px, calc(env(safe-area-inset-bottom) + 20px));
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -226,25 +228,29 @@ const showFindModal = ref(false);
 
   .auth-card--login {
     position: relative;
-    display: block;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .auth-card--login .auth-heading {
-    margin-bottom: 0;
+    margin-bottom: 24px;
   }
   .auth-card--login :deep(.login-form) {
-    position: absolute;
-    top: 50%;
-    right: 24px;
-    left: 24px;
-    transform: translateY(-50%);
+    position: static;
+    top: auto;
+    right: auto;
+    left: auto;
+    transform: none;
+    width: 100%;
   }
   .auth-card--login .auth-links {
-    position: absolute;
-    top: calc(50% + 154px);
-    right: 24px;
-    left: 24px;
-    margin-top: 0;
+    position: static;
+    top: auto;
+    right: auto;
+    left: auto;
+    margin-top: 24px;
+    width: 100%;
   }
 
   .auth-card:not(.auth-card--login) {
@@ -257,11 +263,14 @@ const showFindModal = ref(false);
   .auth-card:not(.auth-card--login) .auth-heading {
     position: relative;
     box-sizing: border-box;
-    height: max(100px, calc(env(safe-area-inset-top) + 62px));
-    padding: max(60px, calc(env(safe-area-inset-top) + 22px)) 20px 0;
+    height: calc(env(safe-area-inset-top, 0px) + 52px);
+    padding: env(safe-area-inset-top, 0px) 16px 0;
     margin: 0;
     border-bottom: 1px solid #e7eaf0;
     background: #f6f8fc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .auth-card:not(.auth-card--login) .auth-logo {
@@ -269,21 +278,22 @@ const showFindModal = ref(false);
   }
 
   .auth-card:not(.auth-card--login) .auth-signup-title {
-    position: absolute;
-    top: max(60px, calc(env(safe-area-inset-top) + 22px));
-    left: 50%;
+    position: static;
+    top: auto;
+    left: auto;
     margin: 0;
-    height: 28px;
+    height: auto;
     color: #20283a;
-    font-size: 18px;
-    line-height: 28px;
-    transform: translateX(-50%);
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1;
+    transform: none;
   }
 
   .signup-back-button {
     position: absolute;
-    top: max(60px, calc(env(safe-area-inset-top) + 22px));
-    left: 20px;
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 16px;
     width: 28px;
     height: 28px;
     padding: 0;

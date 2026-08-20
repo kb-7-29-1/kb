@@ -43,20 +43,13 @@ export const UNSUPPORTED_SAFETY_DISTRICTS = [
 export function isSupportedSafetyDistrict(text) {
   if (!text || !text.trim()) return true;
 
-  // 1. 지원 자치구 명시 포함 시 통과
-  for (const district of SUPPORTED_SAFETY_DISTRICTS) {
-    if (text.includes(district)) {
-      return true;
-    }
-  }
-
-  // 2. 미구축 자치구 텍스트 명시 시 미구축(false) 리턴
+  // 1. 미구축 11개 자치구 텍스트 명시 시 미구축(false) 즉시 리턴 (성동구 예외 없음)
   for (const unsupported of UNSUPPORTED_SAFETY_DISTRICTS) {
     if (text.includes(unsupported)) {
       return false;
     }
   }
 
-  // 3. "세종대학교", "홍대입구"처럼 '구' 이름이 들어있지 않은 랜드마크 명칭은 오판하지 않고 통과
+  // 2. 미지원 자치구가 아니면 지원 통과
   return true;
 }

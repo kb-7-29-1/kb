@@ -90,3 +90,13 @@ body {
   margin: 0;
   background: #f8fafc;
 }
+
+/* 🗺️ 네이버 지도 커스텀 마커 텍스트 세로 줄바꿈 완전 방어 */
+#naver-map-container [class*="group"],
+#naver-map-container [class*="inline-flex"],
+#naver-map-container .w-max,
+#naver-map-container .whitespace-nowrap {
+  white-space: nowrap !important;
+  width: max-content !important;
+  word-break: keep-all !important;
+}

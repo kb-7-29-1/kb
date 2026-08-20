@@ -121,7 +121,7 @@ export function renderUnsupportedDistrictGeoJson(mapInstance) {
                 ">
                   <span style="color: #94a3b8; font-size: 11px;">🔒</span>
                   <span style="color: #f8fafc; font-weight: 700;">${center.name}</span>
-                  <span style="color: #94a3b8; font-size: 10px; font-weight: 500;">(보안등 데이터 미제공)</span>
+                  <span style="color: #94a3b8; font-size: 10px; font-weight: 500;">(보안등 미제공)</span>
                 </div>
               </div>
             `,

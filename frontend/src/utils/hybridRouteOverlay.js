@@ -173,9 +173,15 @@ export function renderHybridRouteOverlays({
       let strokeLineJoin = 'round';
 
       const isTransitVehicle = type === 'SUBWAY' || type === 'METRO' || type === 'BUS';
+      const isSegCrossesUnsupported = !isTransitVehicle && segPoints.some((p) => isPointInUnsupportedDistrict(p.lat, p.lng));
       const isSegDataMissing = isTransitVehicle
         ? false
-        : seg.isSupportedDistrict === false || safetyRoute?.safetyScore == null;
+        : seg.isSupportedDistrict === false || safetyRoute?.safetyScore == null || isSegCrossesUnsupported;
+
+      // 🛡️ 도보 구간이 미지원 구역에 속하면 경로선 및 칩 일체 생략
+      if (!isTransitVehicle && isSegDataMissing) {
+        return;
+      }
 
       if (type === 'SUBWAY' || type === 'METRO') {
         strokeColor = seg.lineColor || TRANSIT_COLORS.SUBWAY;
@@ -186,8 +192,8 @@ export function renderHybridRouteOverlays({
         strokeStyle = 'solid'; // 🚌 버스: 간선/지선 고유색 굵은 실선
         strokeWeight = 6.5;
       } else {
-        // 🚶 도보 구간: 우리의 핵심 서비스이므로 또렷한 실선(solid, 7px) 적용!
-        strokeColor = isSegDataMissing ? TRANSIT_COLORS.WALK_UNSUPPORTED : TRANSIT_COLORS.WALK_SUPPORTED;
+        // 🚶 도보 구간: 지원 구역 내 도보만 또렷한 초록 실선(solid, 7px) 적용!
+        strokeColor = TRANSIT_COLORS.WALK_SUPPORTED;
         strokeStyle = 'solid';
         strokeWeight = 7;
         strokeOpacity = 0.95;
@@ -229,7 +235,11 @@ export function renderHybridRouteOverlays({
     return overlays;
   }
 
-  // 2. [단일 도보/안전 경로 발할라 렌더링 - 미지원 구역 지능형 구간 분할 음영 처리]
+  // 2. [단일 도보/안전 경로 렌더링 - 미지원 구역 및 미지원 폴리곤 침범 시 경로선 100% 완전 차단]
+  if (safetyRoute?.isSupportedDistrict === false || safetyRoute?.safetyScore == null) {
+    return overlays;
+  }
+
   const rawPoints = safetyRoute?.routePoints;
   if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
     return overlays;
@@ -251,6 +261,14 @@ export function renderHybridRouteOverlays({
     );
 
   if (points.length < 2) return overlays;
+
+  // 🛡️ 라인스트링(경로 좌표) 중 미지원 자치구 폴리곤에 속하는 점이 하나라도 있으면 경로선 일체 미제공
+  const crossesUnsupportedDistrict = points.some((p) =>
+    isPointInUnsupportedDistrict(p.lat, p.lng),
+  );
+  if (crossesUnsupportedDistrict) {
+    return overlays;
+  }
 
   const first = points[0];
   const last = points[points.length - 1];

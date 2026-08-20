@@ -83,11 +83,11 @@ export const renderPropertyPinHTML = (
   const loanChipHTML = isFeaturedLoan ? renderLoanChipHTML(prop) : '';
 
   return `
-    <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform transition-opacity duration-200 ${opacityStyle}">
-      <div class="flex items-center gap-1.5">
-        <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}">
-          <span class="shrink-0">${priceText}</span>
-          <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}">
+    <div class="inline-flex w-max -translate-x-1/2 -translate-y-full flex-col items-center cursor-pointer select-none transform transition-opacity duration-200 ${opacityStyle}" style="white-space: nowrap !important; width: max-content !important;">
+      <div class="flex items-center gap-1.5" style="white-space: nowrap !important; width: max-content !important;">
+        <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1.5 text-xs font-bold shadow-lg transition-all ${theme.border} ${selectedStyle}" style="white-space: nowrap !important; flex-shrink: 0 !important; width: max-content !important;">
+          <span class="shrink-0" style="white-space: nowrap !important;">${priceText}</span>
+          <span class="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${badgeStyle}" style="white-space: nowrap !important;">
             ${badgeText}
           </span>
         </div>
@@ -103,10 +103,10 @@ export const renderPropertyPinHTML = (
 export const renderDestinationPinHTML = (destination) => {
   const name = destination?.name || '주 목적지';
   return `
-    <div class="inline-flex w-max flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" title="${name}">
-      <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-blue-400 bg-blue-600 px-2.5 py-2 text-xs font-bold text-white shadow-xl transition-all hover:bg-blue-700">
+    <div class="inline-flex w-max flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full select-none" style="white-space: nowrap !important; width: max-content !important;" title="${name}">
+      <div class="flex w-max items-center gap-1.5 whitespace-nowrap rounded-full border border-blue-400 bg-blue-600 px-2.5 py-2 text-xs font-bold text-white shadow-xl transition-all hover:bg-blue-700" style="white-space: nowrap !important; flex-shrink: 0 !important; width: max-content !important;">
         <span class="inline-block shrink-0 animate-bounce">🚩</span>
-        <span class="shrink-0">${name}</span>
+        <span class="shrink-0" style="white-space: nowrap !important;">${name}</span>
       </div>
       <div class="w-2.5 h-2.5 bg-blue-600 rotate-45 -mt-1.5"></div>
       <div class="w-6 h-2 bg-black/20 rounded-full blur-sm mt-1"></div>

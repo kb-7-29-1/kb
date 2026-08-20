@@ -155,7 +155,7 @@ const cardThumbnailUrl = computed(() => {
             title="보안등 공공데이터 미구축 자치구"
           >
             <i
-              class="fa-solid fa-shield-slash text-[9px] text-slate-400"
+              class="fa-solid fa-shield text-[9px] text-slate-400"
               aria-hidden="true"
             ></i>
             데이터 미제공

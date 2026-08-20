@@ -61,17 +61,7 @@ public class SafetyServiceImpl implements SafetyService {
                         if (text == null || text.isBlank()) {
                                 continue;
                         }
-                        for (String district : SUPPORTED_DISTRICTS) {
-                                if (text.contains(district)) {
-                                        return true;
-                                }
-                        }
-                        if (text.contains("성동구")) {
-                                if (text.contains("송정동") || text.contains("용답동")) {
-                                        return true;
-                                }
-                                return false;
-                        }
+                        // 미지원 11개 자치구 중 하나라도 포함되어 있으면 즉시 미지원(false) 판정
                         for (String unsupported : UNSUPPORTED_DISTRICTS) {
                                 if (text.contains(unsupported)) {
                                         return false;
@@ -134,36 +124,12 @@ public class SafetyServiceImpl implements SafetyService {
                         uncalculated.setDestinationId(destination.getDestinationId());
                         uncalculated.setCacheHit(false);
                         uncalculated.setPersisted(false);
-                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로\n안전점수 및 경로를 제공하지 않습니다.");
                         uncalculated.setSafetyScore(null);
                         uncalculated.setSafetyGrade(null);
                         uncalculated.setIsSupportedDistrict(false);
-
-                        // 미제공 지역 매물도 지도 위에 도보 경로는 그려주기 위해 경로 좌표 계산 및 주입
-                        try {
-                                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
-                                                property.getLatitude(),
-                                                property.getLongitude(),
-                                                defaultName(request.getPropertyName(), property.getAddress()),
-                                                destination.getLatitude().doubleValue(),
-                                                destination.getLongitude().doubleValue(),
-                                                defaultName(destination.getName(), "선택 목적지"));
-                                if (route != null && route.getRoutePoints() != null && route.getRoutePoints().size() >= 2) {
-                                        SafetyRouteCandidateDTO candidate = new SafetyRouteCandidateDTO();
-                                        candidate.setRouteId("UNSUPPORTED_ROUTE");
-                                        candidate.setSelected(true);
-                                        candidate.setSafetyScore(null);
-                                        candidate.setSafetyGrade(null);
-                                        candidate.setDistanceMeters(route.getDistanceMeters());
-                                        candidate.setTotalTimeSeconds(route.getTotalTimeSeconds());
-                                        candidate.setRoutePoints(route.getRoutePoints());
-                                        uncalculated.setSelectedRoute(candidate);
-                                        uncalculated.setCandidateRoutes(List.of(candidate));
-                                }
-                        } catch (Exception e) {
-                                log.warn("[Safety] 미제공 지역 경로 좌표 조회 실패: propertyId={}, msg={}", property.getPropertyId(), e.getMessage());
-                        }
-
+                        uncalculated.setSelectedRoute(null);
+                        uncalculated.setCandidateRoutes(List.of());
                         return uncalculated;
                 }
 
@@ -205,10 +171,12 @@ public class SafetyServiceImpl implements SafetyService {
                         SafetyRouteResponseDTO uncalculated = new SafetyRouteResponseDTO();
                         uncalculated.setPropertyId(request.getPropertyId());
                         uncalculated.setDestinationId(request.getDestinationId());
-                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                        uncalculated.setMessage("보안등 공공데이터 미구축 자치구 지역으로\n안전점수 및 경로를 제공하지 않습니다.");
                         uncalculated.setSafetyScore(null);
                         uncalculated.setSafetyGrade(null);
                         uncalculated.setIsSupportedDistrict(false);
+                        uncalculated.setSelectedRoute(null);
+                        uncalculated.setCandidateRoutes(List.of());
                         return uncalculated;
                 }
                 SafetyDestinationVO destination = new SafetyDestinationVO();
@@ -530,6 +498,17 @@ public class SafetyServiceImpl implements SafetyService {
 
         @Override
         public List<SafetyFacilityVO> getRouteFacilities(Long propertyId, Integer destinationId) {
+                SafetyPropertyCoordinateVO property = safetyMapper.selectPropertyCoordinate(propertyId);
+                SafetyDestinationVO destination = resolveDestination(destinationId, null, null, null, null);
+
+                // 🛡️ 미지원 자치구(회색 구간)는 안전시설물(CCTV, 보안등, 파출소)도 일체 없다고 간주하여 빈 리스트 반환
+                if (property != null && destination != null) {
+                        if (!isSupportedDistrict(property.getAddress(), destination.getAddress(),
+                                        destination.getName())) {
+                                return List.of();
+                        }
+                }
+
                 // =========================================================================
                 // [기존 팀원 코드 100% 우선 실행] DB에 캐시된 경로가 있으면 기존 로직 그대로 사용
                 // =========================================================================
@@ -543,8 +522,6 @@ public class SafetyServiceImpl implements SafetyService {
                         // =========================================================================
                         // [도커 발할라 전용 폴백] 발할라 모드는 DB 저장을 스킵하므로 실시간 연산으로 시설물 탐색
                         // =========================================================================
-                        SafetyPropertyCoordinateVO property = safetyMapper.selectPropertyCoordinate(propertyId);
-                        SafetyDestinationVO destination = resolveDestination(destinationId, null, null, null, null);
                         if (property == null || destination == null) {
                                 throw new IllegalArgumentException(
                                                 "매물 또는 목적지 정보를 찾을 수 없습니다.");
@@ -875,7 +852,7 @@ public class SafetyServiceImpl implements SafetyService {
                         if (!isSupportedDistrict(property.getAddress(), destination.getAddress(),
                                         destination.getName())) {
                                 return createFailedBatchItem(propertyId, destination.getDestinationId(),
-                                                "보안등 공공데이터 미구축 자치구 지역으로 안전점수를 제공하지 않습니다.");
+                                                "보안등 공공데이터 미구축 자치구 지역으로\n안전점수를 제공하지 않습니다.");
                         }
 
                         try {

@@ -146,7 +146,7 @@ const safetyScoreEndPoint = computed(() => {
 });
 
 const safetyGradeLabel = computed(() => {
-  if (!hasSafetyScore.value) return '계산되지 않음';
+  if (!hasSafetyScore.value) return '데이터 미제공';
   if (safetyScoreValue.value >= 80) return '안심';
   if (safetyScoreValue.value >= 60) return '보통';
   return '주의 필요';
@@ -433,7 +433,7 @@ const detailImageUrl = computed(() => {
                 ></i>
                 <i
                   v-else
-                  class="fa-solid fa-shield-slash text-[10px]"
+                  class="fa-solid fa-shield text-[10px]"
                   aria-hidden="true"
                 ></i>
                 {{
@@ -846,24 +846,28 @@ const detailImageUrl = computed(() => {
                   <div class="safety-metric-card safety-metric-card--cctv">
                     <i class="fa-solid fa-video" aria-hidden="true"></i>
                     <span>CCTV</span>
-                    <strong>{{ property.cctvCount || 0 }}개</strong>
+                    <strong>{{
+                      hasSafetyScore ? `${property.cctvCount || 0}개` : '-'
+                    }}</strong>
                   </div>
                   <div class="safety-metric-card safety-metric-card--light">
                     <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
                     <span>가로등</span>
-                    <strong
-                      >{{
-                        property.streetLampCount ??
-                        property.streetlightCount ??
-                        0
-                      }}개</strong
-                    >
+                    <strong>{{
+                      hasSafetyScore
+                        ? `${property.streetLampCount ?? property.streetlightCount ?? 0}개`
+                        : '-'
+                    }}</strong>
                   </div>
                   <div class="safety-metric-card safety-metric-card--police">
                     <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
                     <span>파출소</span>
                     <strong>{{
-                      property.hasPoliceStation ? '근처' : '확인 필요'
+                      hasSafetyScore
+                        ? property.hasPoliceStation
+                          ? '근처'
+                          : '500m 밖'
+                        : '-'
                     }}</strong>
                   </div>
                 </div>
@@ -883,7 +887,10 @@ const detailImageUrl = computed(() => {
                     :class="{ 'is-on': showRouteFacilities }"
                     role="switch"
                     :aria-checked="showRouteFacilities"
-                    :disabled="isRouteFacilitiesLoading"
+                    :disabled="!hasSafetyScore || isRouteFacilitiesLoading"
+                    :title="
+                      !hasSafetyScore ? '안전점수 미제공 지역입니다.' : ''
+                    "
                     @click="toggleRouteFacilities"
                   >
                     <span class="route-facility-toggle-knob"></span>
