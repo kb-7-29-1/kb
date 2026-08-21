@@ -11,10 +11,10 @@ const router = useRouter();
 
 // ============================================================================
 // 🛡️ [안전점수 핵심 산출 공식 & 가중치 상수] (SafetyScoreCalculator.java와 100% 동기화)
-// 공식: Safety Score = Math.max(0, Math.round(100 - (Total Penalty / 3.0)))
+// 공식: Safety Score = Math.min(100, Math.max(0, 100 - Total Penalty + 20))
 // ============================================================================
 const SAFETY_SCORE_FORMULA = {
-  DIVISOR: 3.0, // ✅ 핵심 감점 완화 분모 (/ 3.0)
+  BASE_BONUS: 20, // ✅ 기본 보정 보너스 (+20)
   MAX_PENALTIES: {
     CCTV_DENSITY: 20, // CCTV 평균 간격 감점 (최대 20점)
     CCTV_COVERAGE: 15, // CCTV 커버리지 감점 (최대 15점)
@@ -826,13 +826,7 @@ onUnmounted(() => {
             {{ selectedDetail.breakdown.hasPoliceStation ? 'O' : 'X' }}
           </li>
           <li>
-            총 페널티: {{ selectedDetail.breakdown.totalPenalty }} (실제 감점:
-            -{{
-              Math.round(
-                (selectedDetail.breakdown.totalPenalty || 0) /
-                  SAFETY_SCORE_FORMULA.DIVISOR,
-              )
-            }}점)
+            총 페널티: -{{ selectedDetail.breakdown.totalPenalty || 0 }}점 (기본 보너스 +{{ SAFETY_SCORE_FORMULA.BASE_BONUS }}점 적용)
           </li>
         </ul>
       </div>
