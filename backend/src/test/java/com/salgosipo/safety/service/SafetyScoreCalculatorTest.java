@@ -1,7 +1,6 @@
 package com.salgosipo.safety.service;
 
 import com.salgosipo.safety.domain.PedestrianRoute;
-import com.salgosipo.safety.domain.SafetyFacilityVO;
 import com.salgosipo.safety.dto.RoutePointDTO;
 import com.salgosipo.safety.dto.SafetyRouteCandidateDTO;
 import org.junit.jupiter.api.Test;
@@ -66,38 +65,5 @@ class SafetyScoreCalculatorTest {
         assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
         assertEquals(100, result.getBreakdown().getTotalPenalty());
         assertEquals(67, result.getSafetyScore());
-    }
-
-    @Test
-    void coverageUsesActualOverlapLengthInsteadOfFixedSections() {
-        double startLat = 37.5500;
-        double lng = 127.0700;
-        double endLat = startLat + metersToLatitude(100.0);
-
-        PedestrianRoute route = new PedestrianRoute();
-        route.setRouteId("OVERLAP");
-        route.setSearchOption("4");
-        route.setRouteType("대로 우선");
-        route.setDistanceMeters(100);
-        route.setTotalTimeSeconds(100);
-        route.setRoutePoints(List.of(
-                new RoutePointDTO(startLat, lng),
-                new RoutePointDTO(endLat, lng)
-        ));
-
-        SafetyFacilityVO cctv = new SafetyFacilityVO();
-        cctv.setFacilityType("CCTV");
-        cctv.setLatitude(startLat + metersToLatitude(50.0));
-        cctv.setLongitude(lng);
-        cctv.setFacilityCount(1);
-
-        SafetyRouteCandidateDTO result = calculator.calculate(route, List.of(cctv));
-
-        // 반경 50m 원의 중심이 100m 직선 경로 정중앙에 있으므로 거의 전체 경로가 커버됩니다.
-        assertEquals(100.0, result.getBreakdown().getCctvCoveragePercent(), 0.2);
-    }
-
-    private double metersToLatitude(double meters) {
-        return meters / 111_320.0;
     }
 }

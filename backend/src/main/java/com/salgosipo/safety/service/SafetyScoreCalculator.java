@@ -23,38 +23,33 @@ public class SafetyScoreCalculator {
         List<ProjectedFacility> cctvs = projectFacilities(filterByType(facilities, "CCTV"), projectedRoute.get(0));
         List<ProjectedFacility> streetLights = projectFacilities(
                 filterByType(facilities, "STREET_LIGHT"),
-                projectedRoute.get(0)
-        );
+                projectedRoute.get(0));
         List<ProjectedFacility> policeStations = projectFacilities(
                 filterByType(facilities, "POLICE"),
-                projectedRoute.get(0)
-        );
+                projectedRoute.get(0));
 
         int cctvCount = countFacilitiesNearRoute(projectedRoute, cctvs, CCTV_ROUTE_RADIUS_METERS);
         int streetLightCount = countFacilitiesNearRoute(
                 projectedRoute,
                 streetLights,
-                STREET_LIGHT_ROUTE_RADIUS_METERS
-        );
+                STREET_LIGHT_ROUTE_RADIUS_METERS);
         double cctvCoverage = calculateCoverage(
                 projectedRoute,
                 cctvs,
-                CCTV_ROUTE_RADIUS_METERS
-        );
+                50.0,
+                CCTV_ROUTE_RADIUS_METERS);
         double streetLightCoverage = calculateCoverage(
                 projectedRoute,
                 streetLights,
-                STREET_LIGHT_ROUTE_RADIUS_METERS
-        );
+                30.0,
+                STREET_LIGHT_ROUTE_RADIUS_METERS);
         boolean hasPoliceStation = hasFacilityNearRoute(
                 projectedRoute,
                 policeStations,
-                POLICE_ROUTE_RADIUS_METERS
-        );
+                POLICE_ROUTE_RADIUS_METERS);
         double nearestPoliceDistanceMeters = nearestFacilityDistanceToRoute(
                 projectedRoute,
-                policeStations
-        );
+                policeStations);
 
         double routeDistanceMeters = route.getDistanceMeters() != null && route.getDistanceMeters() > 0
                 ? route.getDistanceMeters()
@@ -76,8 +71,7 @@ public class SafetyScoreCalculator {
                 + policePenalty;
         int safetyScore = Math.max(
                 0,
-                (int) Math.round(100 - totalPenalty / 3.0)
-        );
+                (int) Math.round(100 - totalPenalty / 3.0));
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
         breakdown.setCctvDensityPenalty(cctvDensityPenalty);
@@ -89,14 +83,11 @@ public class SafetyScoreCalculator {
         breakdown.setStreetLightCount(streetLightCount);
         breakdown.setHasPoliceStation(hasPoliceStation);
         breakdown.setNearestPoliceDistanceMeters(
-                Double.isFinite(nearestPoliceDistanceMeters) ? round1(nearestPoliceDistanceMeters) : null
-        );
+                Double.isFinite(nearestPoliceDistanceMeters) ? round1(nearestPoliceDistanceMeters) : null);
         breakdown.setCctvAverageGapMeters(
-                Double.isFinite(averageGapMeters) ? round1(averageGapMeters) : null
-        );
+                Double.isFinite(averageGapMeters) ? round1(averageGapMeters) : null);
         breakdown.setStreetLightAverageGapMeters(
-                Double.isFinite(streetLightAverageGapMeters) ? round1(streetLightAverageGapMeters) : null
-        );
+                Double.isFinite(streetLightAverageGapMeters) ? round1(streetLightAverageGapMeters) : null);
         breakdown.setCctvCoveragePercent(round1(cctvCoverage));
         breakdown.setStreetLightCoveragePercent(round1(streetLightCoverage));
 
@@ -112,6 +103,52 @@ public class SafetyScoreCalculator {
         candidate.setBreakdown(breakdown);
         candidate.setRoutePoints(route.getRoutePoints());
         return candidate;
+    }
+
+    /**
+     * 점수 계산(countFacilitiesNearRoute)과 동일한 반경/거리 기준으로,
+     * 실제로 경로에 영향을 준 시설물만 걸러서 반환합니다. ("경로 자세히 보기" 지도 표시용)
+     */
+    public List<SafetyFacilityVO> filterFacilitiesNearRoute(
+            PedestrianRoute route,
+            List<SafetyFacilityVO> facilities) {
+        if (route == null || route.getRoutePoints() == null || route.getRoutePoints().size() < 2
+                || facilities == null || facilities.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProjectedPoint> projectedRoute = projectRoute(route.getRoutePoints());
+        ProjectedPoint origin = projectedRoute.get(0);
+
+        List<SafetyFacilityVO> result = new ArrayList<>();
+        for (SafetyFacilityVO facility : facilities) {
+            if (facility.getLatitude() == null || facility.getLongitude() == null) {
+                continue;
+            }
+            double radiusMeters = radiusForType(facility.getFacilityType());
+            if (radiusMeters <= 0.0) {
+                continue;
+            }
+            ProjectedPoint projected = project(
+                    facility.getLatitude(),
+                    facility.getLongitude(),
+                    origin.originLatitude(),
+                    origin.originLongitude());
+            if (distancePointToPolyline(projected, projectedRoute) <= radiusMeters) {
+                result.add(facility);
+            }
+        }
+        return result;
+    }
+
+    private double radiusForType(String facilityType) {
+        if ("CCTV".equalsIgnoreCase(facilityType))
+            return CCTV_ROUTE_RADIUS_METERS;
+        if ("STREET_LIGHT".equalsIgnoreCase(facilityType))
+            return STREET_LIGHT_ROUTE_RADIUS_METERS;
+        if ("POLICE".equalsIgnoreCase(facilityType))
+            return POLICE_ROUTE_RADIUS_METERS;
+        return 0.0;
     }
 
     int calculateCctvDensityPenalty(double averageGapMeters) {
@@ -143,8 +180,7 @@ public class SafetyScoreCalculator {
     private int countFacilitiesNearRoute(
             List<ProjectedPoint> route,
             List<ProjectedFacility> facilities,
-            double radiusMeters
-    ) {
+            double radiusMeters) {
         int total = 0;
         for (ProjectedFacility facility : facilities) {
             if (distancePointToPolyline(facility.point(), route) <= radiusMeters) {
@@ -155,119 +191,51 @@ public class SafetyScoreCalculator {
     }
 
     /**
-     * 시설 영향 반경과 실제 경로(polyline)가 겹치는 길이의 합집합을 구해 커버리지를 계산합니다.
-     *
-     * 예: CCTV는 반경 50m, 가로등은 반경 20m를 사용합니다.
-     * 같은 경로 구간이 여러 시설 반경에 동시에 포함되더라도 중복해서 더하지 않습니다.
+     * 경로를 sectionLengthMeters 간격의 구간으로 나눈 뒤 각 구간 중점이 시설 반경 안인지 평가합니다.
      */
     private double calculateCoverage(
             List<ProjectedPoint> route,
             List<ProjectedFacility> facilities,
-            double radiusMeters
-    ) {
+            double sectionLengthMeters,
+            double radiusMeters) {
         double totalLength = polylineLength(route);
         if (totalLength <= 0.0 || facilities.isEmpty()) {
             return 0.0;
         }
 
-        double coveredLength = 0.0;
-
-        for (int i = 1; i < route.size(); i++) {
-            ProjectedPoint start = route.get(i - 1);
-            ProjectedPoint end = route.get(i);
-            double segmentLength = distance(start, end);
-            if (segmentLength <= 0.0) {
-                continue;
+        int sectionCount = Math.max(1, (int) Math.ceil(totalLength / sectionLengthMeters));
+        int coveredCount = 0;
+        for (int index = 0; index < sectionCount; index++) {
+            double targetDistance = Math.min(
+                    totalLength,
+                    (index + 0.5) * sectionLengthMeters);
+            ProjectedPoint sample = pointAtDistance(route, targetDistance);
+            if (isNearAnyFacility(sample, facilities, radiusMeters)) {
+                coveredCount++;
             }
-
-            List<Interval> coveredIntervals = new ArrayList<>();
-            for (ProjectedFacility facility : facilities) {
-                Interval interval = coveredIntervalOnSegment(
-                        start,
-                        end,
-                        facility.point(),
-                        radiusMeters
-                );
-                if (interval != null) {
-                    coveredIntervals.add(interval);
-                }
-            }
-
-            if (coveredIntervals.isEmpty()) {
-                continue;
-            }
-
-            coveredIntervals.sort((a, b) -> Double.compare(a.start(), b.start()));
-
-            double mergedStart = coveredIntervals.get(0).start();
-            double mergedEnd = coveredIntervals.get(0).end();
-            double coveredFraction = 0.0;
-
-            for (int j = 1; j < coveredIntervals.size(); j++) {
-                Interval current = coveredIntervals.get(j);
-                if (current.start() <= mergedEnd) {
-                    mergedEnd = Math.max(mergedEnd, current.end());
-                } else {
-                    coveredFraction += mergedEnd - mergedStart;
-                    mergedStart = current.start();
-                    mergedEnd = current.end();
-                }
-            }
-            coveredFraction += mergedEnd - mergedStart;
-
-            coveredLength += coveredFraction * segmentLength;
         }
-
-        return Math.min(100.0, coveredLength * 100.0 / totalLength);
+        return coveredCount * 100.0 / sectionCount;
     }
 
-    /**
-     * 한 경로 선분 P(t)=start+t(end-start), 0<=t<=1 과
-     * 시설 중심 원(circle)의 교차 구간 [t1, t2]를 반환합니다.
-     */
-    private Interval coveredIntervalOnSegment(
-            ProjectedPoint start,
-            ProjectedPoint end,
-            ProjectedPoint facility,
-            double radiusMeters
-    ) {
-        double dx = end.x() - start.x();
-        double dy = end.y() - start.y();
-        double fx = start.x() - facility.x();
-        double fy = start.y() - facility.y();
-
-        double a = dx * dx + dy * dy;
-        if (a <= 0.0) {
-            return null;
+    private boolean isNearAnyFacility(
+            ProjectedPoint point,
+            List<ProjectedFacility> facilities,
+            double radiusMeters) {
+        double radiusSquared = radiusMeters * radiusMeters;
+        for (ProjectedFacility facility : facilities) {
+            double dx = point.x() - facility.point().x();
+            double dy = point.y() - facility.point().y();
+            if (dx * dx + dy * dy <= radiusSquared) {
+                return true;
+            }
         }
-
-        double b = 2.0 * (fx * dx + fy * dy);
-        double c = fx * fx + fy * fy - radiusMeters * radiusMeters;
-        double discriminant = b * b - 4.0 * a * c;
-
-        if (discriminant < 0.0) {
-            return null;
-        }
-
-        double sqrtDiscriminant = Math.sqrt(Math.max(0.0, discriminant));
-        double t1 = (-b - sqrtDiscriminant) / (2.0 * a);
-        double t2 = (-b + sqrtDiscriminant) / (2.0 * a);
-
-        double intervalStart = Math.max(0.0, Math.min(t1, t2));
-        double intervalEnd = Math.min(1.0, Math.max(t1, t2));
-
-        if (intervalEnd <= intervalStart) {
-            return null;
-        }
-
-        return new Interval(intervalStart, intervalEnd);
+        return false;
     }
 
     private boolean hasFacilityNearRoute(
             List<ProjectedPoint> route,
             List<ProjectedFacility> facilities,
-            double radiusMeters
-    ) {
+            double radiusMeters) {
         for (ProjectedFacility facility : facilities) {
             if (distancePointToPolyline(facility.point(), route) <= radiusMeters) {
                 return true;
@@ -278,8 +246,7 @@ public class SafetyScoreCalculator {
 
     private double nearestFacilityDistanceToRoute(
             List<ProjectedPoint> route,
-            List<ProjectedFacility> facilities
-    ) {
+            List<ProjectedFacility> facilities) {
         return facilities.stream()
                 .mapToDouble(facility -> distancePointToPolyline(facility.point(), route))
                 .min()
@@ -303,16 +270,14 @@ public class SafetyScoreCalculator {
                     point.getLatitude(),
                     point.getLongitude(),
                     origin.getLatitude(),
-                    origin.getLongitude()
-            ));
+                    origin.getLongitude()));
         }
         return projected;
     }
 
     private List<ProjectedFacility> projectFacilities(
             List<SafetyFacilityVO> facilities,
-            ProjectedPoint routeOrigin
-    ) {
+            ProjectedPoint routeOrigin) {
         List<ProjectedFacility> projected = new ArrayList<>(facilities.size());
         for (SafetyFacilityVO facility : facilities) {
             if (facility.getLatitude() == null || facility.getLongitude() == null) {
@@ -323,10 +288,8 @@ public class SafetyScoreCalculator {
                             facility.getLatitude(),
                             facility.getLongitude(),
                             routeOrigin.originLatitude(),
-                            routeOrigin.originLongitude()
-                    ),
-                    facility.getFacilityCount() == null ? 1 : facility.getFacilityCount()
-            ));
+                            routeOrigin.originLongitude()),
+                    facility.getFacilityCount() == null ? 1 : facility.getFacilityCount()));
         }
         return projected;
     }
@@ -335,8 +298,7 @@ public class SafetyScoreCalculator {
             double latitude,
             double longitude,
             double originLatitude,
-            double originLongitude
-    ) {
+            double originLongitude) {
         double earthRadius = 6_371_000.0;
         double x = Math.toRadians(longitude - originLongitude)
                 * earthRadius
@@ -353,13 +315,38 @@ public class SafetyScoreCalculator {
         return total;
     }
 
+    private ProjectedPoint pointAtDistance(List<ProjectedPoint> route, double targetDistance) {
+        if (targetDistance <= 0.0) {
+            return route.get(0);
+        }
+
+        double traversed = 0.0;
+        for (int i = 1; i < route.size(); i++) {
+            ProjectedPoint start = route.get(i - 1);
+            ProjectedPoint end = route.get(i);
+            double segmentLength = distance(start, end);
+            if (segmentLength == 0.0) {
+                continue;
+            }
+            if (traversed + segmentLength >= targetDistance) {
+                double ratio = (targetDistance - traversed) / segmentLength;
+                return new ProjectedPoint(
+                        start.x() + (end.x() - start.x()) * ratio,
+                        start.y() + (end.y() - start.y()) * ratio,
+                        start.originLatitude(),
+                        start.originLongitude());
+            }
+            traversed += segmentLength;
+        }
+        return route.get(route.size() - 1);
+    }
+
     private double distancePointToPolyline(ProjectedPoint point, List<ProjectedPoint> polyline) {
         double minimum = Double.POSITIVE_INFINITY;
         for (int i = 1; i < polyline.size(); i++) {
             minimum = Math.min(
                     minimum,
-                    distancePointToSegment(point, polyline.get(i - 1), polyline.get(i))
-            );
+                    distancePointToSegment(point, polyline.get(i - 1), polyline.get(i)));
         }
         return minimum;
     }
@@ -367,8 +354,7 @@ public class SafetyScoreCalculator {
     private double distancePointToSegment(
             ProjectedPoint point,
             ProjectedPoint start,
-            ProjectedPoint end
-    ) {
+            ProjectedPoint end) {
         double dx = end.x() - start.x();
         double dy = end.y() - start.y();
         double denominator = dx * dx + dy * dy;
@@ -388,8 +374,10 @@ public class SafetyScoreCalculator {
     }
 
     private String toGrade(int safetyScore) {
-        if (safetyScore >= 80) return "SAFE";
-        if (safetyScore >= 60) return "WARNING";
+        if (safetyScore >= 80)
+            return "SAFE";
+        if (safetyScore >= 60)
+            return "WARNING";
         return "DANGER";
     }
 
@@ -397,15 +385,11 @@ public class SafetyScoreCalculator {
         return Math.round(value * 10.0) / 10.0;
     }
 
-    private record Interval(double start, double end) {
-    }
-
     private record ProjectedPoint(
             double x,
             double y,
             double originLatitude,
-            double originLongitude
-    ) {
+            double originLongitude) {
     }
 
     private record ProjectedFacility(ProjectedPoint point, int count) {
