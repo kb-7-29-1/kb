@@ -254,6 +254,58 @@ function resetMapFacilitySummary() {
   };
 }
 
+// 📐 점과 선분 사이의 최단 거리(m) 계산 (백엔드 distancePointToPolyline과 100% 동일)
+function distancePointToSegmentMeters(pLat, pLng, sLat1, sLng1, sLat2, sLng2) {
+  const originLat = sLat1;
+  const originLng = sLng1;
+  const earthRadius = 6371000.0;
+
+  const toX = (lng, lat) =>
+    ((lng - originLng) * Math.PI / 180) *
+    earthRadius *
+    Math.cos((originLat * Math.PI) / 180);
+  const toY = (lat) => ((lat - originLat) * Math.PI / 180) * earthRadius;
+
+  const px = toX(pLng, pLat);
+  const py = toY(pLat);
+  const sx1 = 0;
+  const sy1 = 0;
+  const sx2 = toX(sLng2, sLat2);
+  const sy2 = toY(sLat2);
+
+  const dx = sx2 - sx1;
+  const dy = sy2 - sy1;
+  const denominator = dx * dx + dy * dy;
+  if (denominator <= 0) {
+    return Math.hypot(px - sx1, py - sy1);
+  }
+
+  const t = Math.max(0, Math.min(1, ((px - sx1) * dx + (py - sy1) * dy) / denominator));
+  const projX = sx1 + t * dx;
+  const projY = sy1 + t * dy;
+  return Math.hypot(px - projX, py - projY);
+}
+
+function distancePointToPolylineMeters(facility, points) {
+  if (!points || points.length === 0) return Infinity;
+  if (points.length === 1) {
+    return getDistanceMeters(points[0].latitude, points[0].longitude, facility.latitude, facility.longitude);
+  }
+  let minDist = Infinity;
+  for (let i = 1; i < points.length; i++) {
+    const dist = distancePointToSegmentMeters(
+      facility.latitude,
+      facility.longitude,
+      points[i - 1].latitude,
+      points[i - 1].longitude,
+      points[i].latitude,
+      points[i].longitude,
+    );
+    if (dist < minDist) minDist = dist;
+  }
+  return minDist;
+}
+
 function renderFacilitiesForActiveItems() {
   clearFacilityOverlays();
   if (!allFacilities.value || allFacilities.value.length === 0) {
@@ -270,25 +322,13 @@ function renderFacilitiesForActiveItems() {
     return;
   }
 
-  const routePoints = [];
-  activeItems.forEach((item) => {
-    if (item.routePoints) {
-      item.routePoints.forEach((pt) => routePoints.push(pt));
-    }
-  });
-
-  // 활성화된 경로 영향권 내의 시설물만 추출
+  // 활성화된 경로 선분(Polyline) 영향권 내의 시설물 추출 (백엔드와 동일하게 선분 최단거리 판정)
   const relevantFacilities = allFacilities.value.filter((facility) => {
     const radiusThreshold = FACILITY_RADIUS[facility.facilityType] || 50;
-    return routePoints.some(
-      (pt) =>
-        getDistanceMeters(
-          pt.latitude,
-          pt.longitude,
-          facility.latitude,
-          facility.longitude,
-        ) <= radiusThreshold,
-    );
+    return activeItems.some((item) => {
+      if (!item.routePoints || item.routePoints.length === 0) return false;
+      return distancePointToPolylineMeters(facility, item.routePoints) <= radiusThreshold;
+    });
   });
 
   // 지점수 vs 대수(facility_count) 합계 집계 — breakdown의 cctvCount 등과 직접 비교용
