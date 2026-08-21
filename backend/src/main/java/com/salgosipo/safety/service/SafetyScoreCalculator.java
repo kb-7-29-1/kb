@@ -11,8 +11,8 @@ import java.util.List;
 public class SafetyScoreCalculator {
 
     static final double CCTV_ROUTE_RADIUS_METERS = 50.0;
-    static final double STREET_LIGHT_ROUTE_RADIUS_METERS = 30.0;
-    static final double POLICE_ROUTE_RADIUS_METERS = 100.0;
+    static final double STREET_LIGHT_ROUTE_RADIUS_METERS = 20.0;
+    static final double POLICE_ROUTE_RADIUS_METERS = 500.0;
 
     public SafetyRouteCandidateDTO calculate(PedestrianRoute route, List<SafetyFacilityVO> facilities) {
         if (route == null || route.getRoutePoints() == null || route.getRoutePoints().size() < 2) {
@@ -71,7 +71,7 @@ public class SafetyScoreCalculator {
                 + policePenalty;
         int safetyScore = Math.max(
                 0,
-                (int) Math.round(100 - totalPenalty / 2.0));
+                (int) Math.round(100 - totalPenalty / 3.0));
 
         SafetyScoreBreakdownDTO breakdown = new SafetyScoreBreakdownDTO();
         breakdown.setCctvDensityPenalty(cctvDensityPenalty);
