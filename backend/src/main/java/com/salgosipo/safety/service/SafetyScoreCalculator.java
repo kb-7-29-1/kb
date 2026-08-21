@@ -36,12 +36,10 @@ public class SafetyScoreCalculator {
         double cctvCoverage = calculateCoverage(
                 projectedRoute,
                 cctvs,
-                50.0,
                 CCTV_ROUTE_RADIUS_METERS);
         double streetLightCoverage = calculateCoverage(
                 projectedRoute,
                 streetLights,
-                30.0,
                 STREET_LIGHT_ROUTE_RADIUS_METERS);
         boolean hasPoliceStation = hasFacilityNearRoute(
                 projectedRoute,
@@ -191,45 +189,113 @@ public class SafetyScoreCalculator {
     }
 
     /**
-     * 경로를 sectionLengthMeters 간격의 구간으로 나눈 뒤 각 구간 중점이 시설 반경 안인지 평가합니다.
+     * TMAP/Valhalla가 반환한 실제 보행 경로 polyline 전체를 연속적인 선분으로 보고
+     * 시설 반경 안에 포함되는 경로 길이를 정확히 계산합니다.
+     *
+     * 기존처럼 30m/50m 구간의 중점만 샘플링하지 않습니다. 각 경로 선분과
+     * 시설 반경 원의 교차 구간을 구한 뒤, 같은 선분에서 서로 겹치는 구간은
+     * 합쳐서 한 번만 계산합니다.
+     *
+     * coverage = (시설 반경 안에 실제로 포함된 경로 길이 / 전체 경로 길이) * 100
      */
     private double calculateCoverage(
             List<ProjectedPoint> route,
             List<ProjectedFacility> facilities,
-            double sectionLengthMeters,
             double radiusMeters) {
         double totalLength = polylineLength(route);
         if (totalLength <= 0.0 || facilities.isEmpty()) {
             return 0.0;
         }
 
-        int sectionCount = Math.max(1, (int) Math.ceil(totalLength / sectionLengthMeters));
-        int coveredCount = 0;
-        for (int index = 0; index < sectionCount; index++) {
-            double targetDistance = Math.min(
-                    totalLength,
-                    (index + 0.5) * sectionLengthMeters);
-            ProjectedPoint sample = pointAtDistance(route, targetDistance);
-            if (isNearAnyFacility(sample, facilities, radiusMeters)) {
-                coveredCount++;
+        double coveredLength = 0.0;
+
+        for (int segmentIndex = 1; segmentIndex < route.size(); segmentIndex++) {
+            ProjectedPoint start = route.get(segmentIndex - 1);
+            ProjectedPoint end = route.get(segmentIndex);
+            double segmentLength = distance(start, end);
+            if (segmentLength <= 0.0) {
+                continue;
             }
+
+            List<CoverageInterval> intervals = new ArrayList<>();
+            for (ProjectedFacility facility : facilities) {
+                CoverageInterval interval = coverageIntervalOnSegment(
+                        start,
+                        end,
+                        facility.point(),
+                        radiusMeters);
+                if (interval != null && interval.end() > interval.start()) {
+                    intervals.add(interval);
+                }
+            }
+
+            if (intervals.isEmpty()) {
+                continue;
+            }
+
+            intervals.sort((left, right) -> Double.compare(left.start(), right.start()));
+
+            double mergedStart = intervals.get(0).start();
+            double mergedEnd = intervals.get(0).end();
+            double coveredFraction = 0.0;
+
+            for (int intervalIndex = 1; intervalIndex < intervals.size(); intervalIndex++) {
+                CoverageInterval current = intervals.get(intervalIndex);
+                if (current.start() <= mergedEnd) {
+                    mergedEnd = Math.max(mergedEnd, current.end());
+                } else {
+                    coveredFraction += mergedEnd - mergedStart;
+                    mergedStart = current.start();
+                    mergedEnd = current.end();
+                }
+            }
+            coveredFraction += mergedEnd - mergedStart;
+
+            coveredLength += segmentLength * coveredFraction;
         }
-        return coveredCount * 100.0 / sectionCount;
+
+        return Math.max(0.0, Math.min(100.0, coveredLength * 100.0 / totalLength));
     }
 
-    private boolean isNearAnyFacility(
-            ProjectedPoint point,
-            List<ProjectedFacility> facilities,
+    /**
+     * 하나의 경로 선분 P(t) = start + t(end-start), 0 <= t <= 1 과
+     * 시설 중심을 기준으로 한 반경 원의 교차 구간 [tStart, tEnd]를 구합니다.
+     */
+    private CoverageInterval coverageIntervalOnSegment(
+            ProjectedPoint start,
+            ProjectedPoint end,
+            ProjectedPoint facility,
             double radiusMeters) {
-        double radiusSquared = radiusMeters * radiusMeters;
-        for (ProjectedFacility facility : facilities) {
-            double dx = point.x() - facility.point().x();
-            double dy = point.y() - facility.point().y();
-            if (dx * dx + dy * dy <= radiusSquared) {
-                return true;
-            }
+        double dx = end.x() - start.x();
+        double dy = end.y() - start.y();
+        double fx = start.x() - facility.x();
+        double fy = start.y() - facility.y();
+
+        double a = dx * dx + dy * dy;
+        if (a <= 0.0) {
+            return null;
         }
-        return false;
+
+        double b = 2.0 * (fx * dx + fy * dy);
+        double c = fx * fx + fy * fy - radiusMeters * radiusMeters;
+        double discriminant = b * b - 4.0 * a * c;
+
+        if (discriminant < 0.0) {
+            return null;
+        }
+
+        double sqrtDiscriminant = Math.sqrt(Math.max(0.0, discriminant));
+        double t1 = (-b - sqrtDiscriminant) / (2.0 * a);
+        double t2 = (-b + sqrtDiscriminant) / (2.0 * a);
+
+        double intervalStart = Math.max(0.0, Math.min(t1, t2));
+        double intervalEnd = Math.min(1.0, Math.max(t1, t2));
+
+        if (intervalEnd <= intervalStart) {
+            return null;
+        }
+
+        return new CoverageInterval(intervalStart, intervalEnd);
     }
 
     private boolean hasFacilityNearRoute(
@@ -383,6 +449,9 @@ public class SafetyScoreCalculator {
 
     private double round1(double value) {
         return Math.round(value * 10.0) / 10.0;
+    }
+
+    private record CoverageInterval(double start, double end) {
     }
 
     private record ProjectedPoint(

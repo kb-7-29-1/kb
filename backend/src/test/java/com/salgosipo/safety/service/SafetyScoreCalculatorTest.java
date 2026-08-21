@@ -1,6 +1,7 @@
 package com.salgosipo.safety.service;
 
 import com.salgosipo.safety.domain.PedestrianRoute;
+import com.salgosipo.safety.domain.SafetyFacilityVO;
 import com.salgosipo.safety.dto.RoutePointDTO;
 import com.salgosipo.safety.dto.SafetyRouteCandidateDTO;
 import org.junit.jupiter.api.Test;
@@ -65,5 +66,40 @@ class SafetyScoreCalculatorTest {
         assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
         assertEquals(100, result.getBreakdown().getTotalPenalty());
         assertEquals(67, result.getSafetyScore());
+    }
+
+    @Test
+    void cctvCoverageUsesActualCoveredRouteLengthInsteadOfSectionMidpoints() {
+        // 약 200m 직선 경로에서 CCTV를 시작점으로부터 약 40m 지점에 둡니다.
+        // CCTV 반경 50m가 실제로 덮는 경로는 시작점~약 90m이므로 커버리지는 약 45%입니다.
+        // 기존 50m 구간 중점 방식이면 25m/75m 두 구간이 covered가 되어 50%가 나왔습니다.
+        double startLatitude = 37.5500;
+        double longitude = 127.0700;
+
+        PedestrianRoute route = new PedestrianRoute();
+        route.setRouteId("EXACT-COVERAGE");
+        route.setSearchOption("4");
+        route.setRouteType("대로 우선");
+        route.setDistanceMeters(200);
+        route.setTotalTimeSeconds(160);
+        route.setRoutePoints(List.of(
+                new RoutePointDTO(startLatitude, longitude),
+                new RoutePointDTO(startLatitude + metersToLatitude(200.0), longitude)
+        ));
+
+        SafetyFacilityVO cctv = new SafetyFacilityVO();
+        cctv.setFacilityType("CCTV");
+        cctv.setFacilityName("TEST CCTV");
+        cctv.setLatitude(startLatitude + metersToLatitude(40.0));
+        cctv.setLongitude(longitude);
+        cctv.setFacilityCount(1);
+
+        SafetyRouteCandidateDTO result = calculator.calculate(route, List.of(cctv));
+
+        assertEquals(45.0, result.getBreakdown().getCctvCoveragePercent(), 0.2);
+    }
+
+    private double metersToLatitude(double meters) {
+        return meters / 111_320.0;
     }
 }
