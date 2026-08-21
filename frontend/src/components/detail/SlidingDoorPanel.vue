@@ -64,7 +64,11 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['close', 'toggle-bookmark', 'toggle-route-facilities']);
+const emit = defineEmits([
+  'close',
+  'toggle-bookmark',
+  'toggle-route-facilities',
+]);
 
 const detailScrollRef = ref(null);
 const detailSessionKey = ref(0);
@@ -111,7 +115,12 @@ const depositLabel = computed(() => {
 
 const hasSafetyScore = computed(() => {
   const value = props.property?.safetyScore;
-  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  return (
+    value !== null &&
+    value !== undefined &&
+    value !== '' &&
+    Number.isFinite(Number(value))
+  );
 });
 
 // 안전점수 색상
@@ -137,7 +146,7 @@ const safetyScoreEndPoint = computed(() => {
 });
 
 const safetyGradeLabel = computed(() => {
-  if (!hasSafetyScore.value) return '계산되지 않음';
+  if (!hasSafetyScore.value) return '데이터 미제공';
   if (safetyScoreValue.value >= 80) return '안심';
   if (safetyScoreValue.value >= 60) return '보통';
   return '주의 필요';
@@ -269,7 +278,8 @@ const confirmBankLink = () => {
 const openSafetyModal = async () => {
   isSafetyModalOpen.value = true;
   safetyDetails.value = null;
-  if (!props.property || !props.destination?.lat || !props.destination?.lng) return;
+  if (!props.property || !props.destination?.lat || !props.destination?.lng)
+    return;
 
   isSafetyDetailsLoading.value = true;
   try {
@@ -318,7 +328,9 @@ const SAMPLE_PROPERTY_IMAGES = [
 const detailImageUrl = computed(() => {
   if (props.property?.imageUrls?.length) return props.property.imageUrls[0];
   if (props.property?.thumbnailUrl) return props.property.thumbnailUrl;
-  const idx = Math.abs(Number(props.property?.propertyId || 0)) % SAMPLE_PROPERTY_IMAGES.length;
+  const idx =
+    Math.abs(Number(props.property?.propertyId || 0)) %
+    SAMPLE_PROPERTY_IMAGES.length;
   return SAMPLE_PROPERTY_IMAGES[idx];
 });
 </script>
@@ -403,12 +415,34 @@ const detailImageUrl = computed(() => {
               </span>
               <span
                 class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-bold"
-                :class="property.isSafetyLoading ? 'bg-blue-50 text-blue-600 animate-pulse' : safetyScoreClass"
+                :class="
+                  property.isSafetyLoading
+                    ? 'bg-blue-50 text-blue-600 animate-pulse'
+                    : safetyScoreClass
+                "
               >
-                <i v-if="property.isSafetyLoading" class="fa-solid fa-spinner fa-spin text-[10px]" aria-hidden="true"></i>
-                <i v-else-if="hasSafetyScore" class="fa-solid fa-shield-halved text-[10px]" aria-hidden="true"></i>
-                <i v-else class="fa-solid fa-shield-slash text-[10px]" aria-hidden="true"></i>
-                {{ property.isSafetyLoading ? '계산 중...' : (hasSafetyScore ? `${property.safetyScore}점` : '데이터 부족') }}
+                <i
+                  v-if="property.isSafetyLoading"
+                  class="fa-solid fa-spinner fa-spin text-[10px]"
+                  aria-hidden="true"
+                ></i>
+                <i
+                  v-else-if="hasSafetyScore"
+                  class="fa-solid fa-shield-halved text-[10px]"
+                  aria-hidden="true"
+                ></i>
+                <i
+                  v-else
+                  class="fa-solid fa-shield text-[10px]"
+                  aria-hidden="true"
+                ></i>
+                {{
+                  property.isSafetyLoading
+                    ? '계산 중...'
+                    : hasSafetyScore
+                      ? `${property.safetyScore}점`
+                      : '데이터 미제공'
+                }}
               </span>
             </div>
             <p class="truncate text-[15px] font-bold text-slate-800">
@@ -416,7 +450,9 @@ const detailImageUrl = computed(() => {
             </p>
           </div>
 
-          <h2 class="hidden font-bold text-lg text-slate-900 flex items-center gap-2">
+          <h2
+            class="hidden font-bold text-lg text-slate-900 flex items-center gap-2"
+          >
             <span>🏠</span>
             <span>매물 상세 리포트</span>
           </h2>
@@ -432,7 +468,11 @@ const detailImageUrl = computed(() => {
               <svg
                 viewBox="0 0 24 24"
                 class="h-5 w-5 transition-colors"
-                :class="property?.isBookmarked ? 'fill-[#dc4b5d] text-[#dc4b5d]' : 'fill-none'"
+                :class="
+                  property?.isBookmarked
+                    ? 'fill-[#dc4b5d] text-[#dc4b5d]'
+                    : 'fill-none'
+                "
                 fill="none"
                 stroke="currentColor"
                 stroke-width="1.7"
@@ -502,17 +542,29 @@ const detailImageUrl = computed(() => {
                 <span
                   class="absolute inset-0 flex items-center justify-center bg-slate-900/0 text-sm text-white opacity-0 transition group-hover:bg-slate-900/30 group-hover:opacity-100"
                 >
-                  <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+                  <i
+                    class="fa-solid fa-magnifying-glass-plus"
+                    aria-hidden="true"
+                  ></i>
                 </span>
               </button>
 
               <div class="flex flex-1 flex-col justify-center gap-1.5">
                 <div class="flex items-baseline gap-1.5">
-                  <span class="text-[13px] font-medium text-slate-500">보증금</span>
-                  <span class="text-[16px] font-extrabold text-slate-800">{{ depositLabel }}</span>
+                  <span class="text-[13px] font-medium text-slate-500"
+                    >보증금</span
+                  >
+                  <span class="text-[16px] font-extrabold text-slate-800">{{
+                    depositLabel
+                  }}</span>
                 </div>
-                <div v-if="property.monthlyRent" class="flex items-baseline gap-1.5">
-                  <span class="text-[13px] font-medium text-slate-500">월세</span>
+                <div
+                  v-if="property.monthlyRent"
+                  class="flex items-baseline gap-1.5"
+                >
+                  <span class="text-[13px] font-medium text-slate-500"
+                    >월세</span
+                  >
                   <span class="text-[16px] font-extrabold text-slate-800"
                     >{{ property.monthlyRent }}만원</span
                   >
@@ -525,7 +577,9 @@ const detailImageUrl = computed(() => {
 
             <!-- 건물 안전 정보 및 대장 상세 (최적화 90px 레이아웃) -->
             <section class="border-t border-slate-200/80 pt-3">
-              <h3 class="mb-2 flex items-center gap-1.5 text-[14px] font-bold text-slate-800">
+              <h3
+                class="mb-2 flex items-center gap-1.5 text-[14px] font-bold text-slate-800"
+              >
                 <span aria-hidden="true">🏢</span>
                 건물 정보 및 대장 안전
               </h3>
@@ -550,9 +604,15 @@ const detailImageUrl = computed(() => {
                   <div class="min-w-0 flex-1">
                     <p
                       class="text-[14.5px] font-extrabold leading-snug"
-                      :class="property.isIllegalBuilding ? 'text-rose-600' : 'text-emerald-700'"
+                      :class="
+                        property.isIllegalBuilding
+                          ? 'text-rose-600'
+                          : 'text-emerald-700'
+                      "
                     >
-                      {{ property.isIllegalBuilding ? '위반 건물' : '적법 건물' }}
+                      {{
+                        property.isIllegalBuilding ? '위반 건물' : '적법 건물'
+                      }}
                     </p>
                     <p
                       class="text-[11px] font-semibold leading-tight text-slate-500 break-keep mt-0.5"
@@ -613,7 +673,9 @@ const detailImageUrl = computed(() => {
                         }"
                       >
                         <span>🏢 준신축</span>
-                        <span class="text-slate-500 font-medium">10년 이내 (5~10년)</span>
+                        <span class="text-slate-500 font-medium"
+                          >10년 이내 (5~10년)</span
+                        >
                       </div>
                       <div
                         class="flex justify-between items-center py-0.5"
@@ -623,16 +685,21 @@ const detailImageUrl = computed(() => {
                         }"
                       >
                         <span>🏠 구축</span>
-                        <span class="text-slate-500 font-medium">20년 이내 (10~20년)</span>
+                        <span class="text-slate-500 font-medium"
+                          >20년 이내 (10~20년)</span
+                        >
                       </div>
                       <div
                         class="flex justify-between items-center py-0.5"
                         :class="{
-                          'font-black text-amber-600 bg-amber-50/80 px-1 rounded': buildingAge > 20,
+                          'font-black text-amber-600 bg-amber-50/80 px-1 rounded':
+                            buildingAge > 20,
                         }"
                       >
                         <span>🛠️ 노후</span>
-                        <span class="text-slate-500 font-medium">20년 초과</span>
+                        <span class="text-slate-500 font-medium"
+                          >20년 초과</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -680,7 +747,9 @@ const detailImageUrl = computed(() => {
             <section class="border-t border-slate-200 pt-4">
               <!-- 타이틀과 버튼을 양옆으로 배치 (flex justify-between) -->
               <div class="mb-3 flex items-start justify-between">
-                <h3 class="flex items-center gap-1.5 text-[15px] font-bold text-slate-800 mt-1">
+                <h3
+                  class="flex items-center gap-1.5 text-[15px] font-bold text-slate-800 mt-1"
+                >
                   <span aria-hidden="true">💡</span>
                   귀갓길 안전 점수
                 </h3>
@@ -691,9 +760,15 @@ const detailImageUrl = computed(() => {
                   class="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 transition-colors hover:border-[#c9d2ff] hover:bg-[#f5f7ff] hover:text-[#4058f5]"
                   @click="openSafetyModal"
                 >
-                  <i class="fa-regular fa-circle-question text-[11px]" aria-hidden="true"></i>
+                  <i
+                    class="fa-regular fa-circle-question text-[11px]"
+                    aria-hidden="true"
+                  ></i>
                   <span>점수 산출 기준</span>
-                  <i class="fa-solid fa-chevron-right text-[8px]" aria-hidden="true"></i>
+                  <i
+                    class="fa-solid fa-chevron-right text-[8px]"
+                    aria-hidden="true"
+                  ></i>
                 </button>
               </div>
 
@@ -706,8 +781,17 @@ const detailImageUrl = computed(() => {
               >
                 <div class="safety-report-summary">
                   <div class="safety-score-chart">
-                    <svg class="safety-score-chart__svg" viewBox="0 0 72 72" aria-hidden="true">
-                      <circle class="safety-score-chart__track" cx="36" cy="36" r="30" />
+                    <svg
+                      class="safety-score-chart__svg"
+                      viewBox="0 0 72 72"
+                      aria-hidden="true"
+                    >
+                      <circle
+                        class="safety-score-chart__track"
+                        cx="36"
+                        cy="36"
+                        r="30"
+                      />
                       <circle
                         class="safety-score-chart__progress"
                         cx="36"
@@ -735,7 +819,9 @@ const detailImageUrl = computed(() => {
                       />
                     </svg>
                     <div class="safety-score-chart__inner">
-                      <strong>{{ hasSafetyScore ? safetyScoreValue : '-' }}</strong>
+                      <strong>{{
+                        hasSafetyScore ? safetyScoreValue : '-'
+                      }}</strong>
                       <span>/ 100</span>
                     </div>
                   </div>
@@ -743,7 +829,10 @@ const detailImageUrl = computed(() => {
                   <div class="min-w-0 flex-1">
                     <div class="mb-1 flex items-center gap-2">
                       <span class="safety-grade-tag">
-                        <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+                        <i
+                          class="fa-solid fa-shield-halved"
+                          aria-hidden="true"
+                        ></i>
                         {{ safetyGradeLabel }}
                       </span>
                     </div>
@@ -757,26 +846,40 @@ const detailImageUrl = computed(() => {
                   <div class="safety-metric-card safety-metric-card--cctv">
                     <i class="fa-solid fa-video" aria-hidden="true"></i>
                     <span>CCTV</span>
-                    <strong>{{ property.cctvCount || 0 }}개</strong>
+                    <strong>{{
+                      hasSafetyScore ? `${property.cctvCount || 0}개` : '-'
+                    }}</strong>
                   </div>
                   <div class="safety-metric-card safety-metric-card--light">
                     <i class="fa-solid fa-lightbulb" aria-hidden="true"></i>
                     <span>가로등</span>
-                    <strong
-                      >{{ property.streetLampCount ?? property.streetlightCount ?? 0 }}개</strong
-                    >
+                    <strong>{{
+                      hasSafetyScore
+                        ? `${property.streetLampCount ?? property.streetlightCount ?? 0}개`
+                        : '-'
+                    }}</strong>
                   </div>
                   <div class="safety-metric-card safety-metric-card--police">
                     <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
                     <span>파출소</span>
-                    <strong>{{ property.hasPoliceStation ? '근처' : '확인 필요' }}</strong>
+                    <strong>{{
+                      hasSafetyScore
+                        ? property.hasPoliceStation
+                          ? '근처'
+                          : '500m 밖'
+                        : '-'
+                    }}</strong>
                   </div>
                 </div>
 
                 <div class="route-facility-toggle-row">
                   <span class="route-facility-toggle-label">
                     안전 시설 지도에 표시
-                    <span v-if="isRouteFacilitiesLoading" class="route-facility-toggle-loading">불러오는 중…</span>
+                    <span
+                      v-if="isRouteFacilitiesLoading"
+                      class="route-facility-toggle-loading"
+                      >불러오는 중…</span
+                    >
                   </span>
                   <button
                     type="button"
@@ -784,7 +887,10 @@ const detailImageUrl = computed(() => {
                     :class="{ 'is-on': showRouteFacilities }"
                     role="switch"
                     :aria-checked="showRouteFacilities"
-                    :disabled="isRouteFacilitiesLoading"
+                    :disabled="!hasSafetyScore || isRouteFacilitiesLoading"
+                    :title="
+                      !hasSafetyScore ? '안전점수 미제공 지역입니다.' : ''
+                    "
                     @click="toggleRouteFacilities"
                   >
                     <span class="route-facility-toggle-knob"></span>
@@ -799,7 +905,10 @@ const detailImageUrl = computed(() => {
               :amenities="amenities"
             />
             <section class="finance-section border-t border-slate-200 pt-3">
-              <div class="finance-section-header" @click="isLoanOpen = !isLoanOpen">
+              <div
+                class="finance-section-header"
+                @click="isLoanOpen = !isLoanOpen"
+              >
                 <div class="finance-section-title">
                   <span aria-hidden="true">🏦</span>
                   추천 금융 상품
@@ -811,7 +920,11 @@ const detailImageUrl = computed(() => {
                   aria-label="맞춤 금융 상품 펼치기"
                   @click.stop="isLoanOpen = !isLoanOpen"
                 >
-                  <svg class="finance-toggle-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <svg
+                    class="finance-toggle-icon"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
                     <path :d="isLoanOpen ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'" />
                   </svg>
                 </button>
@@ -821,7 +934,10 @@ const detailImageUrl = computed(() => {
                 <p v-if="loanList.length > 0" class="finance-section-hint">
                   상품 클릭 시 해당 은행 사이트로 이동합니다
                 </p>
-                <div v-if="loanListLoading" class="text-gray-400 text-sm text-center py-8">
+                <div
+                  v-if="loanListLoading"
+                  class="text-gray-400 text-sm text-center py-8"
+                >
                   상품을 찾고 있어요...
                 </div>
                 <div
@@ -830,7 +946,10 @@ const detailImageUrl = computed(() => {
                 >
                   추천 가능한 대출 상품이 없습니다.
                 </div>
-                <div v-else class="loan-scroll-list overflow-y-auto space-y-3 pr-1">
+                <div
+                  v-else
+                  class="loan-scroll-list overflow-y-auto space-y-3 pr-1"
+                >
                   <div
                     v-for="item in loanList"
                     :key="item.productName"
@@ -838,7 +957,9 @@ const detailImageUrl = computed(() => {
                     :class="{
                       'loan-item--clickable': getBankLinkUrl(item.companyName),
                     }"
-                    :role="getBankLinkUrl(item.companyName) ? 'button' : undefined"
+                    :role="
+                      getBankLinkUrl(item.companyName) ? 'button' : undefined
+                    "
                     :tabindex="getBankLinkUrl(item.companyName) ? 0 : undefined"
                     @click="openBankLink(item.companyName)"
                     @keydown.enter="openBankLink(item.companyName)"
@@ -853,7 +974,9 @@ const detailImageUrl = computed(() => {
                       <span class="loan-bank-tag">{{ item.companyName }}</span>
                     </div>
                     <p class="loan-item__name">{{ item.productName }}</p>
-                    <p class="loan-item__details">{{ item.rateInfo }} · {{ item.loanLimit }}</p>
+                    <p class="loan-item__details">
+                      {{ item.rateInfo }} · {{ item.loanLimit }}
+                    </p>
                   </div>
                 </div>
               </div>

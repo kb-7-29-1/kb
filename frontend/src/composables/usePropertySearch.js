@@ -71,13 +71,29 @@ export function usePropertySearch() {
     if (filters.tradeType === 'JEONSE') {
       params.maxMonthlyRent = 0;
     } else if (filters.tradeType === 'MONTHLY') {
-      // 월세 단독 선택에서 전세 매물 제외
-      params.minMonthlyRent = Math.max(1, Number(filters.minRent) || 0);
-      if (Number(filters.maxRent) < DEFAULT_RENT) {
-        params.maxMonthlyRent = Number(filters.maxRent);
+      // 월세 단독 선택 시 전세 매물(월세 0) 제외
+      const minRent = Number(filters.minRent);
+      const maxRent = Number(filters.maxRent);
+
+      params.minMonthlyRent = Number.isFinite(minRent) && minRent > 0 ? minRent : 1;
+
+      if (Number.isFinite(maxRent) && maxRent >= params.minMonthlyRent && maxRent < 200) {
+        params.maxMonthlyRent = maxRent;
       }
-    } else if (Number(filters.maxRent) < DEFAULT_RENT) {
-      params.maxMonthlyRent = Number(filters.maxRent);
+    } else if (Number.isFinite(Number(filters.maxRent)) && Number(filters.maxRent) < 200) {
+      const maxRent = Number(filters.maxRent);
+      if (maxRent > 0) {
+        params.maxMonthlyRent = maxRent;
+      }
+    }
+
+    // 최솟값 > 최댓값 역전 방어
+    if (
+      params.minMonthlyRent != null &&
+      params.maxMonthlyRent != null &&
+      params.minMonthlyRent > params.maxMonthlyRent
+    ) {
+      delete params.minMonthlyRent;
     }
 
     return params;
@@ -285,7 +301,56 @@ export function usePropertySearch() {
         });
 
         if (filteredNewItems.length > 0) {
-          properties.value = [...properties.value, ...filteredNewItems];
+          const newFormattedItems = filteredNewItems.map((item) => {
+            const isEligible = isEligibleForSafetyCalculation(item);
+            return {
+              ...item,
+              isSafetyLoading: isEligible && item.safetyScore == null,
+            };
+          });
+
+          properties.value = [...properties.value, ...newFormattedItems];
+
+          // 🛡️ 신규 추가된 매물들에 대해서도 목적지별 도커 안전점수를 백그라운드로 일괄 계산 및 병합
+          const dest = destinationConfig.value;
+          const uncachedPropertyIds = newFormattedItems
+            .filter((item) => isEligibleForSafetyCalculation(item) && item.safetyScore == null)
+            .map((item) => Number(item.propertyId))
+            .filter(Boolean);
+
+          if (
+            uncachedPropertyIds.length > 0 &&
+            (dest.lat != null || appliedFilterState.value.destinationId != null)
+          ) {
+            safetyService
+              .getScoresForProperties({
+                propertyIds: uncachedPropertyIds,
+                destinationId: appliedFilterState.value.destinationId || null,
+                destinationName: dest.name || appliedFilterState.value.destination || '',
+                destinationAddress: appliedFilterState.value.destinationAddress || '',
+                destinationLatitude: dest.lat,
+                destinationLongitude: dest.lng,
+              })
+              .then((scoresMap) => {
+                if (!scoresMap) return;
+                properties.value = properties.value.map((prop) => {
+                  const score =
+                    scoresMap?.[prop.propertyId] ?? scoresMap?.[String(prop.propertyId)];
+                  return {
+                    ...prop,
+                    safetyScore: score ?? prop.safetyScore ?? null,
+                    isSafetyLoading: false,
+                  };
+                });
+              })
+              .catch((err) => {
+                console.warn('Background safety scores batch calculation error (loadMore):', err);
+                properties.value = properties.value.map((prop) => ({
+                  ...prop,
+                  isSafetyLoading: false,
+                }));
+              });
+          }
         }
       }
 

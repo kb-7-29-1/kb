@@ -33,6 +33,7 @@ import {
   renderHybridRouteOverlays,
   clearHybridRouteOverlays,
 } from '@/utils/hybridRouteOverlay.js';
+import { MAJOR_LANDMARK_DESTINATIONS } from '@/utils/landmarkDestinations.js';
 
 const props = defineProps({
   properties: {
@@ -149,10 +150,10 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
   const expandedClass = isExpanded ? 'gap-1.5 px-3.5' : 'gap-1.5';
 
   return `
-    <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" title="${amenity.amenityName || ''}">
-      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-600 bg-violet-600 px-2.5 text-xs font-bold text-white shadow-lg transition-all duration-200 group-hover:bg-violet-700 group-hover:shadow-xl ${expandedClass}">
-        <span class="shrink-0">${icon}</span>
-        <span class="shrink-0">${amenity.amenityName || ''}</span>
+    <div class="group inline-flex w-max flex-col items-center cursor-pointer transform -translate-x-1/2 -translate-y-full transition-transform duration-200 ease-out hover:-translate-y-[calc(100%+4px)]" style="white-space: nowrap !important; width: max-content !important;" title="${amenity.amenityName || ''}">
+      <div class="relative z-10 flex h-[34px] w-max min-w-10 items-center whitespace-nowrap rounded-full border border-violet-600 bg-violet-600 px-2.5 text-xs font-bold text-white shadow-lg transition-all duration-200 group-hover:bg-violet-700 group-hover:shadow-xl ${expandedClass}" style="white-space: nowrap !important; flex-shrink: 0 !important; width: max-content !important;">
+        <span class="shrink-0" style="white-space: nowrap !important;">${icon}</span>
+        <span class="shrink-0" style="white-space: nowrap !important;">${amenity.amenityName || ''}</span>
         ${detailBadge}
       </div>
       <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-violet-600 transition-colors duration-200 group-hover:bg-violet-700"></div>
@@ -161,7 +162,29 @@ const renderAmenityPin = (amenity, isExpanded = false) => {
   `;
 };
 
+// 🎓 4대 대학교 랜드마크 로고 마커 핀 HTML (순수 초고속 HTML 스트링 템플릿)
+const renderLandmarkPinHTML = (landmark, isCurrentDest = false) => {
+  const borderClass = isCurrentDest
+    ? 'border-2 border-indigo-600 shadow-xl ring-2 ring-indigo-200 scale-105'
+    : 'border border-slate-200 shadow-md hover:scale-110 hover:shadow-xl hover:border-indigo-400';
+  const badgeClass = isCurrentDest
+    ? 'bg-indigo-600 text-white font-extrabold'
+    : 'bg-white text-slate-800 font-bold border border-slate-200 group-hover:bg-indigo-50 group-hover:text-indigo-600';
+
+  return `
+    <div class="group inline-flex w-max flex-col items-center pointer-events-auto cursor-pointer transform -translate-x-1/2 -translate-y-full transition-all duration-200 ease-out hover:-translate-y-[calc(100%+4px)] select-none" style="white-space: nowrap !important; width: max-content !important;" title="${landmark.name} (목적지로 설정하려면 클릭)">
+      <div class="flex h-[36px] w-max items-center gap-1.5 rounded-full bg-white px-2.5 py-1 ${borderClass} transition-all duration-200" style="white-space: nowrap !important; flex-shrink: 0 !important; width: max-content !important;">
+        <img src="${landmark.logo}" alt="${landmark.shortName}" class="w-5 h-5 rounded-full object-contain shrink-0" style="width:20px;height:20px;flex-shrink:0;" />
+        <span class="text-[12px] whitespace-nowrap px-1.5 py-0.5 rounded-full transition-colors ${badgeClass}" style="white-space: nowrap !important; flex-shrink: 0 !important;">${landmark.shortName}</span>
+      </div>
+      <div class="relative -mt-1.5 z-0 h-2.5 w-2.5 rotate-45 bg-white border-r border-b border-slate-200 transition-colors"></div>
+      <div class="mt-1 h-2 w-6 rounded-full bg-black/20 blur-xs"></div>
+    </div>
+  `;
+};
+
 const activePropertyMarkersMap = new Map();
+const landmarkMarkers = new Map();
 let activeDestMarker = null;
 const destinationMarkers = new Set();
 let pendingRenderFrame = null;
@@ -179,7 +202,7 @@ const ROUTE_FACILITY_COLOR = {
 };
 const ROUTE_FACILITY_RADIUS = {
   CCTV: 50,
-  STREET_LIGHT: 15,
+  STREET_LIGHT: 20,
   POLICE: 500,
 };
 const ROUTE_FACILITY_LABEL = {
@@ -311,7 +334,15 @@ const renderSafetyRoute = () => {
     return;
   }
 
-  // 🚶 [기존 단일 안전 경로 및 미지원 구역 렌더링 원본 로직 100% 보존]
+  // 🚶 [단일 안전 경로 렌더링 - 미지원 구역은 100% 완전 차단]
+  if (
+    props.safetyRoute?.isSupportedDistrict === false ||
+    props.safetyRoute?.safetyScore == null
+  ) {
+    clearSafetyRoutePolyline();
+    return;
+  }
+
   const rawPoints = props.safetyRoute?.routePoints;
   if (!Array.isArray(rawPoints) || rawPoints.length < 2) {
     clearSafetyRoutePolyline();
@@ -373,7 +404,7 @@ const renderSafetyRoute = () => {
 
   const midPoint = path[Math.floor(path.length / 2)];
   const labelContent = isDataMissing
-    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 부족</div>`
+    ? `<div style="background:#64748b;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.35);border:1.5px solid rgba(255,255,255,0.85);display:flex;align-items:center;gap:3px;"><span style="font-size:9.5px;">🛡️</span> 데이터 미제공</div>`
     : `<div style="background:${color};color:#fff;font-size:12px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.3);border:1.5px solid rgba(255,255,255,0.85);">${score}점</div>`;
 
   safetyRouteScoreLabel = new window.naver.maps.Marker({
@@ -450,7 +481,60 @@ const clearDestinationMarkers = () => {
   activeDestMarker = null;
 };
 
-// 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀) 렌더링
+const clearLandmarkMarkers = () => {
+  landmarkMarkers.forEach((marker) => marker.setMap(null));
+  landmarkMarkers.clear();
+};
+
+const renderLandmarkMarkers = () => {
+  if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+
+  const currentDestName =
+    props.destination?.name || props.destination?.destName || '';
+
+  MAJOR_LANDMARK_DESTINATIONS.forEach((landmark) => {
+    const isCurrentDest =
+      currentDestName.includes(landmark.shortName) ||
+      currentDestName.includes(landmark.name);
+    const existing = landmarkMarkers.get(landmark.id);
+
+    if (existing) {
+      existing.setIcon({
+        content: renderLandmarkPinHTML(landmark, isCurrentDest),
+      });
+      existing.setZIndex(isCurrentDest ? 110 : 100);
+      return;
+    }
+
+    const marker = new window.naver.maps.Marker({
+      position: new window.naver.maps.LatLng(landmark.lat, landmark.lng),
+      map: mapInstance.value,
+      icon: {
+        content: renderLandmarkPinHTML(landmark, isCurrentDest),
+      },
+      zIndex: isCurrentDest ? 110 : 100,
+    });
+
+    window.naver.maps.Event.addListener(marker, 'click', (e) => {
+      if (e && e.domEvent) {
+        e.domEvent.stopPropagation();
+      }
+      emit('change-destination', {
+        id: landmark.id,
+        name: landmark.name,
+        destName: landmark.name,
+        address: landmark.address,
+        destAddress: landmark.address,
+        lat: landmark.lat,
+        lng: landmark.lng,
+      });
+    });
+
+    landmarkMarkers.set(landmark.id, marker);
+  });
+};
+
+// 네이버 지도 SDK 마커 핀 (목적지 핀 + 매물 핀 + 클러스터 핀 + 랜드마크 핀) 렌더링
 // 🚀 [비동기 타임 슬라이싱 (Time-Slicing / Chunking) 최적화]
 // - 1단계: 필요 없는 마커 0ms 동기식 즉시 제거 (Quick Removal)
 // - 2단계: 신규 마커 생성을 requestAnimationFrame으로 25개씩 시분할 렌더링 (Lazy Async Drawing)
@@ -462,16 +546,30 @@ const renderMarkers = () => {
     pendingRenderFrame = null;
   }
 
+  // 🎓 4대 랜드마크 로고 마커 렌더링
+  renderLandmarkMarkers();
+
   const bounds = mapInstance.value.getBounds();
   const currentZoom = mapInstance.value.getZoom();
 
-  // 1. 🚩 주 목적지 핀 관리 (기존 마커 재생성 방지)
+  // 1. 🚩 주 목적지 핀 관리 (4대 랜드마크일 때는 로고 핀만 단독으로 띄우고 중복 깃발 핀은 숨김)
   const destLat = props.destination.lat || 37.5502;
   const destLng = props.destination.lng || 127.0731;
   const destLatLng = new window.naver.maps.LatLng(destLat, destLng);
   const destKey = `${destLat}_${destLng}_${props.destination.name || ''}`;
 
-  if (!activeDestMarker || activeDestMarker._key !== destKey) {
+  const currentDestName =
+    props.destination?.name || props.destination?.destName || '';
+  const isLandmarkDestination = MAJOR_LANDMARK_DESTINATIONS.some(
+    (lm) =>
+      currentDestName.includes(lm.shortName) ||
+      currentDestName.includes(lm.name) ||
+      (props.destination?.id != null && Number(props.destination.id) === lm.id),
+  );
+
+  if (isLandmarkDestination) {
+    clearDestinationMarkers();
+  } else if (!activeDestMarker || activeDestMarker._key !== destKey) {
     clearDestinationMarkers();
     activeDestMarker = new window.naver.maps.Marker({
       position: destLatLng,
@@ -984,7 +1082,7 @@ const handleMapRightClick = async (e) => {
         /([가-휘]+구|[가-휘]+시|[가-휘]+동)/,
       );
       const searchKeyword = guMatch ? guMatch[1] : placeName;
-      const dbResults = await onboardingApi.searchPlaces(searchKeyword);
+      const dbResults = await onboardingApi.searchDestinations(searchKeyword);
       if (dbResults && dbResults.length > 0) {
         dbMatch = findMatchingDestination(
           placeName,
@@ -1048,9 +1146,10 @@ const handleMapRightClick = async (e) => {
       </div>
       <div>
         <div class="text-[11px] text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
-        <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${placeName}</div>
+        <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${(placeName && placeName !== '서울특별시') ? placeName : (roadOrJibunAddress || '선택한 위치')}</div>
         ${(() => {
-          const normPlace = (placeName || '').replace(/\s+/g, ' ').trim();
+          const displayTitle = (placeName && placeName !== '서울특별시') ? placeName : (roadOrJibunAddress || '선택한 위치');
+          const normPlace = (displayTitle || '').replace(/\s+/g, ' ').trim();
           const normAddr = (roadOrJibunAddress || '')
             .replace(/\s+/g, ' ')
             .trim();
@@ -1185,12 +1284,15 @@ watch(
 
 watch(
   [() => props.selectedProperty, () => props.destination],
-  () => scheduleSelectedPropertyContextFit(),
+  () => {
+    scheduleSelectedPropertyContextFit();
+    renderLandmarkMarkers();
+  },
   { deep: true },
 );
 
-// 도보/대중교통 이동시간 최대 원 범위에 맞추어 지도 줌/카메라 범위 자동 조율
-const fitToIsochroneRadius = () => {
+// 도보/대중교통 이동시간 최대 원 범위에 맞추어 지도 줌/카메라 범위 자동 조정
+const fitToIsochroneRadius = (animate = true) => {
   if (
     !mapInstance.value ||
     !window.naver ||
@@ -1234,15 +1336,20 @@ const fitToIsochroneRadius = () => {
     new window.naver.maps.LatLng(centerLat + latOffset, centerLng + lngOffset),
   );
 
-  const currentMapBounds = mapInstance.value.getBounds();
-
-  // 프리뷰 점선 원이 현재 지도 화면(currentMapBounds)을 벗어나는 경우에만 단방향 화면 축소(fitBounds)
-  if (
-    !currentMapBounds ||
-    !currentMapBounds.hasLatLng(bounds.getNE()) ||
-    !currentMapBounds.hasLatLng(bounds.getSW())
-  ) {
-    mapInstance.value.fitBounds(bounds);
+  if (animate) {
+    // 🚀 부드러운 다이내믹 카메라 비행(Fly-to Morph) 오토핏
+    mapInstance.value.panToBounds(
+      bounds,
+      { duration: 650, easing: 'easeOutCubic' },
+      { top: 70, right: 30, bottom: 60, left: 30 },
+    );
+  } else {
+    mapInstance.value.fitBounds(bounds, {
+      top: 70,
+      right: 30,
+      bottom: 60,
+      left: 30,
+    });
   }
 };
 
@@ -1250,7 +1357,7 @@ const fitToIsochroneRadius = () => {
 watch(
   () => props.destination,
   () => {
-    fitToIsochroneRadius();
+    fitToIsochroneRadius(true);
   },
   { deep: true, immediate: true },
 );

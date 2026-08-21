@@ -149,6 +149,21 @@ const handleToggleRouteFacilities = async () => {
   if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id)
     return;
 
+  // 🛡️ 미지원 자치구 매물인 경우 안전시설물 표시 차단 및 안내
+  const isUnsupported =
+    selectedSafetyRoute.value?.isSupportedDistrict === false ||
+    selectedProperty.value?.safetyScore == null ||
+    !isSupportedSafetyDistrict(selectedProperty.value?.address || '');
+
+  if (isUnsupported) {
+    showToast(
+      '선택하신 매물은 보안등 미구축 자치구로 안전시설물 정보가 제공되지 않습니다.',
+    );
+    routeFacilities.value = [];
+    showRouteFacilities.value = false;
+    return;
+  }
+
   isRouteFacilitiesLoading.value = true;
   try {
     const facilities = await safetyService.getRouteFacilities({
@@ -158,12 +173,16 @@ const handleToggleRouteFacilities = async () => {
 
     let result = Array.isArray(facilities) ? facilities : [];
 
-    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 안전 계산에서 완전히 배제
-    // 오직 실제 걸어가는 도보(WALK) 구간 주변(80m) 안전시설물만 선별 노출
+    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간 및 미지원(회색) 도보 구간을 완전히 배제
+    // 오직 실제 걸어가는 '지원 자치구 내 도보(WALK)' 구간 주변(80m) 안전시설물만 선별 노출
     const transitSegments = selectedSafetyRoute.value?.transitSegments;
     if (Array.isArray(transitSegments) && transitSegments.length > 0) {
       const walkPoints = transitSegments
-        .filter((seg) => String(seg.type || '').toUpperCase() === 'WALK')
+        .filter((seg) => {
+          const isWalk = String(seg.type || '').toUpperCase() === 'WALK';
+          const isSupported = seg.isSupportedDistrict !== false;
+          return isWalk && isSupported; // 🎯 미지원(회색) 구간은 시설물 0건 처리
+        })
         .flatMap((seg) => seg.routePoints || []);
 
       if (walkPoints.length > 0) {
@@ -177,6 +196,8 @@ const handleToggleRouteFacilities = async () => {
             return dLat * dLat + dLng * dLng <= 80 * 80;
           });
         });
+      } else {
+        result = [];
       }
     }
 
@@ -488,23 +509,26 @@ const clearAmenitiesForDestinationChange = () => {
 
 const authStore = useAuthStore();
 
-const handleChangeDestination = async ({ name, lat, lng, address }) => {
+const handleChangeDestination = async ({ id, name, lat, lng, address }) => {
   if (!name || lat == null || lng == null) return;
   const destAddress = address || '';
   const userId = authStore.user?.userId || authStore.user?.id;
 
-  // 목적지를 지정하는 즉시 백엔드에 저장/조회해 실제 destinationId를 확보합니다.
-  // (로컬 최근목적지 캐시 매칭만으로는 destinationId를 알 수 없어 찜하기 시 null로 새는 문제가 있었음)
+  let destinationId = id != null ? Number(id) : null;
   let savedDestination = null;
-  try {
-    savedDestination = await onboardingApi.saveDestination({
-      destName: name,
-      destAddress,
-      destLatitude: Number(lat),
-      destLongitude: Number(lng),
-    });
-  } catch (err) {
-    console.error('DESTINATION SAVE ERROR:', err);
+
+  if (!destinationId) {
+    try {
+      savedDestination = await onboardingApi.saveDestination({
+        destName: name,
+        destAddress,
+        destLatitude: Number(lat),
+        destLongitude: Number(lng),
+      });
+      destinationId = savedDestination?.destinationId ?? null;
+    } catch (err) {
+      console.error('DESTINATION SAVE ERROR:', err);
+    }
   }
 
   const finalDestName =
@@ -521,9 +545,9 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
     savedDestination?.destLongitude != null
       ? Number(savedDestination.destLongitude)
       : Number(lng);
-  filterState.value.destinationId = savedDestination?.destinationId ?? null;
+  filterState.value.destinationId = destinationId;
 
-  // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
+  // 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
     {
       destName: finalDestName,
@@ -534,6 +558,8 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
     },
     userId,
   );
+
+  // showToast(`🎯 목적지가 ${finalDestName}(으)로 변경되었습니다.`);
 
   handleApplyFilters(true);
   emit('update:applied-onboarding-filters', {
@@ -1271,15 +1297,17 @@ watch(visibleProperties, (list) => {
   if (isPropertyLoading.value || amenityFilterLoading.value || !list.length)
     return;
 
-  console.table(
-    list.map((property) => ({
-      propertyId: property.propertyId,
-      address: property.address || property.title,
-      deposit: property.deposit,
-      monthlyRent: property.monthlyRent,
-      safetyScore: property.safetyScore,
-    })),
-  );
+  // 디버깅 해야되는데 목록이 너무 길어서 주석처리 좀 할게요...
+  // 그리고 실제 배포할 경우 DB 내부 정보 그대로 보여서
+  // console.table(
+  //   list.map((property) => ({
+  //     propertyId: property.propertyId,
+  //     address: property.address || property.title,
+  //     deposit: property.deposit,
+  //     monthlyRent: property.monthlyRent,
+  //     safetyScore: property.safetyScore,
+  //   })),
+  // );
 });
 // 사이드바 목록 10개씩 무한 동적 스크롤 로딩
 const displayLimit = ref(10);
@@ -1476,9 +1504,11 @@ const loadSafetyRouteForProperty = async (property) => {
     if (response && response.isSupportedDistrict === false) {
       showToast(
         response.message ||
-          '선택하신 자치구는 보안등 공공데이터가 구축되지 않아 안전 점수가 제공되지 않습니다.',
+          '선택하신 매물은 보안등 공공데이터 미구축 자치구로 안전점수 및 경로가 제공되지 않습니다.',
       );
       syncSafetySummaryToProperty(property.propertyId, response);
+      selectedSafetyRoute.value = null;
+      selectedSafetyRouteMeta.value = null;
       return;
     }
 

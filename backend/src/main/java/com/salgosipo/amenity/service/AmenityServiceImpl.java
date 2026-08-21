@@ -39,7 +39,7 @@ public class AmenityServiceImpl implements AmenityService, DisposableBean {
     private final AmenityMapper amenityMapper;
     private final WalkingApiClient walkingApiClient;
     private final AmenityCacheService amenityCacheService;
-    private final ExecutorService amenityLookupExecutor = Executors.newFixedThreadPool(4);
+    private final ExecutorService amenityLookupExecutor = Executors.newFixedThreadPool(32);
 
     public AmenityServiceImpl(
             AmenityMapper amenityMapper,
@@ -83,20 +83,6 @@ public class AmenityServiceImpl implements AmenityService, DisposableBean {
             return filterByRequest(storedAmenities, request.getAmenities());
         }
 
-        Map<Integer, CompletableFuture<double[]>> nearestPlaceLookups = new HashMap<>();
-        for (AmenityFilter filter : request.getAmenities()) {
-            Integer type = filter.getAmenityType();
-            String keyword = getKeywordByType(type);
-            if (storedTypes.contains(type) || keyword == null || nearestPlaceLookups.containsKey(type)) {
-                continue;
-            }
-
-            nearestPlaceLookups.put(type, CompletableFuture.supplyAsync(
-                    () -> walkingApiClient.findNearestPlace(startLat, startLng, keyword),
-                    amenityLookupExecutor
-            ));
-        }
-
         for (AmenityFilter filter : request.getAmenities()) {
             Integer type = filter.getAmenityType();
             if (storedTypes.contains(type)) {
@@ -108,7 +94,7 @@ public class AmenityServiceImpl implements AmenityService, DisposableBean {
                 continue;
             }
 
-            double[] nearestPlaceCoords = nearestPlaceLookups.get(type).join();
+            double[] nearestPlaceCoords = walkingApiClient.findNearestPlace(startLat, startLng, keyword);
             if (nearestPlaceCoords == null) {
                 continue;
             }
@@ -172,30 +158,40 @@ public class AmenityServiceImpl implements AmenityService, DisposableBean {
                     .add(amenity);
         }
 
-        // 캐시가 완전한 매물은 바로 반환하고, 부족한 유형만 단건 계산으로 보완
-        Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
+        // 캐시가 완전한 매물은 바로 반환하고, 부족한 유형만 단건 계산으로 보완 (완전 병렬 처리)
+        List<CompletableFuture<Map.Entry<Integer, List<AmenityResponseDTO>>>> futures = new ArrayList<>();
+
         for (AmenityRequestDTO request : validRequests) {
-            try {
-                List<AmenityResponseDTO> cachedAmenities = cachedAmenitiesByProperty
-                        .getOrDefault(request.getPropertyId(), Collections.emptyList());
-                Set<Integer> cachedTypes = new HashSet<>();
-                cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
+            futures.add(CompletableFuture.supplyAsync(() -> {
+                try {
+                    List<AmenityResponseDTO> cachedAmenities = cachedAmenitiesByProperty
+                            .getOrDefault(request.getPropertyId(), Collections.emptyList());
+                    Set<Integer> cachedTypes = new HashSet<>();
+                    cachedAmenities.forEach(amenity -> cachedTypes.add(amenity.getAmenityType()));
 
-                boolean hasAllRequestedTypes = request.getAmenities().stream()
-                        .allMatch(filter -> cachedTypes.contains(filter.getAmenityType()));
+                    boolean hasAllRequestedTypes = request.getAmenities().stream()
+                            .allMatch(filter -> cachedTypes.contains(filter.getAmenityType()));
 
-                amenitiesByProperty.put(
-                        request.getPropertyId(),
-                        hasAllRequestedTypes
-                                ? filterByRequest(cachedAmenities, request.getAmenities())
-                                : getAmenitiesByFilter(request)
-                );
-            } catch (RuntimeException e) {
-                // 한 매물의 조회 실패가 전체 목록 필터링을 중단시키지 않도록 빈 결과로 처리
-                log.warn("Amenity calculation failed. PropertyId: {}", request.getPropertyId(), e);
-                amenitiesByProperty.put(request.getPropertyId(), Collections.emptyList());
-            }
+                    List<AmenityResponseDTO> result = hasAllRequestedTypes
+                            ? filterByRequest(cachedAmenities, request.getAmenities())
+                            : getAmenitiesByFilter(request);
+
+                    return Map.entry(request.getPropertyId(), result);
+                } catch (RuntimeException e) {
+                    log.warn("Amenity calculation failed. PropertyId: {}", request.getPropertyId(), e);
+                    return Map.entry(request.getPropertyId(), Collections.<AmenityResponseDTO>emptyList());
+                }
+            }, amenityLookupExecutor));
         }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        Map<Integer, List<AmenityResponseDTO>> amenitiesByProperty = new LinkedHashMap<>();
+        for (CompletableFuture<Map.Entry<Integer, List<AmenityResponseDTO>>> future : futures) {
+            Map.Entry<Integer, List<AmenityResponseDTO>> entry = future.join();
+            amenitiesByProperty.put(entry.getKey(), entry.getValue());
+        }
+
         return amenitiesByProperty;
     }
 

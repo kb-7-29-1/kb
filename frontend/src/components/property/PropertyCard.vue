@@ -132,7 +132,10 @@ const cardThumbnailUrl = computed(() => {
             v-if="property.isSafetyLoading"
             class="inline-flex items-center whitespace-nowrap shrink-0 gap-1 rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-600 animate-pulse md:text-[11px]"
           >
-            <i class="fa-solid fa-spinner fa-spin text-[9px]" aria-hidden="true"></i>
+            <i
+              class="fa-solid fa-spinner fa-spin text-[9px]"
+              aria-hidden="true"
+            ></i>
             계산 중...
           </span>
           <span
@@ -152,10 +155,10 @@ const cardThumbnailUrl = computed(() => {
             title="보안등 공공데이터 미구축 자치구"
           >
             <i
-              class="fa-solid fa-shield-slash text-[9px] text-slate-400"
+              class="fa-solid fa-shield text-[9px] text-slate-400"
               aria-hidden="true"
             ></i>
-            데이터 부족
+            데이터 미제공
           </span>
         </div>
 

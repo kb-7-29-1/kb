@@ -445,25 +445,27 @@ onMounted(loadOnboarding);
   flex: 0 0 auto;
   position: relative;
   box-sizing: border-box;
-  height: max(100px, calc(env(safe-area-inset-top) + 62px));
-  padding: max(60px, calc(env(safe-area-inset-top) + 22px)) 20px 0;
+  height: calc(env(safe-area-inset-top, 0px) + 52px);
+  padding: env(safe-area-inset-top, 0px) 16px 0;
   border-bottom: 1px solid #e7eaf0;
   background: #f6f8fc;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mypage-header h1 {
   margin: 0;
   color: #20283a;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  line-height: 28px;
+  line-height: 1;
 }
 
 .mypage-back-button {
   position: absolute;
-  top: max(60px, calc(env(safe-area-inset-top) + 22px));
-  left: 20px;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -839,9 +841,9 @@ onMounted(loadOnboarding);
   }
 
   .mypage-header {
-    height: 108px;
+    height: 56px;
     padding: 0 28px;
-    margin: 10px 0 0;
+    margin: 0;
     border: 0;
     background: transparent;
     text-align: center;
@@ -852,7 +854,7 @@ onMounted(loadOnboarding);
 
   .mypage-header h1 {
     padding-left: 0;
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .mypage-back-button {
@@ -877,24 +879,24 @@ onMounted(loadOnboarding);
 
   .mypage-content {
     flex: 1 0 auto;
-    min-height: calc(100dvh - 108px);
+    min-height: calc(100dvh - 56px);
     overflow: visible;
     justify-content: flex-start;
     gap: 18px;
-    padding: 32px 28px 48px;
+    padding: 16px 28px 48px;
   }
 }
 
 /* 화면 높이가 낮을 때는 첫 카드가 헤더 아래에 가려지지 않도록 위에서부터 배치한다. */
 @media (min-width: 768px) and (max-height: 800px) {
   .mypage-header {
-    height: 76px;
+    height: 52px;
   }
 
   .mypage-content {
     justify-content: flex-start;
-    min-height: calc(100dvh - 76px);
-    padding-top: 16px;
+    min-height: calc(100dvh - 52px);
+    padding-top: 12px;
   }
 }
 </style>
