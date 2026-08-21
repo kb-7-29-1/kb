@@ -41,9 +41,9 @@ class SafetyScoreCalculatorTest {
     }
 
     @Test
-    void facilityRadiiUseUpdatedFeedbackValues() {
-        assertEquals(20.0, SafetyScoreCalculator.STREET_LIGHT_ROUTE_RADIUS_METERS);
-        assertEquals(500.0, SafetyScoreCalculator.POLICE_ROUTE_RADIUS_METERS);
+    void facilityRadiiUseRequestedValues() {
+        assertEquals(30.0, SafetyScoreCalculator.STREET_LIGHT_ROUTE_RADIUS_METERS);
+        assertEquals(100.0, SafetyScoreCalculator.POLICE_ROUTE_RADIUS_METERS);
     }
 
     @Test
@@ -64,6 +64,6 @@ class SafetyScoreCalculatorTest {
         assertEquals(55, result.getBreakdown().getStreetLightCoveragePenalty());
         assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
         assertEquals(100, result.getBreakdown().getTotalPenalty());
-        assertEquals(67, result.getSafetyScore());
+        assertEquals(50, result.getSafetyScore());
     }
 }
