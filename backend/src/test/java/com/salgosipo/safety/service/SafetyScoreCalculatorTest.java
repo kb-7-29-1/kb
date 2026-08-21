@@ -65,7 +65,7 @@ class SafetyScoreCalculatorTest {
         assertEquals(55, result.getBreakdown().getStreetLightCoveragePenalty());
         assertEquals(10, result.getBreakdown().getPoliceStationPenalty());
         assertEquals(100, result.getBreakdown().getTotalPenalty());
-        assertEquals(67, result.getSafetyScore());
+        assertEquals(20, result.getSafetyScore());
     }
 
     @Test
