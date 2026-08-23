@@ -5,8 +5,10 @@ import { VueDatePicker } from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 import { ko } from 'date-fns/locale';
 import { checkId, signup } from '@/api/authService.js';
+import { useAppToast } from '@/composables/useAppToast.js';
 
 const router = useRouter();
+const { showToast } = useAppToast();
 
 const form = ref({
   loginId: '',
@@ -163,8 +165,10 @@ const handleSignup = async () => {
       errorMessage.value = response.data.message || '회원가입 중 오류가 발생했습니다.';
       return;
     }
-    alert('회원가입이 완료되었습니다.');
-    router.push({ name: 'login' });
+    showToast('회원가입이 완료되었습니다. 로그인해 주세요.', { type: 'success' });
+    setTimeout(() => {
+      router.push({ name: 'login' });
+    }, 600);
   } catch (error) {
     errorMessage.value = '회원가입 중 오류가 발생했습니다.';
     console.log(error);

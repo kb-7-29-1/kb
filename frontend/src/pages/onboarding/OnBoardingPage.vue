@@ -10,10 +10,12 @@ import SafetyStep from '@/components/onboarding/SafetyStep.vue';
 import TransportStep from '@/components/onboarding/TransportStep.vue';
 import onboardingApi from '@/api/onboardingApi';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useAppToast } from '@/composables/useAppToast';
 import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
 import { useMapUrlSync } from '@/composables/useMapUrlSync';
 
 const authStore = useAuthStore();
+const { showToast } = useAppToast();
 const { saveQuickFilterToCache, loadQuickFilterFromCache } = useMapUrlSync();
 const getStorageKeys = () => getOnboardingStorageKeys(authStore.user);
 
@@ -153,7 +155,7 @@ const goMap = async () => {
   if (isSaving.value) return;
 
   if (!onboardingData.destination) {
-    alert('목적지를 선택해 주세요.');
+    showToast('목적지를 선택해 주세요.', { type: 'warning' });
     currentStep.value = 1;
     return;
   }
@@ -193,7 +195,7 @@ const goMap = async () => {
     router.push('/home');
   } catch (error) {
     console.error('ONBOARDING SAVE ERROR: ', error);
-    alert('설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
+    showToast('설정 저장에 실패했어요. 잠시 후 다시 시도해 주세요.', { type: 'error' });
   } finally {
     isSaving.value = false;
   }
@@ -248,7 +250,8 @@ const setDestination = (destination) => {
 
 <style scoped>
 .onboarding-page {
-  min-height: 100dvh;
+  min-height: 100%;
+  flex: 1;
   background: #f8fafc;
   animation: onboarding-page-enter 0.22s ease-out;
 }
@@ -272,7 +275,9 @@ const setDestination = (destination) => {
 .onboarding-flow {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100%;
+  min-height: 100%;
+  flex: 1;
 }
 
 .onboarding-content {

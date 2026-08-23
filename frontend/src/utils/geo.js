@@ -66,8 +66,35 @@ export const reverseGeocodeCoord = (lat, lng) => {
           }
         }
 
+<<<<<<< Updated upstream
         // 1순위: 건물명/장소명 > 2순위: 도로명 주소 > 3순위: 지번 주소
         const displayName = buildingName || roadAddress || jibunAddress || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+=======
+        let displayName = buildingName;
+        if (!displayName) {
+          if (roadAddress && roadAddress !== '서울특별시') {
+            displayName = roadAddress.replace(/^서울특별시\s*/, '');
+          } else if (jibunAddress && jibunAddress !== '서울특별시') {
+            displayName = jibunAddress.replace(/^서울특별시\s*/, '');
+          } else if (detailedAddress && detailedAddress !== '서울특별시') {
+            displayName = detailedAddress.replace(/^서울특별시\s*/, '');
+          } else {
+            displayName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          }
+        }
+
+        if ((!displayName || displayName === '서울특별시') && detailedAddress && detailedAddress !== '서울특별시') {
+          displayName = detailedAddress.replace(/^서울특별시\s*/, '');
+        }
+
+        if (!displayName || displayName === '서울특별시') {
+          const fallbackAddr = (roadAddress || jibunAddress || '').replace(/^서울특별시\s*/, '');
+          displayName = fallbackAddr || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+        }
+
+        const finalRoad = roadAddress && roadAddress !== '서울특별시' ? roadAddress : (jibunAddress || displayName);
+        const finalJibun = jibunAddress && jibunAddress !== '서울특별시' ? jibunAddress : (roadAddress || displayName);
+>>>>>>> Stashed changes
 
         resolve({
           name: displayName,

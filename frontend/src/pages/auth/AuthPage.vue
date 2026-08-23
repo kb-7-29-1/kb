@@ -81,7 +81,8 @@ const showFindModal = ref(false);
 <style scoped>
 .auth-page {
   display: flex;
-  min-height: 100dvh;
+  min-height: 100%;
+  flex: 1;
   align-items: center;
   justify-content: center;
   padding: 24px;
@@ -217,8 +218,14 @@ const showFindModal = ref(false);
     background: #fff;
   }
   .auth-card {
+<<<<<<< Updated upstream
     min-height: 100dvh;
     padding: max(142px, calc(env(safe-area-inset-top) + 108px)) 24px 32px;
+=======
+    min-height: 100%;
+    box-sizing: border-box;
+    padding: max(40px, calc(env(safe-area-inset-top) + 20px)) 24px max(32px, calc(env(safe-area-inset-bottom) + 20px));
+>>>>>>> Stashed changes
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -306,7 +313,7 @@ const showFindModal = ref(false);
     align-items: stretch;
     justify-content: flex-start;
     box-sizing: border-box;
-    height: 100dvh;
+    height: 100%;
     min-height: 0;
     padding: 0;
     overflow-y: auto;

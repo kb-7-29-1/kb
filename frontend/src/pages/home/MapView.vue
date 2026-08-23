@@ -328,14 +328,12 @@ const {
   updateLastFetchedCenter,
 } = useMapBounds();
 
-const handleLoadMoreClick = () => {
-  if (isMapMoved.value) {
-    handleSearchInThisArea();
-  } else if (properties.value.length >= serverTotalCount.value) {
-    triggerAllLoadedToast();
-  } else {
-    loadMoreProperties();
-  }
+const loadMoreProperties = async () => {
+  return executeLoadMoreProperties({
+    appliedFilterState,
+    destinationConfig,
+    authStore,
+  });
 };
 
 const handleSearchInThisArea = () => {
@@ -344,12 +342,20 @@ const handleSearchInThisArea = () => {
   }
 };
 
-const loadMoreProperties = async () => {
-  return executeLoadMoreProperties({
-    appliedFilterState,
-    destinationConfig,
-    authStore,
-  });
+const handleLoadMoreClick = async () => {
+  if (isMapMoved.value) {
+    handleSearchInThisArea();
+  } else if (properties.value.length >= serverTotalCount.value) {
+    triggerAllLoadedToast();
+  } else {
+    const prevVisibleCount = visibleProperties.value.length;
+    await loadMoreProperties();
+    // 버튼 누른 직후 화면 유효 매물 개수가 증가하지 않았으면 즉시 '수집 완료(에메랄드)'로 전환
+    if (visibleProperties.value.length <= prevVisibleCount) {
+      serverTotalCount.value = properties.value.length;
+      triggerAllLoadedToast();
+    }
+  }
 };
 
 let fetchPropertiesDebounceTimer = null;
@@ -488,6 +494,7 @@ const clearAmenitiesForDestinationChange = () => {
 
 const authStore = useAuthStore();
 
+<<<<<<< Updated upstream
 const handleChangeDestination = async ({ name, lat, lng, address }) => {
   if (!name || lat == null || lng == null) return;
   const destAddress = address || '';
@@ -505,12 +512,28 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
     });
   } catch (err) {
     console.error('DESTINATION SAVE ERROR:', err);
+=======
+const handleChangeDestination = async ({ id, name, lat, lng, address }) => {
+  if (lat == null || lng == null) return;
+  const userId = authStore.user?.userId || authStore.user?.id;
+
+  // 1. 이름 정제: '서울특별시' 단독이거나 비어있으면 상세 주소(구/동/도로명)로 보정
+  let cleanAddress = (address || '').trim();
+  let cleanName = (name || '').trim();
+
+  if (!cleanName || cleanName === '서울특별시') {
+    if (cleanAddress && cleanAddress !== '서울특별시') {
+      cleanName = cleanAddress.replace(/^서울특별시\s*/, '');
+    } else {
+      cleanName = '지정한 목적지';
+    }
+>>>>>>> Stashed changes
   }
 
-  const finalDestName =
-    savedDestination?.destName || name || destAddress || '선택한 위치';
+  const finalDestName = cleanName;
 
   filterState.value.destination = finalDestName;
+<<<<<<< Updated upstream
   filterState.value.destinationAddress =
     savedDestination?.destAddress || destAddress;
   filterState.value.destinationLat =
@@ -522,6 +545,13 @@ const handleChangeDestination = async ({ name, lat, lng, address }) => {
       ? Number(savedDestination.destLongitude)
       : Number(lng);
   filterState.value.destinationId = savedDestination?.destinationId ?? null;
+=======
+  filterState.value.destinationAddress = cleanAddress || finalDestName;
+  // 🎯 사용자가 꾹 누른 실제 위도/경도를 최우선 적용
+  filterState.value.destinationLat = Number(lat);
+  filterState.value.destinationLng = Number(lng);
+  filterState.value.destinationId = id != null ? Number(id) : null;
+>>>>>>> Stashed changes
 
   // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
@@ -978,6 +1008,7 @@ const applyMobileOnboardingFilters = (filters) => {
 
   if (filters.transportMode)
     filterState.value.transportMode = filters.transportMode;
+  if (filters.walkPace) filterState.value.walkPace = filters.walkPace;
   if (filters.maxTravelTime != null)
     filterState.value.travelTime = Number(filters.maxTravelTime);
   if (filters.travelTime != null)
@@ -1988,14 +2019,14 @@ const {
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-hidden xl:rounded-none xl:border-t-0 xl:border-r"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
-          ? 'h-full xl:h-full'
+          ? 'h-[calc(100%-52px)] xl:h-full xl:max-h-full'
           : mobilePanelHeight === 'COLLAPSED'
-            ? 'h-[36px] xl:h-full'
-            : 'h-1/3 xl:h-full',
+            ? 'h-[36px] xl:h-full xl:max-h-full'
+            : 'h-[28%] max-h-[50%] xl:h-full xl:max-h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -2051,7 +2082,7 @@ const {
       <!-- 모바일 [상세 정보] 탭 열림 시: Inline SlidingDoorPanel 노출 -->
       <div
         v-if="mobileSidebarTab === 'detail' && selectedProperty"
-        class="flex-1 overflow-y-auto xl:hidden"
+        class="flex-1 min-h-0 overflow-y-auto xl:hidden"
       >
         <SlidingDoorPanel
           :is-open="true"
@@ -2073,7 +2104,7 @@ const {
 
       <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 사이드바 리스트 노출 (PC에서는 상시 flex 노출) -->
       <div
-        class="flex-1 min-h-0 flex flex-col overflow-hidden xl:overflow-visible"
+        class="flex-1 min-h-0 flex flex-col overflow-hidden"
         :class="[
           mobileSidebarTab === 'detail' && selectedProperty
             ? 'hidden xl:flex'
@@ -2171,7 +2202,7 @@ const {
 
         <!-- 사이드바 매물 카드리스트 (10개씩 동적 스크롤) -->
         <div
-          class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5"
+          class="property-list-scroll flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5"
           @scroll="handleListScroll"
         >
           <template v-if="isPropertyLoading">
@@ -2344,8 +2375,12 @@ const {
         :visible-count="visibleProperties.length"
         :base-count="baseFilteredProperties.length"
         :total-count="serverTotalCount"
+        :current-page="currentPage"
         :last-loaded-date="lastLoadedDateString"
         :show-all-loaded-toast="showAllLoadedToast"
+        :mobile-panel-height="mobilePanelHeight"
+        :drag-pixel-height="dragPixelHeight"
+        :is-dragging="isDragging"
         @click="handleLoadMoreClick"
       />
 

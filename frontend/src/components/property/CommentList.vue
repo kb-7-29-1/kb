@@ -1,6 +1,9 @@
 <script setup>
 import { computed, ref } from 'vue';
 import TagBadge from './TagBadge.vue';
+import { useAppToast } from '@/composables/useAppToast.js';
+
+const { showToast } = useAppToast();
 
 const props = defineProps({
   property: {
@@ -57,7 +60,7 @@ const submitComment = () => {
   const trimmedContent = content.value.trim();
 
   if (!trimmedContent) {
-    alert('실거주 후기 및 의견을 입력해주세요.');
+    showToast('실거주 후기 및 의견을 입력해 주세요.', { type: 'warning' });
     return;
   }
 

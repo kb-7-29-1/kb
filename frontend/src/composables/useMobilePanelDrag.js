@@ -31,7 +31,7 @@ export function useMobilePanelDrag(targetSelector = '.mobile-aside-panel') {
     const asideEl = document.querySelector(targetSelector);
     dragStartHeightPx = asideEl
       ? asideEl.getBoundingClientRect().height
-      : window.innerHeight * 0.33;
+      : window.innerHeight * 0.46;
 
     window.addEventListener('mousemove', onDragMove);
     window.addEventListener('mouseup', stopDrag);

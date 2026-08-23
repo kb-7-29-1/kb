@@ -40,6 +40,7 @@ const minRentStart = ref(RENT_MIN);
 const maxRent = ref(120);
 const selectedLoanId = ref('NONE');
 const transportMode = ref('walk');
+const walkPace = ref('NORMAL');
 const travelTime = ref(15);
 // 대중교통 도넛 영역의 안쪽 원(최소 이동 시간)은 PC 퀵필터와 동일하게 5분부터 시작합니다.
 const flexTime = ref(5);
@@ -267,6 +268,19 @@ watch(
       filters.minTravelTime ?? filters.flexTime,
       travelTime.value,
     );
+<<<<<<< Updated upstream
+=======
+    minSafetyScore.value = Number(filters.minSafetyScore) || 0;
+    transportMode.value =
+      filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+    walkPace.value = filters.walkPace || 'NORMAL';
+
+    const rawTravel = filters.maxTravelTime ?? filters.travelTime ?? 15;
+    travelTime.value = Number(rawTravel) || 15;
+
+    const rawFlex = filters.minTravelTime ?? filters.flexTime ?? 5;
+    flexTime.value = normalizeTransitMinTime(rawFlex, travelTime.value);
+>>>>>>> Stashed changes
   },
   { immediate: true, deep: true },
 );
@@ -293,6 +307,7 @@ const resetFilters = () => {
   syncSelectedTradeTypes(
     onboarding.tradeType ?? (Number(onboarding.budgetRent) === 0 ? 'JEONSE' : 'MONTHLY'),
   );
+<<<<<<< Updated upstream
   minSafetyScore.value = Number(onboarding.minSafetyScore);
   transportMode.value = onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
   travelTime.value = Number(onboarding.maxTravelTime);
@@ -301,12 +316,28 @@ const resetFilters = () => {
     travelTime.value,
   );
   if (onboarding.selectedLoanId) selectedLoanId.value = onboarding.selectedLoanId;
+=======
+  minSafetyScore.value = Number(onboarding.minSafetyScore) || 0;
+  transportMode.value =
+    onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+  walkPace.value = onboarding.walkPace || 'NORMAL';
+
+  const rawTravel = onboarding.maxTravelTime ?? onboarding.travelTime ?? 15;
+  travelTime.value = Number(rawTravel) || 15;
+
+  const rawFlex = onboarding.minTravelTime ?? onboarding.flexTime ?? 5;
+  flexTime.value = normalizeTransitMinTime(rawFlex, travelTime.value);
+
+  if (onboarding.selectedLoanId)
+    selectedLoanId.value = onboarding.selectedLoanId;
+>>>>>>> Stashed changes
 };
 
 const getFilters = () => ({
   destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
+  walkPace: walkPace.value,
   maxTravelTime: travelTime.value,
   minTravelTime: transportMode.value === 'transit' ? flexTime.value : 0,
   flexTime: transportMode.value === 'transit' ? flexTime.value : 0,
@@ -584,6 +615,47 @@ onBeforeUnmount(() => {
           <span>{{ transportMode === 'walk' ? '5분' : '15분' }}</span
           ><span>{{ transportMode === 'walk' ? '40분' : '60분' }}</span>
         </div>
+      </div>
+
+      <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
+      <div v-if="transportMode === 'walk'" class="space-y-2 pt-1">
+        <div class="flex justify-between text-xs font-bold text-slate-800">
+          <span>🚶‍♂️ 걸음 속도</span>
+          <span class="text-blue-600 font-extrabold text-xs">
+            {{
+              walkPace === 'SLOW'
+                ? '천천히 (약 3.5km/h)'
+                : walkPace === 'FAST'
+                  ? '빠른 걸음 (약 5.5km/h)'
+                  : '보통 걸음 (약 4.5km/h)'
+            }}
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            v-for="pace in [
+              { key: 'SLOW', label: '🐢 천천히' },
+              { key: 'NORMAL', label: '🚶 보통' },
+              { key: 'FAST', label: '🏃 빠르게' },
+            ]"
+            :key="pace.key"
+            type="button"
+            class="py-1.5 rounded-lg text-xs font-bold transition-all text-center"
+            :class="
+              walkPace === pace.key
+                ? 'bg-white text-blue-600 shadow-sm font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            "
+            @click="walkPace = pace.key"
+          >
+            {{ pace.label }}
+          </button>
+        </div>
+        <p
+          class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
+        >
+          * 선택한 걸음 속도에 따라 도달 가능 범위가 자동 계산됩니다.
+        </p>
       </div>
 
       <div v-if="transportMode === 'transit'" class="flex-time-control">

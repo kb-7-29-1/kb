@@ -77,7 +77,14 @@ export const findMatchingDestination = (
 ) => {
   if (!recentList || recentList.length === 0) return null;
 
-  // 0차: 좌표(위경도) 근접 거리 최우선 매칭 (250m 이내에 DB/저장 목적지가 있으면 지오코딩 텍스트 무시하고 최우선 반영)
+  const isBroadDistrictName = (str) => {
+    if (!str) return false;
+    const trimmed = str.trim();
+    return /^[가-힣]+(구|시|군|도)$/.test(trimmed) || trimmed === '서울특별시';
+  };
+
+  /*
+  // 0차: 좌표(위경도) 근접 거리 최우선 매칭 (250m 이내에 DB/저장 목적지가 있으면 지오코딩 텍스트 무시하고 최우선 반영 - 단, 광역 구/시 명칭은 제외)
   if (lat != null && lng != null) {
     const inputLat = Number(lat);
     const inputLng = Number(lng);
@@ -86,6 +93,7 @@ export const findMatchingDestination = (
       let closestItem = null;
 
       for (const item of recentList) {
+        if (isBroadDistrictName(item.destName)) continue;
         const itemLat = Number(item.destLatitude ?? item.lat);
         const itemLng = Number(item.destLongitude ?? item.lng);
         if (!isNaN(itemLat) && !isNaN(itemLng)) {
@@ -104,6 +112,7 @@ export const findMatchingDestination = (
       if (closestItem) return closestItem;
     }
   }
+  */
 
   const cleanInputName = (name || '').trim().toLowerCase();
   const cleanInputAddress = (address || '').trim().toLowerCase();
@@ -120,11 +129,14 @@ export const findMatchingDestination = (
       item.destAddress.trim().toLowerCase() === cleanInputAddress,
   );
 
-  // 2차: 목적지 명칭(destName) 부분/포함 일치
+  // 2차: 목적지 명칭(destName) 부분/포함 일치 (광역 구/시 명칭은 특정 지번/상세주소와 부분일치되지 않도록 제외)
   if (!matched && cleanInputName) {
     matched = recentList.find((item) => {
       if (!item.destName) return false;
       const targetName = item.destName.trim().toLowerCase();
+      if (isBroadDistrictName(targetName) && cleanInputName !== targetName) {
+        return false;
+      }
       return (
         targetName.includes(cleanInputName) ||
         cleanInputName.includes(targetName)
@@ -137,6 +149,9 @@ export const findMatchingDestination = (
     matched = recentList.find((item) => {
       if (!item.destAddress) return false;
       const targetAddr = item.destAddress.trim().toLowerCase();
+      if (isBroadDistrictName(item.destName) && cleanInputAddress !== targetAddr) {
+        return false;
+      }
       const targetNums = extractNumbers(targetAddr);
       if (inputNums !== targetNums) return false;
       return (

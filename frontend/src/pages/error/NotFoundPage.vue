@@ -28,7 +28,9 @@ const goHome = () => {
   align-items: center;
   justify-content: center;
   width: min(100%, 28rem);
-  height: 100dvh;
+  height: 100%;
+  min-height: 100%;
+  flex: 1;
   margin: 0 auto;
   padding: 32px 28px max(32px, env(safe-area-inset-bottom));
   background: #f6f8fc;

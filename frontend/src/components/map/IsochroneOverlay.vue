@@ -270,8 +270,8 @@ const updateIsochroneOverlays = () => {
             <div style="transform: translate(25%, -50%); pointer-events: none;">
               <div style="background: rgba(15, 23, 42, 0.88); backdrop-filter: blur(6px); color: #f8fafc; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 9999px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 4px 12px rgba(0,0,0,0.25); white-space: nowrap; display: flex; align-items: center; gap: 4px;">
                 <span style="font-size: 11px;">💡</span>
-                <span class="hidden sm:inline">지도를 우클릭해서 목적지를 변경할 수 있어요</span>
-                <span class="inline sm:hidden">지도를 꾹 눌러서 목적지를 변경할 수 있어요</span>
+                <span class="hidden md:inline">지도를 우클릭해서 목적지를 변경할 수 있어요</span>
+                <span class="inline md:hidden">지도를 꾹 눌러서 목적지를 변경할 수 있어요</span>
               </div>
             </div>
           `,
@@ -493,7 +493,7 @@ watch(
       updateIsochroneOverlays();
     }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
 onUnmounted(() => {

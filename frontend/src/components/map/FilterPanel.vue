@@ -148,7 +148,7 @@ const handleApply = async () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100dvh - var(--map-header-height));
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: #fff;

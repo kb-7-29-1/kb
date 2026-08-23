@@ -95,39 +95,39 @@ watch(
     <div
       v-if="isVisible"
       key="card-panel"
-      class="relative w-[310px] rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-xl backdrop-blur-md transition-all overflow-hidden"
+      class="route-feedback-card relative w-[240px] xl:w-[310px] rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 xl:p-4 shadow-xl backdrop-blur-md transition-all overflow-hidden text-xs"
     >
       <!-- 🎉 뾰로롱 파티클 & 피드백 완료 1초 오버레이 -->
       <Transition name="fade">
         <div
           v-if="activeEffect"
-          class="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-2xl bg-white/95 backdrop-blur-md p-4 text-center border border-slate-200/80 shadow-2xl"
+          class="absolute inset-0 z-30 flex flex-col items-center justify-center rounded-xl xl:rounded-2xl bg-white/95 backdrop-blur-md p-3 xl:p-4 text-center border border-slate-200/80 shadow-2xl"
         >
           <!-- 🍀 럭키비키 뾰로롱 파티클 -->
           <div
             v-if="activeEffect === 'SAFE'"
             class="relative flex items-center justify-center mb-1"
           >
-            <span class="text-4xl animate-bounce">🍀</span>
-            <span class="sparkle-particle absolute -top-3 -left-3 text-lg">✨</span>
-            <span class="sparkle-particle absolute -top-4 right-0 text-base">🌟</span>
-            <span class="sparkle-particle absolute bottom-0 -left-5 text-sm">✨</span>
-            <span class="sparkle-particle absolute -bottom-1 right-2 text-lg">🍀</span>
+            <span class="text-3xl xl:text-4xl animate-bounce">🍀</span>
+            <span class="sparkle-particle absolute -top-3 -left-3 text-sm xl:text-lg">✨</span>
+            <span class="sparkle-particle absolute -top-4 right-0 text-xs xl:text-base">🌟</span>
+            <span class="sparkle-particle absolute bottom-0 -left-5 text-xs xl:text-sm">✨</span>
+            <span class="sparkle-particle absolute -bottom-1 right-2 text-sm xl:text-lg">🍀</span>
           </div>
 
           <!-- 💩 언럭키비키 뾰로롱 파티클 -->
           <div v-else class="relative flex items-center justify-center mb-1">
-            <span class="text-4xl animate-bounce">💩</span>
-            <span class="sparkle-particle absolute -top-3 -left-3 text-lg">💨</span>
-            <span class="sparkle-particle absolute -top-4 right-0 text-base">✨</span>
-            <span class="sparkle-particle absolute bottom-0 -left-5 text-sm">💨</span>
-            <span class="sparkle-particle absolute -bottom-1 right-2 text-lg">💩</span>
+            <span class="text-3xl xl:text-4xl animate-bounce">💩</span>
+            <span class="sparkle-particle absolute -top-3 -left-3 text-sm xl:text-lg">💨</span>
+            <span class="sparkle-particle absolute -top-4 right-0 text-xs xl:text-base">✨</span>
+            <span class="sparkle-particle absolute bottom-0 -left-5 text-xs xl:text-sm">💨</span>
+            <span class="sparkle-particle absolute -bottom-1 right-2 text-sm xl:text-lg">💩</span>
           </div>
 
-          <p class="text-xs font-black text-slate-900 mt-1">
+          <p class="text-[11px] xl:text-xs font-black text-slate-900 mt-0.5 xl:mt-1">
             {{ activeEffect === 'SAFE' ? '완전 럭키비키! 🍀' : '언 럭키비키... 💩' }}
           </p>
-          <p class="text-[10.5px] font-bold text-slate-500 mt-0.5">
+          <p class="text-[9.5px] xl:text-[10.5px] font-bold text-slate-500 mt-0.5">
             {{
               activeEffect === 'SAFE'
                 ? '긍정 피드백이 반짝 반영되었어요!'
@@ -137,45 +137,45 @@ watch(
         </div>
       </Transition>
 
-      <div class="mb-2.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-        <div class="flex items-center gap-1.5">
+      <div class="mb-1.5 xl:mb-2.5 flex items-center justify-between gap-1.5 border-b border-slate-100 pb-1.5 xl:pb-2">
+        <div class="flex items-center gap-1 xl:gap-1.5">
           <span
-            class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-xs text-blue-600"
+            class="flex h-5 w-5 xl:h-6 xl:w-6 items-center justify-center rounded-lg bg-blue-50 text-[10px] xl:text-xs text-blue-600"
           >
             📍
           </span>
-          <span class="text-xs font-black text-slate-900">귀갓길 경로 평가</span>
+          <span class="text-[11px] xl:text-xs font-black text-slate-900">귀갓길 경로 평가</span>
         </div>
-        <div class="flex flex-shrink-0 items-center gap-1.5">
+        <div class="flex flex-shrink-0 items-center gap-1 xl:gap-1.5">
           <span
-            class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-extrabold text-emerald-600"
+            class="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 xl:px-2 py-0.5 text-[9px] xl:text-[10px] font-extrabold text-emerald-600"
           >
             <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             실시간
           </span>
           <button
             type="button"
-            class="flex h-5 w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            class="flex h-4 w-4 xl:h-5 xl:w-5 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
             aria-label="경로 평가 카드 닫기"
             @click="isVisible = false"
           >
-            <i class="fa-solid fa-xmark text-[11px]" aria-hidden="true"></i>
+            <i class="fa-solid fa-xmark text-[10px] xl:text-[11px]" aria-hidden="true"></i>
           </button>
         </div>
       </div>
 
-      <p class="mb-1 text-xs font-bold text-slate-800">이 경로는 어떠셨나요?</p>
+      <p class="mb-1 text-[11px] xl:text-xs font-bold text-slate-800">이 경로는 어떠셨나요?</p>
 
       <div v-if="isLoading" class="mb-3 flex items-center gap-2 text-[12px] text-slate-500">
         <i class="fa-solid fa-spinner animate-spin text-blue-500" aria-hidden="true"></i>
         <span>투표 정보를 불러오는 중이에요</span>
       </div>
 
-      <p v-else-if="loadError" class="mb-3 text-[12px] leading-snug text-rose-500">
+      <p v-else-if="loadError" class="mb-2 xl:mb-3 text-[10.5px] xl:text-[12px] leading-snug text-rose-500">
         투표 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요
       </p>
 
-      <p v-else class="mb-3 text-[12px] leading-snug text-slate-500">
+      <p v-else class="mb-2 xl:mb-3 text-[10.5px] xl:text-[12px] leading-snug text-slate-500">
         <template v-if="!hasVoted">
           아직 수집된 데이터가 부족해요. 가장 먼저 귀갓길 소감을 남겨주세요!
         </template>
@@ -191,10 +191,10 @@ watch(
         </template>
       </p>
 
-      <div class="flex gap-2">
+      <div class="flex gap-1.5 xl:gap-2">
         <button
           type="button"
-          class="flex flex-1 items-center justify-center gap-1 rounded-xl border py-2 text-[12px] transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg xl:rounded-xl border py-1.5 xl:py-2 text-[10.5px] xl:text-[12px] transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           :class="
             myVote === 'SAFE'
               ? 'border-emerald-600 bg-emerald-600 font-black text-white shadow-md ring-2 ring-emerald-200'
@@ -203,13 +203,13 @@ watch(
           :disabled="isSaving || isLoading"
           @click="castVote('SAFE')"
         >
-          <span aria-hidden="true">🍀</span>
+          <span aria-hidden="true" class="text-xs xl:text-sm">🍀</span>
           <span>완전 럭키비키</span>
         </button>
 
         <button
           type="button"
-          class="flex flex-1 items-center justify-center gap-1 rounded-xl border py-2 text-[12px] transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex flex-1 items-center justify-center gap-1 rounded-lg xl:rounded-xl border py-1.5 xl:py-2 text-[10.5px] xl:text-[12px] transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
           :class="
             myVote === 'UNSAFE'
               ? 'border-rose-600 bg-rose-600 font-black text-white shadow-md ring-2 ring-rose-200'
@@ -218,7 +218,7 @@ watch(
           :disabled="isSaving || isLoading"
           @click="castVote('UNSAFE')"
         >
-          <span aria-hidden="true">💩</span>
+          <span aria-hidden="true" class="text-xs xl:text-sm">💩</span>
           <span>언 럭키비키...</span>
         </button>
       </div>

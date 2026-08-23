@@ -59,6 +59,16 @@ const statusText = computed(() => {
   return '예: “세종대 도보 20분, 월세 70 이하, 안전한 집 찾아줘”';
 });
 
+let errorResetTimer = null;
+
+const setErrorWithAutoReset = (msg, delayMs = 3500) => {
+  localError.value = msg;
+  if (errorResetTimer) clearTimeout(errorResetTimer);
+  errorResetTimer = setTimeout(() => {
+    localError.value = '';
+  }, delayMs);
+};
+
 const clearTimer = () => {
   if (autoStopTimer) clearTimeout(autoStopTimer);
   autoStopTimer = null;
@@ -83,20 +93,22 @@ const cleanupRecognition = () => {
 };
 
 const startListening = () => {
+  if (errorResetTimer) clearTimeout(errorResetTimer);
   localError.value = '';
   interimTranscript.value = '';
   emit('clear-feedback');
 
   if (props.disabled) {
-    localError.value = '로그인 후 사용할 수 있습니다.';
+    setErrorWithAutoReset('로그인 후 사용할 수 있습니다.');
     return;
   }
   if (props.loading) return;
 
   const Recognition = SpeechRecognitionConstructor();
   if (!Recognition) {
-    localError.value =
-      '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 또는 Edge를 사용해 주세요.';
+    setErrorWithAutoReset(
+      '이 브라우저는 음성 인식을 지원하지 않습니다. Chrome 또는 Edge를 사용해 주세요.',
+    );
     return;
   }
 
@@ -143,15 +155,15 @@ const startListening = () => {
 
     const code = event?.error;
     if (code === 'not-allowed' || code === 'service-not-allowed') {
-      localError.value = '브라우저의 마이크 권한을 허용해 주세요.';
+      setErrorWithAutoReset('브라우저의 마이크 권한을 허용해 주세요.');
     } else if (code === 'no-speech') {
-      localError.value = '음성을 인식하지 못했습니다. 다시 말씀해 주세요.';
+      setErrorWithAutoReset('음성을 인식하지 못했습니다. 다시 말씀해 주세요.');
     } else if (code === 'audio-capture') {
-      localError.value = '사용 가능한 마이크를 찾지 못했습니다.';
+      setErrorWithAutoReset('사용 가능한 마이크를 찾지 못했습니다.');
     } else if (code === 'network') {
-      localError.value = '브라우저 음성 인식 네트워크 오류가 발생했습니다.';
+      setErrorWithAutoReset('브라우저 음성 인식 네트워크 오류가 발생했습니다.');
     } else if (code !== 'aborted') {
-      localError.value = `음성 인식 중 오류가 발생했습니다${code ? ` (${code})` : ''}.`;
+      setErrorWithAutoReset(`음성 인식 중 오류가 발생했습니다${code ? ` (${code})` : ''}.`);
     }
   };
 
@@ -161,7 +173,7 @@ const startListening = () => {
     interimTranscript.value = '';
 
     if (!heardFinalResult && !localError.value) {
-      localError.value = '음성을 인식하지 못했습니다. 다시 말씀해 주세요.';
+      setErrorWithAutoReset('음성을 인식하지 못했습니다. 다시 말씀해 주세요.');
     }
     recognition = null;
   };
@@ -171,7 +183,7 @@ const startListening = () => {
     autoStopTimer = setTimeout(stopListening, MAX_LISTENING_MS);
   } catch (error) {
     cleanupRecognition();
-    localError.value = '음성 인식을 시작하지 못했습니다.';
+    setErrorWithAutoReset('음성 인식을 시작하지 못했습니다.');
   }
 };
 
@@ -181,6 +193,7 @@ const toggleListening = () => {
 };
 
 onBeforeUnmount(() => {
+  if (errorResetTimer) clearTimeout(errorResetTimer);
   clearTimer();
   if (recognition) {
     recognition.onresult = null;
