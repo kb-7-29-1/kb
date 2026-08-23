@@ -7,7 +7,10 @@
  * @returns {boolean}
  */
 export const isMobileScreen = () => {
-  return typeof window !== 'undefined' && window.innerWidth <= 500;
+  if (typeof window === 'undefined') return false;
+  return (
+    window.innerWidth <= 768 || window.matchMedia('(pointer: coarse)').matches
+  );
 };
 
 /**

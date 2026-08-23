@@ -477,7 +477,7 @@ public class PublicDataApiService {
             return geocodeCache.get(fullAddress);
         }
 
-        log.info("Attempting Naver Geocoding for address: {}, clientId: {}", fullAddress, naverClientId);
+        log.debug("Attempting Naver Geocoding for address: {}, clientId: {}", fullAddress, naverClientId);
 
         // 1. 네이버 클라우드 플랫폼(NCP) 지오코딩 Open API 100% 실시간 호출 시도
         if (naverClientId != null && !naverClientId.trim().isEmpty()
@@ -512,7 +512,7 @@ public class PublicDataApiService {
                             double lat = Double.parseDouble(first.path("y").asText());
                             double lng = Double.parseDouble(first.path("x").asText());
                             double[] coords = new double[]{ lat, lng };
-                            log.info("Naver Geocoding Success for {}: lat={}, lng={}", cleanAddress, lat, lng);
+                            log.debug("Naver Geocoding Success for {}: lat={}, lng={}", cleanAddress, lat, lng);
                             geocodeCache.put(fullAddress, coords);
                             return coords;
                         } else {

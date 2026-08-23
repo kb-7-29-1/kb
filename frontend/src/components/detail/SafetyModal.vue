@@ -313,35 +313,45 @@ const hasPoliceStation = computed(() =>
 /* 모달 백그라운드 */
 .modal-backdrop {
   position: fixed;
-  inset: 0;
+  top: var(--app-header-height, 56px);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 60;
   display: flex;
   justify-content: center;
   align-items: center;
   background-color: rgba(0, 0, 0, 0.4);
-  padding: 20px;
+  padding: 12px 14px max(14px, env(safe-area-inset-bottom, 14px));
 }
 
 /* 모달 컨테이너 */
 .modal-container {
   width: 100%;
   max-width: 400px;
-  height: min(720px, calc(100vh - 40px));
+  max-height: calc(100dvh - var(--app-header-height, 56px) - 24px);
+  height: auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   background-color: #ffffff;
   border-radius: 20px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
-/* 헤더 */
+/* 헤더 (상단 플로팅 고정) */
 .modal-header {
+  position: sticky;
+  top: -20px;
+  z-index: 20;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin: -20px -20px 16px -20px;
+  padding: 16px 20px;
+  background-color: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .modal-title {

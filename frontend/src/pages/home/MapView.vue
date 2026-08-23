@@ -42,6 +42,7 @@ import {
 import DistrictToast from '@/components/common/DistrictToast.vue';
 import { isSupportedSafetyDistrict } from '@/utils/districtSupport.js';
 import { useDistrictToast } from '@/composables/useDistrictToast.js';
+import { useAppToast } from '@/composables/useAppToast.js';
 
 const emit = defineEmits([
   'open-filter',
@@ -52,6 +53,7 @@ const route = useRoute();
 const router = useRouter();
 
 const { showToast } = useDistrictToast();
+const { showToast: showAppToast } = useAppToast();
 const props = defineProps({
   appliedOnboardingFilters: {
     type: Object,
@@ -149,21 +151,6 @@ const handleToggleRouteFacilities = async () => {
   if (!selectedProperty.value?.propertyId || !destinationConfig.value?.id)
     return;
 
-  // 🛡️ 미지원 자치구 매물인 경우 안전시설물 표시 차단 및 안내
-  const isUnsupported =
-    selectedSafetyRoute.value?.isSupportedDistrict === false ||
-    selectedProperty.value?.safetyScore == null ||
-    !isSupportedSafetyDistrict(selectedProperty.value?.address || '');
-
-  if (isUnsupported) {
-    showToast(
-      '선택하신 매물은 보안등 미구축 자치구로 안전시설물 정보가 제공되지 않습니다.',
-    );
-    routeFacilities.value = [];
-    showRouteFacilities.value = false;
-    return;
-  }
-
   isRouteFacilitiesLoading.value = true;
   try {
     const facilities = await safetyService.getRouteFacilities({
@@ -173,16 +160,12 @@ const handleToggleRouteFacilities = async () => {
 
     let result = Array.isArray(facilities) ? facilities : [];
 
-    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간 및 미지원(회색) 도보 구간을 완전히 배제
-    // 오직 실제 걸어가는 '지원 자치구 내 도보(WALK)' 구간 주변(80m) 안전시설물만 선별 노출
+    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 안전 계산에서 완전히 배제
+    // 오직 실제 걸어가는 도보(WALK) 구간 주변(80m) 안전시설물만 선별 노출
     const transitSegments = selectedSafetyRoute.value?.transitSegments;
     if (Array.isArray(transitSegments) && transitSegments.length > 0) {
       const walkPoints = transitSegments
-        .filter((seg) => {
-          const isWalk = String(seg.type || '').toUpperCase() === 'WALK';
-          const isSupported = seg.isSupportedDistrict !== false;
-          return isWalk && isSupported; // 🎯 미지원(회색) 구간은 시설물 0건 처리
-        })
+        .filter((seg) => String(seg.type || '').toUpperCase() === 'WALK')
         .flatMap((seg) => seg.routePoints || []);
 
       if (walkPoints.length > 0) {
@@ -196,8 +179,6 @@ const handleToggleRouteFacilities = async () => {
             return dLat * dLat + dLng * dLng <= 80 * 80;
           });
         });
-      } else {
-        result = [];
       }
     }
 
@@ -349,14 +330,12 @@ const {
   updateLastFetchedCenter,
 } = useMapBounds();
 
-const handleLoadMoreClick = () => {
-  if (isMapMoved.value) {
-    handleSearchInThisArea();
-  } else if (properties.value.length >= serverTotalCount.value) {
-    triggerAllLoadedToast();
-  } else {
-    loadMoreProperties();
-  }
+const loadMoreProperties = async () => {
+  return executeLoadMoreProperties({
+    appliedFilterState,
+    destinationConfig,
+    authStore,
+  });
 };
 
 const handleSearchInThisArea = () => {
@@ -365,12 +344,14 @@ const handleSearchInThisArea = () => {
   }
 };
 
-const loadMoreProperties = async () => {
-  return executeLoadMoreProperties({
-    appliedFilterState,
-    destinationConfig,
-    authStore,
-  });
+const handleLoadMoreClick = async () => {
+  if (isMapMoved.value) {
+    handleSearchInThisArea();
+  } else if (properties.value.length >= serverTotalCount.value) {
+    triggerAllLoadedToast();
+  } else {
+    await loadMoreProperties();
+  }
 };
 
 let fetchPropertiesDebounceTimer = null;
@@ -510,44 +491,31 @@ const clearAmenitiesForDestinationChange = () => {
 const authStore = useAuthStore();
 
 const handleChangeDestination = async ({ id, name, lat, lng, address }) => {
-  if (!name || lat == null || lng == null) return;
-  const destAddress = address || '';
+  if (lat == null || lng == null) return;
   const userId = authStore.user?.userId || authStore.user?.id;
 
-  let destinationId = id != null ? Number(id) : null;
-  let savedDestination = null;
+  // 1. 이름 정제: '서울특별시' 단독이거나 비어있으면 상세 주소(구/동/도로명)로 보정
+  let cleanAddress = (address || '').trim();
+  let cleanName = (name || '').trim();
 
-  if (!destinationId) {
-    try {
-      savedDestination = await onboardingApi.saveDestination({
-        destName: name,
-        destAddress,
-        destLatitude: Number(lat),
-        destLongitude: Number(lng),
-      });
-      destinationId = savedDestination?.destinationId ?? null;
-    } catch (err) {
-      console.error('DESTINATION SAVE ERROR:', err);
+  if (!cleanName || cleanName === '서울특별시') {
+    if (cleanAddress && cleanAddress !== '서울특별시') {
+      cleanName = cleanAddress.replace(/^서울특별시\s*/, '');
+    } else {
+      cleanName = '지정한 목적지';
     }
   }
 
-  const finalDestName =
-    savedDestination?.destName || name || destAddress || '선택한 위치';
+  const finalDestName = cleanName;
 
   filterState.value.destination = finalDestName;
-  filterState.value.destinationAddress =
-    savedDestination?.destAddress || destAddress;
-  filterState.value.destinationLat =
-    savedDestination?.destLatitude != null
-      ? Number(savedDestination.destLatitude)
-      : Number(lat);
-  filterState.value.destinationLng =
-    savedDestination?.destLongitude != null
-      ? Number(savedDestination.destLongitude)
-      : Number(lng);
-  filterState.value.destinationId = destinationId;
+  filterState.value.destinationAddress = cleanAddress || finalDestName;
+  // 🎯 사용자가 꾹 누른 실제 위도/경도를 최우선 적용
+  filterState.value.destinationLat = Number(lat);
+  filterState.value.destinationLng = Number(lng);
+  filterState.value.destinationId = id != null ? Number(id) : null;
 
-  // 최근 검색 기록에 저장
+  // 지도 우측키로 목적지 변경 시에도 유저아이디 기반 최근 검색 기록에 저장
   saveRecentDestinationGlobal(
     {
       destName: finalDestName,
@@ -558,8 +526,6 @@ const handleChangeDestination = async ({ id, name, lat, lng, address }) => {
     },
     userId,
   );
-
-  // showToast(`🎯 목적지가 ${finalDestName}(으)로 변경되었습니다.`);
 
   handleApplyFilters(true);
   emit('update:applied-onboarding-filters', {
@@ -1004,6 +970,7 @@ const applyMobileOnboardingFilters = (filters) => {
 
   if (filters.transportMode)
     filterState.value.transportMode = filters.transportMode;
+  if (filters.walkPace) filterState.value.walkPace = filters.walkPace;
   if (filters.maxTravelTime != null)
     filterState.value.travelTime = Number(filters.maxTravelTime);
   if (filters.travelTime != null)
@@ -1250,7 +1217,37 @@ const baseFilteredProperties = computed(() => {
   if (currentSort.value === 'AREA_DESC') {
     return list.sort((a, b) => (b.area || 0) - (a.area || 0));
   }
-  return list; // RECOMMENDED
+
+  // ✨ RECOMMENDED (추천순):
+  // 1순위: 안전 점수 높은 순 (데이터 미제공은 무조건 최하단)
+  // 2순위: 가격대 (보증금 및 월세 환산비용 저렴한 순)
+  // 3순위: 목적지와 가까운 거리 순
+  return list.sort((a, b) => {
+    const hasA = a.safetyScore != null && Number(a.safetyScore) > 0;
+    const hasB = b.safetyScore != null && Number(b.safetyScore) > 0;
+
+    // 1순위: 안전점수 (데이터 미제공 null/0은 최하단)
+    if (hasA && !hasB) return -1;
+    if (!hasA && hasB) return 1;
+    if (hasA && hasB) {
+      const scoreDiff = Number(b.safetyScore) - Number(a.safetyScore);
+      if (scoreDiff !== 0) return scoreDiff;
+    }
+
+    // 2순위: 가격대 (보증금 + 월세*70 저렴한 순)
+    const costA = (Number(a.deposit) || 0) + (Number(a.monthlyRent) || 0) * 70;
+    const costB = (Number(b.deposit) || 0) + (Number(b.monthlyRent) || 0) * 70;
+    if (costA !== costB) return costA - costB;
+
+    // 3순위: 목적지와 가까운 거리 순
+    const aLat = Number(a.latitude ?? a.propertyLatitude ?? 0);
+    const aLng = Number(a.longitude ?? a.propertyLongitude ?? 0);
+    const bLat = Number(b.latitude ?? b.propertyLatitude ?? 0);
+    const bLng = Number(b.longitude ?? b.propertyLongitude ?? 0);
+    const distA = (aLat - destLat) ** 2 + (aLng - destLng) ** 2;
+    const distB = (bLat - destLat) ** 2 + (bLng - destLng) ** 2;
+    return distA - distB;
+  });
 });
 
 // 온보딩으로 후보 매물을 먼저 줄이고, 그 후보들에만 편의시설 필터를 적용
@@ -1297,17 +1294,15 @@ watch(visibleProperties, (list) => {
   if (isPropertyLoading.value || amenityFilterLoading.value || !list.length)
     return;
 
-  // 디버깅 해야되는데 목록이 너무 길어서 주석처리 좀 할게요...
-  // 그리고 실제 배포할 경우 DB 내부 정보 그대로 보여서
-  // console.table(
-  //   list.map((property) => ({
-  //     propertyId: property.propertyId,
-  //     address: property.address || property.title,
-  //     deposit: property.deposit,
-  //     monthlyRent: property.monthlyRent,
-  //     safetyScore: property.safetyScore,
-  //   })),
-  // );
+  console.table(
+    list.map((property) => ({
+      propertyId: property.propertyId,
+      address: property.address || property.title,
+      deposit: property.deposit,
+      monthlyRent: property.monthlyRent,
+      safetyScore: property.safetyScore,
+    })),
+  );
 });
 // 사이드바 목록 10개씩 무한 동적 스크롤 로딩
 const displayLimit = ref(10);
@@ -1504,16 +1499,16 @@ const loadSafetyRouteForProperty = async (property) => {
     if (response && response.isSupportedDistrict === false) {
       showToast(
         response.message ||
-          '선택하신 매물은 보안등 공공데이터 미구축 자치구로 안전점수 및 경로가 제공되지 않습니다.',
+          '선택하신 자치구는 보안등 공공데이터가 구축되지 않아 안전 점수가 제공되지 않습니다.',
       );
       syncSafetySummaryToProperty(property.propertyId, response);
-      selectedSafetyRoute.value = null;
-      selectedSafetyRouteMeta.value = null;
-      return;
     }
 
     const route = response?.selectedRoute;
     if (!Array.isArray(route?.routePoints) || route.routePoints.length < 2) {
+      if (response && response.isSupportedDistrict === false) {
+        return;
+      }
       throw new Error('안전 경로 좌표가 반환되지 않았습니다.');
     }
 
@@ -2000,6 +1995,48 @@ const isPreviewingIsochrone = computed(() => {
   return activePopoverName.value === 'travel';
 });
 
+// 🎯 현재 내 위치로 지도 카메라 이동 핸들러
+const naverMapRef = ref(null);
+const isLocating = ref(false);
+
+const moveToCurrentLocation = () => {
+  if (!navigator.geolocation) {
+    showAppToast('현재 브라우저에서 위치 정보를 지원하지 않아요.', {
+      type: 'warning',
+      icon: '⚠️',
+    });
+    return;
+  }
+
+  isLocating.value = true;
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      isLocating.value = false;
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+
+      naverMapRef.value?.moveToCoordinates?.(lat, lng, 16);
+      showAppToast('현재 위치로 이동했습니다.', {
+        type: 'success',
+        icon: '📍',
+      });
+    },
+    (error) => {
+      isLocating.value = false;
+      console.warn('Geolocation error:', error);
+      showAppToast('현재 위치를 가져오지 못했어요. 위치 권한을 확인해주세요.', {
+        type: 'warning',
+        icon: '📍',
+      });
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 8000,
+      maximumAge: 10000,
+    },
+  );
+};
+
 // 모바일/데스크톱 하단 사이드바 실시간 마우스 및 터치 드래그 리사이즈 Composable 연결
 const {
   mobilePanelHeight,
@@ -2016,14 +2053,14 @@ const {
   >
     <!-- 1. 매물 탐색 사이드바 (마우스 및 터치 실시간 드래그 지원 / PC: md:flex-row 좌측 고정) -->
     <aside
-      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-visible xl:rounded-none xl:border-t-0 xl:border-r"
+      class="mobile-aside-panel absolute inset-x-0 bottom-0 z-20 flex w-full flex-col overflow-hidden rounded-t-[22px] border-t border-slate-200 bg-white shadow-2xl transition-all ease-out xl:relative xl:inset-auto xl:w-[380px] xl:shrink-0 xl:overflow-hidden xl:rounded-none xl:border-t-0 xl:border-r"
       :class="[
         isDragging ? 'duration-0' : 'duration-300',
         mobilePanelHeight === 'EXPANDED'
-          ? 'h-full xl:h-full'
+          ? 'h-[calc(100%-52px)] xl:h-full xl:max-h-full'
           : mobilePanelHeight === 'COLLAPSED'
-            ? 'h-[36px] xl:h-full'
-            : 'h-1/3 xl:h-full',
+            ? 'h-[36px] xl:h-full xl:max-h-full'
+            : 'h-[28%] max-h-[50%] xl:h-full xl:max-h-full',
       ]"
       :style="dragPixelHeight ? { height: `${dragPixelHeight}px` } : {}"
     >
@@ -2079,7 +2116,7 @@ const {
       <!-- 모바일 [상세 정보] 탭 열림 시: Inline SlidingDoorPanel 노출 -->
       <div
         v-if="mobileSidebarTab === 'detail' && selectedProperty"
-        class="flex-1 overflow-y-auto xl:hidden"
+        class="flex-1 min-h-0 overflow-y-auto xl:hidden"
       >
         <SlidingDoorPanel
           :is-open="true"
@@ -2101,7 +2138,7 @@ const {
 
       <!-- 모바일 [매물 목록] 탭 및 PC 화면일 때: 사이드바 리스트 노출 (PC에서는 상시 flex 노출) -->
       <div
-        class="flex-1 min-h-0 flex flex-col overflow-hidden xl:overflow-visible"
+        class="flex-1 min-h-0 flex flex-col overflow-hidden"
         :class="[
           mobileSidebarTab === 'detail' && selectedProperty
             ? 'hidden xl:flex'
@@ -2110,7 +2147,7 @@ const {
       >
         <!-- 사이드바 상단 헤더 및 5종 정렬 탭 -->
         <div
-          class="p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3 shrink-0"
+          class="relative z-20 p-4 pt-1 pb-1 border-b-0 bg-white space-y-3 xl:space-y-0 xl:pt-3 shrink-0"
         >
           <div
             v-if="isMapAnalysisLoading"
@@ -2199,7 +2236,7 @@ const {
 
         <!-- 사이드바 매물 카드리스트 (10개씩 동적 스크롤) -->
         <div
-          class="property-list-scroll flex-1 overflow-y-auto p-3 space-y-2.5"
+          class="property-list-scroll flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5"
           @scroll="handleListScroll"
         >
           <template v-if="isPropertyLoading">
@@ -2318,6 +2355,7 @@ const {
       </div>
 
       <NaverMap
+        ref="naverMapRef"
         :properties="amenityFilteredProperties"
         :selected-property="selectedProperty"
         :amenities="selectedPropertyAmenities"
@@ -2327,9 +2365,11 @@ const {
         :is-preview-mode="isPreviewingIsochrone"
         :safety-route="selectedSafetyRoute"
         :route-facilities="routeFacilities"
+        :is-locating="isLocating"
         @select-property="handleSelectProperty"
         @change-destination="handleChangeDestination"
         @bounds-change="handleBoundsChange"
+        @locate-me="moveToCurrentLocation"
       />
 
       <Transition name="analysis-loader">
@@ -2372,8 +2412,12 @@ const {
         :visible-count="visibleProperties.length"
         :base-count="baseFilteredProperties.length"
         :total-count="serverTotalCount"
+        :current-page="currentPage"
         :last-loaded-date="lastLoadedDateString"
         :show-all-loaded-toast="showAllLoadedToast"
+        :mobile-panel-height="mobilePanelHeight"
+        :drag-pixel-height="dragPixelHeight"
+        :is-dragging="isDragging"
         @click="handleLoadMoreClick"
       />
 

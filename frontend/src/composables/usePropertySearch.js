@@ -17,6 +17,48 @@ function isEligibleForSafetyCalculation(item) {
 }
 
 /**
+ * 동일 주소 또는 동일 위치 매물의 고속 중복 키를 추출합니다.
+ */
+function normalizeAddressKey(item) {
+  const addr = (item.address || item.title || '').replace(/\s+/g, ' ').trim();
+  // 동 + 지번/건물번호(예: 개포동 1212-3232) 전체가 100% 일치할 때만 동일 매물로 판별
+  if (addr) return addr;
+  return String(item.propertyId);
+}
+
+/**
+ * 중복 주소 매물을 1개의 카드로 통합하고 dealCount를 합산합니다.
+ */
+function mergePropertiesList(baseList, incomingList) {
+  const map = new Map();
+
+  baseList.forEach((item) => {
+    const key = normalizeAddressKey(item);
+    map.set(key, { ...item });
+  });
+
+  incomingList.forEach((item) => {
+    const key = normalizeAddressKey(item);
+    if (map.has(key)) {
+      const existing = map.get(key);
+      const combinedDealCount =
+        (Number(existing.dealCount) || 1) + (Number(item.dealCount) || 1);
+      map.set(key, {
+        ...existing,
+        dealCount: combinedDealCount,
+        thumbnailUrl: existing.thumbnailUrl || item.thumbnailUrl,
+        safetyScore: existing.safetyScore ?? item.safetyScore ?? null,
+        safetyGrade: existing.safetyGrade || item.safetyGrade,
+      });
+    } else {
+      map.set(key, { ...item });
+    }
+  });
+
+  return Array.from(map.values());
+}
+
+/**
  * 백엔드 REST API 매물 조회 및 무한 스크롤 페이징, 대출 상한 계산을 전담 관리하는 Composable입니다.
  */
 export function usePropertySearch() {
@@ -116,6 +158,7 @@ export function usePropertySearch() {
     if (!isAppend) {
       properties.value = [];
       currentPage.value = 1;
+      showAllLoadedToast.value = false;
       if (!isMapMoved?.value && !pendingBounds?.value) {
         clearBoundsFromFilters(appliedFilterState.value);
       }
@@ -172,13 +215,14 @@ export function usePropertySearch() {
         return true;
       });
 
-      properties.value = candidates.map((item) => {
+      const formattedCandidates = candidates.map((item) => {
         const isEligible = isEligibleForSafetyCalculation(item);
         return {
           ...item,
           isSafetyLoading: isEligible && item.safetyScore == null,
         };
       });
+      properties.value = mergePropertiesList([], formattedCandidates);
       updateLastFetchedCenter(centerLat, centerLng);
 
       // 목적지별 안전점수를 백그라운드(non-blocking)로 일괄 준비 및 병합합니다.
@@ -242,6 +286,7 @@ export function usePropertySearch() {
   const loadMoreProperties = async ({ appliedFilterState, destinationConfig, authStore }) => {
     if (isMoreLoading.value || properties.value.length >= serverTotalCount.value) return;
 
+    const prevCount = properties.value.length;
     isMoreLoading.value = true;
     try {
       const nextPage = currentPage.value + 1;
@@ -354,7 +399,11 @@ export function usePropertySearch() {
         }
       }
 
-      if (nextPage * 200 >= serverTotalCount.value || newItems.length === 0) {
+      if (
+        nextPage * 200 >= serverTotalCount.value ||
+        newItems.length === 0 ||
+        properties.value.length === prevCount
+      ) {
         serverTotalCount.value = properties.value.length;
       }
     } catch (error) {

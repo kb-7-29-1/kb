@@ -10,7 +10,8 @@ import {
 } from 'vue';
 import IsochroneOverlay from './IsochroneOverlay.vue';
 import AmenityPin from './AmenityPin.vue';
-import { reverseGeocodeCoord } from '@/utils/geo';
+import CurrentLocationButton from './CurrentLocationButton.vue';
+import { reverseGeocodeCoord, calculateDistanceKm } from '@/utils/geo';
 import {
   getClusteredMarkers,
   renderClusterPinHTML,
@@ -98,12 +99,17 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  isLocating: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits([
   'select-property',
   'change-destination',
   'bounds-change',
+  'locate-me',
 ]);
 
 const mapInstance = shallowRef(null);
@@ -223,29 +229,45 @@ const getSelectedContextFitMargin = () => {
   const { width, height } = mapElement.getBoundingClientRect();
   const isDesktop = window.matchMedia('(min-width: 1280px)').matches;
 
+  // 좌측 상단 안전 피드백 투표 카드/플로팅 컨트롤 높이 및 너비 감지
+  const feedbackCard = document.querySelector('.route-feedback-card');
+  let topLeftExtraTop = 0;
+  let topLeftExtraLeft = 0;
+
+  if (feedbackCard) {
+    const cardRect = feedbackCard.getBoundingClientRect();
+    if (cardRect.height > 0) {
+      topLeftExtraTop = Math.max(0, cardRect.bottom + 20);
+      topLeftExtraLeft = Math.max(0, cardRect.width * 0.35);
+    }
+  }
+
   if (isDesktop) {
-    // PC 우측 상세 패널에 가려지지 않도록 여백 확보
+    // PC 우측 상세 패널과 좌측 상단 투표 카드 사이의 우측-하단 오픈 영역으로 편안하게 안착
     const detailPanel = document.querySelector('.property-detail-panel');
     const panelWidth = detailPanel?.getBoundingClientRect().width ?? 0;
 
     return {
-      // 패널 너비 + 마커·경로가 패널 경계에 닿지 않도록 여백 함께 확보
-      top: 104,
-      right: Math.min(panelWidth + 200, Math.max(200, width * 0.62)),
-      bottom: 64,
-      left: 52,
+      top: Math.max(130, topLeftExtraTop + 15),
+      right: Math.min(panelWidth + 50, Math.max(60, width * 0.38)),
+      bottom: 80,
+      left: Math.max(110, topLeftExtraLeft + 45),
     };
   }
 
-  // 모바일 하단 매물/상세 시트와 헤더에 가리지 않는 범위로 맞춤
+  // 모바일: 하단 바텀시트 위쪽의 가시 영역 중심에 경로와 매물이 알맞은 줌으로 핏
   const mobilePanel = document.querySelector('.mobile-aside-panel');
-  const panelHeight = mobilePanel?.getBoundingClientRect().height ?? height / 3;
+  const panelHeight =
+    mobilePanel?.getBoundingClientRect().height ?? height * 0.45;
+
+  const safeTop = Math.min(88, height * 0.14);
+  const safeBottom = Math.min(panelHeight + 16, height * 0.5);
 
   return {
-    top: 118,
-    right: 24,
-    bottom: Math.min(panelHeight + 20, Math.max(80, height * 0.7)),
-    left: 24,
+    top: safeTop,
+    right: 20,
+    bottom: safeBottom,
+    left: 20,
   };
 };
 
@@ -288,8 +310,41 @@ const fitToSelectedPropertyContext = () => {
   const bounds = new window.naver.maps.LatLngBounds(points[0], points[0]);
   points.slice(1).forEach((point) => bounds.extend(point));
 
+  // 🎯 모바일에서 줌 축소 없이 100px 오프셋 위치로 650ms 동안 부드럽게 비행(Glide)
+  const isMobile = !window.matchMedia('(min-width: 1280px)').matches;
+  let targetBounds = bounds;
+
+  if (isMobile) {
+    const shiftX = +100; // ⬅️ 마이너스(-)면 오른쪽으로 이동, 플러스(+)면 왼쪽으로 이동
+    const shiftY = -50; // ⬇️ 마이너스(-)면 아래쪽으로 이동, 플러스(+)면 위쪽으로 이동
+
+    const centerLat = bounds.getCenter().lat();
+    const currentZoom = mapInstance.value.getZoom() || 15;
+    const earthRadius = 6378137;
+    const metersPerPixel =
+      (156543.03392 * Math.cos((centerLat * Math.PI) / 180)) /
+      Math.pow(2, currentZoom);
+
+    const dLat = ((shiftY * metersPerPixel) / earthRadius) * (180 / Math.PI);
+    const dLng =
+      ((shiftX * metersPerPixel) /
+        (earthRadius * Math.cos((centerLat * Math.PI) / 180))) *
+      (180 / Math.PI);
+
+    targetBounds = new window.naver.maps.LatLngBounds(
+      new window.naver.maps.LatLng(
+        bounds.getMin().lat() - dLat,
+        bounds.getMin().lng() - dLng,
+      ),
+      new window.naver.maps.LatLng(
+        bounds.getMax().lat() - dLat,
+        bounds.getMax().lng() - dLng,
+      ),
+    );
+  }
+
   mapInstance.value.panToBounds(
-    bounds,
+    targetBounds,
     { duration: 650, easing: 'easeOutCubic' },
     getSelectedContextFitMargin(),
   );
@@ -1070,50 +1125,9 @@ const handleMapRightClick = async (e) => {
 
   try {
     const geoResult = await reverseGeocodeCoord(lat, lng);
-    let placeName = geoResult.name;
+    const placeName = geoResult.buildingName || geoResult.name || geoResult.roadAddress || geoResult.jibunAddress;
     const roadOrJibunAddress =
       geoResult.roadAddress || geoResult.jibunAddress || placeName;
-
-    // 0. 우클릭 시 구/행정동 단위 키워드로 백엔드 DB (/api/destinations/search) 0순위 최우선 탐색 호출
-    let dbMatch = null;
-    try {
-      // 주소에서 '구' 또는 '동/로' 추출하여 DB 등록 장소 전체 탐색
-      const guMatch = (placeName || roadOrJibunAddress).match(
-        /([가-휘]+구|[가-휘]+시|[가-휘]+동)/,
-      );
-      const searchKeyword = guMatch ? guMatch[1] : placeName;
-      const dbResults = await onboardingApi.searchDestinations(searchKeyword);
-      if (dbResults && dbResults.length > 0) {
-        dbMatch = findMatchingDestination(
-          placeName,
-          roadOrJibunAddress,
-          dbResults,
-          lat,
-          lng,
-        );
-      }
-    } catch (err) {
-      console.warn(
-        'DB destination search failed, fallback to local/geocode:',
-        err,
-      );
-    }
-
-    // 1. 유저 별칭/최근 목적지(recentList) 1순위 -> 백엔드 DB 장소(dbMatch) 2순위 통합 판단
-    const userId = authStore.user?.userId || authStore.user?.id;
-    const recentList = getRecentDestinations(userId) || [];
-    const matched =
-      findMatchingDestination(
-        placeName,
-        roadOrJibunAddress,
-        recentList,
-        lat,
-        lng,
-      ) || dbMatch;
-
-    if (matched?.destName) {
-      placeName = matched.destName;
-    }
 
     const pendingLatLng = new window.naver.maps.LatLng(lat, lng);
 
@@ -1133,24 +1147,40 @@ const handleMapRightClick = async (e) => {
       zIndex: 250,
     });
 
+    const isMobile =
+      window.innerWidth <= 768 ||
+      window.matchMedia('(pointer: coarse)').matches;
+
+    const resolvedPlaceName =
+      placeName && placeName !== '서울특별시'
+        ? placeName
+        : roadOrJibunAddress && roadOrJibunAddress !== '서울특별시'
+          ? roadOrJibunAddress.replace(/^서울특별시\s*/, '')
+          : '지정한 위치';
+
+    const resolvedAddress =
+      roadOrJibunAddress && roadOrJibunAddress !== '서울특별시'
+        ? roadOrJibunAddress
+        : geoResult.roadAddress || geoResult.jibunAddress || resolvedPlaceName;
+
     const cardContainer = document.createElement('div');
-    cardContainer.className =
-      'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
+    cardContainer.className = isMobile
+      ? 'p-2.5 rounded-xl bg-white/95 backdrop-blur-md shadow-xl border border-blue-200 text-slate-800 text-[11px] w-52 space-y-1.5 pointer-events-auto'
+      : 'p-3.5 rounded-2xl bg-white/95 backdrop-blur-md shadow-2xl border border-blue-200 text-slate-800 text-xs w-68 space-y-2.5 pointer-events-auto';
     cardContainer.innerHTML = `
-      <div class="flex items-center justify-between border-b pb-1.5 border-slate-100">
-        <span class="text-blue-600 font-black text-xs flex items-center gap-1">
+      <div class="flex items-center justify-between border-b pb-1 border-slate-100">
+        <span class="text-blue-600 font-black ${isMobile ? 'text-[11px]' : 'text-xs'} flex items-center gap-1">
           <span>📍</span>
           <span>목적지 변경 안내</span>
         </span>
         <button type="button" class="btn-close flex h-5 w-5 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 text-xs font-bold transition-all">✕</button>
       </div>
       <div>
-        <div class="text-[11px] text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
-        <div class="text-sm font-black text-slate-900 mt-1 break-all leading-snug">${(placeName && placeName !== '서울특별시') ? placeName : (roadOrJibunAddress || '선택한 위치')}</div>
+        <div class="${isMobile ? 'text-[10px]' : 'text-[11px]'} text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
+        <div class="${isMobile ? 'text-xs' : 'text-sm'} font-black text-slate-900 mt-0.5 break-all leading-snug">${resolvedPlaceName}</div>
         ${(() => {
-          const displayTitle = (placeName && placeName !== '서울특별시') ? placeName : (roadOrJibunAddress || '선택한 위치');
-          const normPlace = (displayTitle || '').replace(/\s+/g, ' ').trim();
-          const normAddr = (roadOrJibunAddress || '')
+          const normPlace = (resolvedPlaceName || '').replace(/\s+/g, ' ').trim();
+          const normAddr = (resolvedAddress || '')
             .replace(/\s+/g, ' ')
             .trim();
           if (
@@ -1161,14 +1191,14 @@ const handleMapRightClick = async (e) => {
           ) {
             return '';
           }
-          return `<div class="text-[11px] text-slate-400 font-normal mt-0.5 break-all">${roadOrJibunAddress}</div>`;
+          return `<div class="${isMobile ? 'text-[9.5px]' : 'text-[11px]'} text-slate-400 font-normal mt-0.5 break-all">${resolvedAddress}</div>`;
         })()}
       </div>
       <div class="flex items-center gap-1.5 pt-1">
-        <button type="button" class="btn-confirm flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black py-2 text-xs transition-all shadow-md">
+        <button type="button" class="btn-confirm flex-1 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-black ${isMobile ? 'py-1.5 text-[11px]' : 'py-2 text-xs'} transition-all shadow-md">
           목적지로 지정
         </button>
-        <button type="button" class="btn-cancel px-3 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 font-extrabold py-2 text-xs transition-all">
+        <button type="button" class="btn-cancel px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 font-extrabold ${isMobile ? 'py-1.5 text-[11px]' : 'py-2 text-xs'} transition-all">
           취소
         </button>
       </div>
@@ -1497,6 +1527,48 @@ const moveMapToDestination = () => {
   fitToIsochroneRadius();
   isFarFromDestination.value = false;
 };
+
+// 🎯 현재 내 위치로 카메라 부드럽게 이동 및 펄스 마커 표시
+let currentLocationMarker = null;
+
+const moveToCoordinates = (lat, lng, zoom = 16) => {
+  if (!mapInstance.value || !window.naver?.maps) return;
+  const latLng = new window.naver.maps.LatLng(lat, lng);
+
+  if (typeof mapInstance.value.morph === 'function') {
+    mapInstance.value.morph(latLng, zoom);
+  } else {
+    mapInstance.value.setCenter(latLng);
+    mapInstance.value.setZoom(zoom);
+  }
+
+  // 은은하고 순한 파스텔 연파랑 현재 위치 GPS 마커
+  if (!currentLocationMarker) {
+    currentLocationMarker = new window.naver.maps.Marker({
+      position: latLng,
+      map: mapInstance.value,
+      icon: {
+        content: `
+          <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;">
+            <div style="position: absolute; width: 26px; height: 26px; border-radius: 50%; background: rgba(96, 165, 250, 0.22); border: 1.5px solid rgba(96, 165, 250, 0.45);"></div>
+            <div style="position: absolute; width: 13px; height: 13px; border-radius: 50%; background: #60a5fa; border: 2.5px solid #ffffff; box-shadow: 0 1px 5px rgba(0,0,0,0.18);"></div>
+          </div>
+        `,
+        anchor: new window.naver.maps.Point(14, 14),
+      },
+      zIndex: 1000,
+    });
+  } else {
+    currentLocationMarker.setPosition(latLng);
+    currentLocationMarker.setMap(mapInstance.value);
+  }
+};
+
+defineExpose({
+  mapInstance,
+  moveToCoordinates,
+  moveMapToDestination,
+});
 </script>
 
 <template>
@@ -1531,27 +1603,38 @@ const moveMapToDestination = () => {
       </button>
     </Transition>
 
-    <!-- 4. 지도 줌 오버레이 컨트롤 (z-20) -->
+    <!-- 4. 지도 줌 & 내 위치 오버레이 컨트롤 (z-20) -->
     <div
-      class="absolute right-4 top-4 z-20 flex flex-col gap-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-md"
+      class="absolute right-4 top-4 z-20 flex flex-col items-center gap-2"
     >
-      <button
-        type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
-        title="확대"
-        @click="zoomLevel++"
+      <!-- 확대/축소 버튼 바 -->
+      <div
+        class="flex flex-col gap-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-md"
       >
-        +
-      </button>
-      <div class="h-px bg-slate-200"></div>
-      <button
-        type="button"
-        class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
-        title="축소"
-        @click="zoomLevel--"
-      >
-        -
-      </button>
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
+          title="확대"
+          @click="zoomLevel++"
+        >
+          +
+        </button>
+        <div class="h-px bg-slate-200"></div>
+        <button
+          type="button"
+          class="flex h-8 w-8 items-center justify-center rounded-md bg-transparent text-[16px] font-bold text-[#4058f5] transition-colors hover:bg-[#f8f9ff]"
+          title="축소"
+          @click="zoomLevel--"
+        >
+          -
+        </button>
+      </div>
+
+      <!-- 🎯 내 위치 버튼 (PC +- 바로 아래 / 모바일 우측 끝단 배치) -->
+      <CurrentLocationButton
+        :loading="isLocating"
+        @click="$emit('locate-me')"
+      />
     </div>
   </div>
 </template>

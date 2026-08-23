@@ -24,7 +24,7 @@
             <AppenderRef ref="console"/>
         </Logger>
 
-        <Logger name="jdbc.sqlonly" level="INFO" additivity="false">
+        <Logger name="jdbc.sqlonly" level="WARN" additivity="false">
             <AppenderRef ref="console"/>
         </Logger>
     </Loggers>

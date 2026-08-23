@@ -92,9 +92,9 @@ const handleApply = async () => {
             onboarding?.destination?.destName
           "
           :transport-mode="props.appliedFilters?.transportMode ?? onboarding?.transportMode"
-          :travel-time="props.appliedFilters?.maxTravelTime ?? onboarding?.maxTravelTime"
-          :max-deposit="props.appliedFilters?.budgetDeposit ?? onboarding?.budgetDeposit"
-          :max-rent="props.appliedFilters?.budgetRent ?? onboarding?.budgetRent"
+          :travel-time="props.appliedFilters?.travelTime ?? props.appliedFilters?.maxTravelTime ?? onboarding?.travelTime ?? onboarding?.maxTravelTime"
+          :max-deposit="props.appliedFilters?.maxDeposit ?? props.appliedFilters?.budgetDeposit ?? onboarding?.maxDeposit ?? onboarding?.budgetDeposit"
+          :max-rent="props.appliedFilters?.maxRent ?? props.appliedFilters?.budgetRent ?? onboarding?.maxRent ?? onboarding?.budgetRent"
           :min-safety-score="props.appliedFilters?.minSafetyScore ?? onboarding?.minSafetyScore"
           @close="$emit('close')"
         />
@@ -148,7 +148,7 @@ const handleApply = async () => {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100dvh - var(--map-header-height));
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   background: #fff;

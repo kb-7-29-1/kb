@@ -231,11 +231,12 @@ public class PublicDataSyncService {
     }
 
     /**
-     * 매일 새벽 3시: 서울 전역 25개 자치구 x 최근 3개월 실거래가 매물 자동 배치 동기화
+     * [수동 실행 전용] 서울 전역 25개 자치구 x 최근 3개월 실거래가 매물 자동 배치 동기화
+     * (자동 새벽 실행 OFF 처리 - 필요 시 수동 호출)
      */
-    @Scheduled(cron = "0 0 3 * * *")
+    // @Scheduled(cron = "0 0 3 * * *")
     public void autoSyncDaily() {
-        log.info("Executing scheduled Full Seoul 3-Month Public Data API sync at 03:00 AM...");
+        log.info("Executing manual Full Seoul 3-Month Public Data API sync...");
         syncAllSeoulRecent3Months();
     }
 

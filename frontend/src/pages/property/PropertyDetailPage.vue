@@ -48,7 +48,7 @@ watch(
 
 <style scoped>
 .property-detail-page {
-  min-height: 100dvh;
+  min-height: 100%;
   background: #fff;
 }
 </style>

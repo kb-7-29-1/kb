@@ -1,30 +1,8 @@
-// 보증금 (만원 단위)
+// 보증금 (만원 단위: 100만 ~ 10억, 총 24단계)
 export const DEPOSIT_OPTIONS = [
-  100,
-  200,
-  300,
-  400,
-  500,
-  1000,
-  2000,
-  3000,
-  4000,
-  5000,
-  6000,
-  7000,
-  8000,
-  9000,
-  10000,
-  20000,
-  30000,
-  40000,
-  50000,
-  60000,
-  70000,
-  80000,
-  90000,
-  100000, // 10억
-];
+  1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500,
+  600, 700, 800, 900, 1000,
+].map((v) => v * 100);
 
 export const DEPOSIT_MAX = 100000; // 10억
 export const DEPOSIT_MIN_LABEL = '100만원';
@@ -41,7 +19,8 @@ export const DEFAULT_DEPOSIT = 5000;
 export const DEFAULT_RENT = 100;
 
 export const formatDepositAmount = (amount) => {
-  const value = Number(amount || 0);
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '0원';
 
   if (value >= 10000) {
     const eok = value / 10000;
@@ -53,7 +32,8 @@ export const formatDepositAmount = (amount) => {
 };
 
 export const formatDepositShort = (amount) => {
-  const value = Number(amount || 0);
+  const value = Number(amount);
+  if (!Number.isFinite(value)) return '0만';
 
   if (value >= 10000) {
     const eok = value / 10000;

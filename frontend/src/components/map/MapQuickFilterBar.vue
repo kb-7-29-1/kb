@@ -554,6 +554,7 @@ const handleRentSliderUpdate = (val) => {
   rentValA.value = minR;
   rentValB.value = maxR;
   filters.value.minRent = minR;
+  filters.value.maxRent = maxR;
 };
 
 // @vueform/slider 바인딩용 독립 ref 튜플
@@ -623,21 +624,28 @@ watch(
   () => props.modelValue,
   (newVal) => {
     if (!newVal) return;
-    const minDep = newVal.minDeposit ?? 0;
-    const maxDep = newVal.maxDeposit ?? DEPOSIT_MAX;
-    const minDepIdx = Math.max(
-      0,
-      DEPOSIT_OPTIONS.findIndex((opt) => opt >= minDep),
-    );
-    const maxDepIdx = Math.max(0, DEPOSIT_OPTIONS.indexOf(Number(maxDep)));
-    depositValA.value = minDepIdx >= 0 ? minDepIdx : 0;
-    depositValB.value = maxDepIdx >= 0 ? maxDepIdx : DEPOSIT_OPTIONS.length - 1;
+    const rawMinDep = Number(newVal.minDeposit);
+    const rawMaxDep = Number(newVal.maxDeposit);
+    const minDep = Number.isFinite(rawMinDep) ? rawMinDep : 0;
+    const maxDep = Number.isFinite(rawMaxDep) ? rawMaxDep : DEPOSIT_MAX;
 
-    rentValA.value = newVal.minRent ?? 0;
-    rentValB.value = newVal.maxRent ?? RENT_MAX;
+    let minDepIdx = DEPOSIT_OPTIONS.findIndex((opt) => opt >= minDep);
+    if (minDepIdx < 0) minDepIdx = 0;
+    let maxDepIdx = DEPOSIT_OPTIONS.findIndex((opt) => opt >= maxDep);
+    if (maxDepIdx < 0) maxDepIdx = DEPOSIT_OPTIONS.length - 1;
 
-    travelValA.value = newVal.minTravelTime ?? 10;
-    travelValB.value = newVal.travelTime ?? 15;
+    depositValA.value = minDepIdx;
+    depositValB.value = maxDepIdx;
+
+    const rawMinRent = Number(newVal.minRent);
+    const rawMaxRent = Number(newVal.maxRent);
+    rentValA.value = Number.isFinite(rawMinRent) ? rawMinRent : 0;
+    rentValB.value = Number.isFinite(rawMaxRent) ? rawMaxRent : RENT_MAX;
+
+    const rawMinTravel = Number(newVal.minTravelTime);
+    const rawTravel = Number(newVal.travelTime);
+    travelValA.value = Number.isFinite(rawMinTravel) ? rawMinTravel : 10;
+    travelValB.value = Number.isFinite(rawTravel) ? rawTravel : 15;
   },
   { immediate: true, deep: true },
 );
@@ -751,13 +759,18 @@ const handleRentTrackClick = (e) => {
 
 // 가격 퀵버튼 요약 텍스트 (전세 vs 월세 구분 - order-3 퀵버튼 표시용)
 const priceSummaryText = computed(() => {
-  const {
-    tradeType,
-    minDeposit = 100,
-    maxDeposit = DEPOSIT_MAX,
-    minRent = 0,
-    maxRent = RENT_MAX,
-  } = appliedQuickFilters.value;
+  const qf = appliedQuickFilters.value || {};
+  const tradeType = qf.tradeType || 'MONTHLY';
+
+  const rawMinDep = Number(qf.minDeposit);
+  const rawMaxDep = Number(qf.maxDeposit);
+  const minDeposit = Number.isFinite(rawMinDep) ? rawMinDep : 100;
+  const maxDeposit = Number.isFinite(rawMaxDep) ? rawMaxDep : DEPOSIT_MAX;
+
+  const rawMinRent = Number(qf.minRent);
+  const rawMaxRent = Number(qf.maxRent);
+  const minRent = Number.isFinite(rawMinRent) ? rawMinRent : 0;
+  const maxRent = Number.isFinite(rawMaxRent) ? rawMaxRent : RENT_MAX;
 
   const minDepShort = formatDepositShort(minDeposit);
   const maxDepShort = formatDepositShort(maxDeposit);
@@ -803,8 +816,10 @@ const priceSummaryText = computed(() => {
 
 // 이동시간 퀵버튼 요약 텍스트 (도보/대중교통 단일 시간 이내)
 const travelSummaryText = computed(() => {
-  const time = appliedQuickFilters.value.travelTime ?? 15;
-  if (appliedQuickFilters.value.transportMode === 'WALK') {
+  const qf = appliedQuickFilters.value || {};
+  const rawTime = Number(qf.travelTime);
+  const time = Number.isFinite(rawTime) ? rawTime : 15;
+  if (qf.transportMode === 'WALK') {
     return `🚶 도보: ${time}분 이내`;
   }
   return `🚌 대중교통: ${time}분 이내`;

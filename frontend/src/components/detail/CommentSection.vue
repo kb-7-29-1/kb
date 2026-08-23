@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import CommentList from '@/components/property/CommentList.vue';
 import { usePropertyComments } from '@/composables/usePropertyComments.js';
 import { useAuthStore } from '@/stores/useAuthStore';
+import { useAppToast } from '@/composables/useAppToast.js';
 import TagBadge from '@/components/property/TagBadge.vue';
 
 const props = defineProps({
@@ -19,6 +20,9 @@ const props = defineProps({
 const showCommentList = ref(false);
 const authStore = useAuthStore();
 const isLoggedIn = computed(() => authStore.isLoggedIn);
+const { showToast } = useAppToast();
+const commentToDelete = ref(null);
+
 const {
   comments,
   tags,
@@ -47,9 +51,23 @@ const updateComment = async ({ commentId, content }) => {
   await update(props.propertyId, commentId, content.trim());
 };
 
-const deleteComment = async (commentId) => {
-  if (!isLoggedIn.value || !window.confirm('댓글을 삭제할까요?')) return;
-  await remove(props.propertyId, commentId);
+const deleteComment = (commentId) => {
+  if (!isLoggedIn.value) return;
+  commentToDelete.value = commentId;
+};
+
+const cancelDelete = () => {
+  commentToDelete.value = null;
+};
+
+const confirmDelete = async () => {
+  if (!commentToDelete.value) return;
+  const targetId = commentToDelete.value;
+  commentToDelete.value = null;
+  const success = await remove(props.propertyId, targetId);
+  if (success !== false && !submitError.value) {
+    showToast('댓글이 삭제되었습니다.', { type: 'info', icon: '🗑️' });
+  }
 };
 
 const isDeletedCommentError = computed(
@@ -63,9 +81,10 @@ watch(isDeletedCommentError, (isDeleted) => {
   showDeletedCommentNotice.value = isDeleted;
 
   if (isDeleted) {
+    showToast('이미 삭제된 댓글입니다.', { type: 'warning', icon: '⚠️' });
     deletedNoticeTimer = setTimeout(() => {
       showDeletedCommentNotice.value = false;
-    }, 2000); // 사용자가 인지하기 쉽게 2초 유지
+    }, 2000);
   }
 });
 
@@ -140,6 +159,46 @@ watch(
       </Transition>
     </aside>
   </Transition>
+
+  <!-- 🗑️ 모던 삭제 확인 컨펌 다이얼로그 (Teleport to body) -->
+  <Teleport to="body">
+    <Transition name="confirm-modal">
+      <div
+        v-if="commentToDelete"
+        class="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs"
+        @click="cancelDelete"
+      >
+        <div
+          class="w-full max-w-[280px] rounded-2xl bg-white p-5 text-center shadow-2xl border border-slate-100 space-y-3.5 transform transition-all pointer-events-auto"
+          @click.stop
+        >
+          <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-rose-50 text-rose-500 text-lg">
+            <i class="fa-solid fa-trash-can" aria-hidden="true"></i>
+          </div>
+          <div class="space-y-1">
+            <h3 class="text-sm font-extrabold text-slate-800">댓글을 삭제할까요?</h3>
+            <p class="text-[11px] font-medium text-slate-500">삭제한 댓글은 되돌릴 수 없습니다.</p>
+          </div>
+          <div class="flex items-center gap-2 pt-1">
+            <button
+              type="button"
+              class="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
+              @click="cancelDelete"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              class="flex-1 py-2 rounded-xl text-xs font-bold bg-rose-500 text-white hover:bg-rose-600 shadow-sm shadow-rose-200 transition-colors cursor-pointer"
+              @click="confirmDelete"
+            >
+              삭제
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -314,5 +373,16 @@ watch(
 .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -10px);
+}
+
+.confirm-modal-enter-active,
+.confirm-modal-leave-active {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-modal-enter-from,
+.confirm-modal-leave-to {
+  opacity: 0;
+  transform: scale(0.94);
 }
 </style>

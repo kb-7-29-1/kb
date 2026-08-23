@@ -1,19 +1,14 @@
 <script setup>
 import { useRouter } from 'vue-router';
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 import { ko } from 'date-fns/locale';
 import { checkId, signup } from '@/api/authService.js';
+import { useAppToast } from '@/composables/useAppToast.js';
 
 const router = useRouter();
+const { showToast } = useAppToast();
 
 const form = ref({
   loginId: '',
@@ -34,19 +29,11 @@ const errorMessage = ref('');
 const emailLocal = ref('');
 const emailDomain = ref('');
 const selectedEmailDomain = ref('SELECT');
-const isCustomEmailDomain = computed(
-  () => selectedEmailDomain.value === 'CUSTOM',
-);
+const isCustomEmailDomain = computed(() => selectedEmailDomain.value === 'CUSTOM');
 const customEmailDomainInput = ref(null);
 const isEmailDomainMenuOpen = ref(false);
 const emailDomainMenuRef = ref(null);
-const emailDomainOptions = [
-  'naver.com',
-  'gmail.com',
-  'daum.net',
-  'nate.com',
-  'hanmail.net',
-];
+const emailDomainOptions = ['naver.com', 'gmail.com', 'daum.net', 'nate.com', 'hanmail.net'];
 
 const emailAddress = computed(() => {
   const local = emailLocal.value.trim();
@@ -87,12 +74,8 @@ const closeEmailDomainMenuOnOutsideClick = (event) => {
   }
 };
 
-onMounted(() =>
-  document.addEventListener('click', closeEmailDomainMenuOnOutsideClick),
-);
-onBeforeUnmount(() =>
-  document.removeEventListener('click', closeEmailDomainMenuOnOutsideClick),
-);
+onMounted(() => document.addEventListener('click', closeEmailDomainMenuOnOutsideClick));
+onBeforeUnmount(() => document.removeEventListener('click', closeEmailDomainMenuOnOutsideClick));
 
 const NAME_REGEX = /^[가-힣a-zA-Z\s]{2,20}$/;
 const LOGIN_ID_REGEX = /^[a-zA-Z0-9]{4,20}$/;
@@ -179,12 +162,13 @@ const handleSignup = async () => {
       gender: form.value.gender,
     });
     if (response.data && response.data.success === false) {
-      errorMessage.value =
-        response.data.message || '회원가입 중 오류가 발생했습니다.';
+      errorMessage.value = response.data.message || '회원가입 중 오류가 발생했습니다.';
       return;
     }
-    alert('회원가입이 완료되었습니다.');
-    router.push({ name: 'login' });
+    showToast('회원가입이 완료되었습니다. 로그인해 주세요.', { type: 'success' });
+    setTimeout(() => {
+      router.push({ name: 'login' });
+    }, 600);
   } catch (error) {
     errorMessage.value = '회원가입 중 오류가 발생했습니다.';
     console.log(error);
@@ -193,11 +177,7 @@ const handleSignup = async () => {
 </script>
 
 <template>
-  <form
-    @submit.prevent="handleSignup"
-    class="signup-form flex flex-col gap-4"
-    autocomplete="off"
-  >
+  <form @submit.prevent="handleSignup" class="signup-form flex flex-col gap-4">
     <div>
       <label class="block text-sm text-gray-600 mb-1">아이디</label>
       <i
@@ -211,7 +191,6 @@ const handleSignup = async () => {
           placeholder="ID를 입력하세요"
           class="flex-1 border rounded-lg px-4 py-3"
           maxlength="20"
-          autocomplete="off"
           @input="idChecked = false"
           required
         />
@@ -241,22 +220,15 @@ const handleSignup = async () => {
         placeholder="홍길동"
         class="w-full border rounded-lg px-4 py-3"
         maxlength="20"
-        autocomplete="off"
         required
       />
     </div>
 
     <div class="signup-email-field">
       <label class="block text-sm text-gray-600 mb-1">이메일</label>
-      <i
-        class="signup-field-icon fa-regular fa-envelope"
-        aria-hidden="true"
-      ></i>
+      <i class="signup-field-icon fa-regular fa-envelope" aria-hidden="true"></i>
       <div class="email-input-row">
-        <i
-          class="fa-regular fa-envelope email-envelope-icon"
-          aria-hidden="true"
-        ></i>
+        <i class="fa-regular fa-envelope email-envelope-icon" aria-hidden="true"></i>
         <input
           v-model="emailLocal"
           type="text"
@@ -275,7 +247,6 @@ const handleSignup = async () => {
               v-model="emailDomain"
               type="text"
               inputmode="url"
-              autocomplete="off"
               placeholder="직접 입력"
               class="email-domain-input"
               maxlength="100"
@@ -287,10 +258,7 @@ const handleSignup = async () => {
               aria-label="이메일 도메인 목록 열기"
               @click="toggleEmailDomainMenu"
             >
-              <i
-                class="fa-solid fa-chevron-down email-domain-chevron"
-                aria-hidden="true"
-              ></i>
+              <i class="fa-solid fa-chevron-down email-domain-chevron" aria-hidden="true"></i>
             </button>
           </template>
           <button
@@ -300,9 +268,7 @@ const handleSignup = async () => {
             :aria-expanded="isEmailDomainMenuOpen"
             @click="toggleEmailDomainMenu"
           >
-            {{
-              selectedEmailDomain === 'SELECT' ? '선택' : selectedEmailDomain
-            }}
+            {{ selectedEmailDomain === 'SELECT' ? '선택' : selectedEmailDomain }}
           </button>
           <i
             v-if="!isCustomEmailDomain"
@@ -361,11 +327,7 @@ const handleSignup = async () => {
           <button
             type="button"
             @click="form.gender = 'M'"
-            :class="
-              form.gender === 'M'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-slate-500'
-            "
+            :class="form.gender === 'M' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-slate-500'"
             class="flex flex-1 items-center justify-center gap-1 rounded-lg py-3 text-xs font-semibold"
           >
             남
@@ -373,11 +335,7 @@ const handleSignup = async () => {
           <button
             type="button"
             @click="form.gender = 'F'"
-            :class="
-              form.gender === 'F'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-slate-500'
-            "
+            :class="form.gender === 'F' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-slate-500'"
             class="flex flex-1 items-center justify-center gap-1 rounded-lg py-3 text-xs font-semibold"
           >
             여
@@ -395,7 +353,6 @@ const handleSignup = async () => {
         placeholder="8자 이상"
         class="w-full border rounded-lg px-4 py-3"
         maxlength="100"
-        autocomplete="new-password"
         required
       />
     </div>
@@ -409,7 +366,6 @@ const handleSignup = async () => {
         placeholder="비밀번호를 다시 입력하세요"
         class="w-full border rounded-lg px-4 py-3"
         maxlength="100"
-        autocomplete="new-password"
         required
       />
     </div>
@@ -417,10 +373,7 @@ const handleSignup = async () => {
     <p v-if="errorMessage" class="text-red-500 text-sm">{{ errorMessage }}</p>
 
     <div class="signup-submit-area">
-      <button
-        type="submit"
-        class="w-full bg-indigo-600 text-white rounded-lg py-3 font-semibold"
-      >
+      <button type="submit" class="w-full bg-indigo-600 text-white rounded-lg py-3 font-semibold">
         회원가입 완료
       </button>
     </div>

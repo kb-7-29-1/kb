@@ -78,8 +78,18 @@ const goMyPage = () => {
         <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
         집으로
       </span>
-      <button class="profile-button" type="button" aria-label="마이페이지로 이동" @click="goMyPage">
-        <img v-if="profileImage" :src="profileImage" alt="" class="profile-button-image" />
+      <button
+        class="profile-button"
+        type="button"
+        aria-label="마이페이지로 이동"
+        @click="goMyPage"
+      >
+        <img
+          v-if="profileImage"
+          :src="profileImage"
+          alt=""
+          class="profile-button-image"
+        />
         <i v-else class="fa-solid fa-circle-user" aria-hidden="true"></i>
       </button>
     </header>
@@ -155,8 +165,9 @@ const goMyPage = () => {
   --app-header-height: calc(env(safe-area-inset-top, 0px) + 48px);
   position: relative;
   width: 100%;
-  height: 100dvh;
-  max-height: 100dvh;
+  height: 100%;
+  min-height: 100%;
+  flex: 1;
   overflow: hidden;
   padding-top: var(--app-header-height);
   box-sizing: border-box;

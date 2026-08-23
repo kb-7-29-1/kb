@@ -8,6 +8,11 @@ import { reportFatalError } from './utils/globalError.js';
 import App from './App.vue';
 import router from './router';
 import {useAuthStore} from "@/stores/useAuthStore.js";
+import { showToast } from '@/composables/useAppToast.js';
+
+if (typeof window !== 'undefined') {
+  window.showToast = showToast;
+}
 
 const app = createApp(App);
 app.use(createPinia());

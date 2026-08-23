@@ -40,6 +40,7 @@ const minRentStart = ref(RENT_MIN);
 const maxRent = ref(120);
 const selectedLoanId = ref('NONE');
 const transportMode = ref('walk');
+const walkPace = ref('NORMAL');
 const travelTime = ref(15);
 // 대중교통 도넛 영역의 안쪽 원(최소 이동 시간)은 PC 퀵필터와 동일하게 5분부터 시작합니다.
 const flexTime = ref(5);
@@ -52,9 +53,7 @@ const searchError = ref('');
 const isComposing = ref(false);
 const isSelectingDestination = ref(false);
 const authStore = useAuthStore();
-const currentUserId = computed(
-  () => authStore.user?.userId || authStore.user?.id || 'guest',
-);
+const currentUserId = computed(() => authStore.user?.userId || authStore.user?.id || 'guest');
 const recentDestinations = ref(getRecentDestinations(currentUserId.value));
 let searchTimer;
 let searchRequestId = 0;
@@ -66,17 +65,11 @@ watch(currentUserId, (userId) => {
 });
 
 const saveRecentDestination = (destination) => {
-  recentDestinations.value = saveRecentDestinationGlobal(
-    destination,
-    currentUserId.value,
-  );
+  recentDestinations.value = saveRecentDestinationGlobal(destination, currentUserId.value);
 };
 
 const removeRecentDestination = (destName) => {
-  recentDestinations.value = removeRecentDestinationGlobal(
-    destName,
-    currentUserId.value,
-  );
+  recentDestinations.value = removeRecentDestinationGlobal(destName, currentUserId.value);
 };
 
 const beginDestinationSelection = () => {
@@ -138,8 +131,7 @@ const dualRangeStyle = (minVal, maxVal, min, max, color = '#3b82f6') => {
 const minDeposit = computed(() => depositOptions[depositMinIndex.value]);
 const maxDeposit = computed(() => depositOptions[depositMaxIndex.value]);
 const depositRangeLabel = computed(
-  () =>
-    `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
+  () => `${formatDepositAmount(minDeposit.value)} ~ ${formatDepositAmount(maxDeposit.value)}`,
 );
 const hasMonthly = computed(() => selectedTradeTypes.value.includes('MONTHLY'));
 const hasJeonse = computed(() => selectedTradeTypes.value.includes('JEONSE'));
@@ -147,15 +139,11 @@ const tradeType = computed(() => {
   if (hasMonthly.value && hasJeonse.value) return 'ALL';
   return hasJeonse.value ? 'JEONSE' : 'MONTHLY';
 });
-const rentRangeLabel = computed(
-  () => `${minRentStart.value}만원 ~ ${maxRent.value}만원`,
-);
+const rentRangeLabel = computed(() => `${minRentStart.value}만원 ~ ${maxRent.value}만원`);
 const safetyLabel = computed(() => `${minSafetyScore.value}점`);
 const destinationName = computed(
   () =>
-    selectedDestination.value?.destName ??
-    props.onboarding?.destination?.destName ??
-    '세종대학교',
+    selectedDestination.value?.destName ?? props.onboarding?.destination?.destName ?? '세종대학교',
 );
 
 const selectDestination = (destination) => {
@@ -199,8 +187,7 @@ const scheduleSearch = (value) => {
     } catch (error) {
       if (requestId !== searchRequestId) return;
       searchResults.value = [];
-      searchError.value =
-        '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
+      searchError.value = '목적지를 불러오지 못했어요. 잠시 후 다시 검색해 주세요.';
       console.error('FILTER DESTINATION SEARCH ERROR: ', error);
     } finally {
       if (requestId === searchRequestId) isSearching.value = false;
@@ -264,32 +251,65 @@ watch(
     selectedDestination.value = appliedFilters?.destination ?? null;
 
     const rawMinDep = filters.budgetDepositMin ?? filters.minDeposit;
-    const savedMinIndex = depositOptions.indexOf(Number(rawMinDep));
-    if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
+    const rawMaxDep =
+      filters.budgetDeposit ?? filters.maxDeposit ?? filters.deposit;
+    const minDepVal = Number.isFinite(Number(rawMinDep))
+      ? Number(rawMinDep)
+      : 0;
+    const maxDepVal = Number.isFinite(Number(rawMaxDep))
+      ? Number(rawMaxDep)
+      : 5000;
 
-    const rawMaxDep = filters.budgetDeposit ?? filters.maxDeposit;
-    const savedMaxIndex = depositOptions.indexOf(Number(rawMaxDep));
-    if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
+    let savedMinIndex = depositOptions.indexOf(minDepVal);
+    if (savedMinIndex < 0) {
+      savedMinIndex = Math.max(
+        0,
+        depositOptions.findIndex((opt) => opt >= minDepVal),
+      );
+    }
+    depositMinIndex.value = savedMinIndex >= 0 ? savedMinIndex : 0;
+
+    let savedMaxIndex = depositOptions.indexOf(maxDepVal);
+    if (savedMaxIndex < 0) {
+      savedMaxIndex = Math.max(
+        0,
+        depositOptions.findIndex((opt) => opt >= maxDepVal),
+      );
+    }
+    depositMaxIndex.value =
+      savedMaxIndex >= 0 ? savedMaxIndex : depositOptions.length - 1;
 
     const rawMinRent = filters.budgetRentMin ?? filters.minRent ?? RENT_MIN;
-    minRentStart.value = Number(rawMinRent) || 0;
-
-    const rawMaxRent = filters.budgetRent ?? filters.maxRent ?? RENT_MAX;
-    maxRent.value = Number(rawMaxRent) || 0;
+    const rawMaxRent =
+      filters.budgetRent ?? filters.maxRent ?? filters.monthlyRent ?? 100;
+    minRentStart.value = Number.isFinite(Number(rawMinRent))
+      ? Number(rawMinRent)
+      : RENT_MIN;
+    maxRent.value = Number.isFinite(Number(rawMaxRent))
+      ? Number(rawMaxRent)
+      : 100;
 
     syncSelectedTradeTypes(
-      filters.tradeType ??
-        (Number(rawMaxRent) === 0 ? 'JEONSE' : 'MONTHLY'),
+      filters.tradeType ?? (maxRent.value === 0 ? 'JEONSE' : 'MONTHLY'),
     );
-    minSafetyScore.value = Number(filters.minSafetyScore) || 0;
-    transportMode.value =
-      filters.transportMode === 'TRANSIT' ? 'transit' : 'walk';
+
+    const rawSafety = filters.minSafetyScore ?? filters.safetyScore;
+    minSafetyScore.value = Number.isFinite(Number(rawSafety))
+      ? Number(rawSafety)
+      : 0;
+
+    const rawMode = String(
+      filters.transportMode || filters.transport || 'walk',
+    ).toUpperCase();
+    transportMode.value = rawMode.includes('TRANSIT') ? 'transit' : 'walk';
 
     const rawTravel = filters.maxTravelTime ?? filters.travelTime ?? 15;
-    travelTime.value = Number(rawTravel) || 15;
+    travelTime.value = Number.isFinite(Number(rawTravel))
+      ? Number(rawTravel)
+      : 15;
 
-    const rawFlex = filters.minTravelTime ?? filters.flexTime ?? 5;
-    flexTime.value = normalizeTransitMinTime(rawFlex, travelTime.value);
+    const rawMinTravel = filters.minTravelTime ?? filters.flexTime ?? 5;
+    flexTime.value = normalizeTransitMinTime(rawMinTravel, travelTime.value);
   },
   { immediate: true, deep: true },
 );
@@ -305,43 +325,54 @@ const resetFilters = () => {
   if (!onboarding) return;
 
   const rawMinDep = onboarding.budgetDepositMin ?? onboarding.minDeposit;
-  const savedMinIndex = depositOptions.indexOf(Number(rawMinDep));
-  if (savedMinIndex >= 0) depositMinIndex.value = savedMinIndex;
-  else depositMinIndex.value = 0;
+  const rawMaxDep =
+    onboarding.budgetDeposit ?? onboarding.maxDeposit ?? onboarding.deposit;
+  const minDepVal = Number.isFinite(Number(rawMinDep))
+    ? Number(rawMinDep)
+    : 0;
+  const maxDepVal = Number.isFinite(Number(rawMaxDep))
+    ? Number(rawMaxDep)
+    : 5000;
 
-  const rawMaxDep = onboarding.budgetDeposit ?? onboarding.maxDeposit;
-  const savedMaxIndex = depositOptions.indexOf(Number(rawMaxDep));
-  if (savedMaxIndex >= 0) depositMaxIndex.value = savedMaxIndex;
+  let savedMinIndex = depositOptions.indexOf(minDepVal);
+  if (savedMinIndex < 0) {
+    savedMinIndex = Math.max(
+      0,
+      depositOptions.findIndex((opt) => opt >= minDepVal),
+    );
+  }
+  depositMinIndex.value = savedMinIndex >= 0 ? savedMinIndex : 0;
+
+  let savedMaxIndex = depositOptions.indexOf(maxDepVal);
+  if (savedMaxIndex < 0) {
+    savedMaxIndex = Math.max(
+      0,
+      depositOptions.findIndex((opt) => opt >= maxDepVal),
+    );
+  }
+  depositMaxIndex.value =
+    savedMaxIndex >= 0 ? savedMaxIndex : depositOptions.length - 1;
 
   const rawMinRent = onboarding.budgetRentMin ?? onboarding.minRent ?? RENT_MIN;
-  minRentStart.value = Number(rawMinRent) || 0;
-
-  const rawMaxRent = onboarding.budgetRent ?? onboarding.maxRent ?? RENT_MAX;
-  maxRent.value = Number(rawMaxRent) || 0;
+  const rawMaxRent =
+    onboarding.budgetRent ?? onboarding.maxRent ?? onboarding.monthlyRent ?? 100;
+  minRentStart.value = Number.isFinite(Number(rawMinRent))
+    ? Number(rawMinRent)
+    : RENT_MIN;
+  maxRent.value = Number.isFinite(Number(rawMaxRent))
+    ? Number(rawMaxRent)
+    : 100;
 
   syncSelectedTradeTypes(
-    onboarding.tradeType ??
-      (Number(rawMaxRent) === 0 ? 'JEONSE' : 'MONTHLY'),
+    onboarding.tradeType ?? (maxRent.value === 0 ? 'JEONSE' : 'MONTHLY'),
   );
-  minSafetyScore.value = Number(onboarding.minSafetyScore) || 0;
-  transportMode.value =
-    onboarding.transportMode === 'TRANSIT' ? 'transit' : 'walk';
-
-  const rawTravel = onboarding.maxTravelTime ?? onboarding.travelTime ?? 15;
-  travelTime.value = Number(rawTravel) || 15;
-
-  const rawFlex = onboarding.minTravelTime ?? onboarding.flexTime ?? 5;
-  flexTime.value = normalizeTransitMinTime(rawFlex, travelTime.value);
-
-  if (onboarding.selectedLoanId)
-    selectedLoanId.value = onboarding.selectedLoanId;
 };
 
 const getFilters = () => ({
-  destination:
-    selectedDestination.value ?? props.onboarding?.destination ?? null,
+  destination: selectedDestination.value ?? props.onboarding?.destination ?? null,
   selectedDestination: selectedDestination.value,
   transportMode: transportMode.value.toUpperCase(),
+  walkPace: walkPace.value,
   maxTravelTime: travelTime.value,
   minTravelTime: transportMode.value === 'transit' ? flexTime.value : 0,
   flexTime: transportMode.value === 'transit' ? flexTime.value : 0,
@@ -392,17 +423,12 @@ onBeforeUnmount(() => {
         </button>
       </label>
       <div
-        v-if="
-          recentDestinations.length && !searchKeyword.trim() && !isSearching
-        "
+        v-if="recentDestinations.length && !searchKeyword.trim() && !isSearching"
         class="recent-destination-section"
       >
         <p class="recent-destination-title">🕒 최근 검색 목적지</p>
         <ul class="recent-destination-list">
-          <li
-            v-for="item in recentDestinations.slice(0, 3)"
-            :key="item.destName"
-          >
+          <li v-for="item in recentDestinations.slice(0, 3)" :key="item.destName">
             <button
               type="button"
               class="recent-destination-item"
@@ -440,14 +466,8 @@ onBeforeUnmount(() => {
         검색 결과가 없어요.
       </p>
       <ul v-if="searchResults.length" class="search-result-list">
-        <li
-          v-for="item in searchResults"
-          :key="`${item.destName}-${item.destAddress}`"
-        >
-          <button
-            type="button"
-            @pointerdown.capture.prevent="selectDestination(item)"
-          >
+        <li v-for="item in searchResults" :key="`${item.destName}-${item.destAddress}`">
+          <button type="button" @pointerdown.capture.prevent="selectDestination(item)">
             <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
             <span>
               <strong>{{ item.destName }}</strong>
@@ -471,7 +491,7 @@ onBeforeUnmount(() => {
         type="range"
         min="0"
         max="90"
-        step="1"
+        step="10"
         :style="rangeStyle(minSafetyScore, 0, 90)"
       />
       <div class="range-labels"><span>0점</span><span>90점</span></div>
@@ -487,18 +507,10 @@ onBeforeUnmount(() => {
         <span>월세·전세 중복 선택 가능</span>
       </p>
       <div class="transport-options">
-        <button
-          type="button"
-          :class="{ active: hasMonthly }"
-          @click="toggleTradeType('MONTHLY')"
-        >
+        <button type="button" :class="{ active: hasMonthly }" @click="toggleTradeType('MONTHLY')">
           <span>🏠</span> 월세
         </button>
-        <button
-          type="button"
-          :class="{ active: hasJeonse }"
-          @click="toggleTradeType('JEONSE')"
-        >
+        <button type="button" :class="{ active: hasJeonse }" @click="toggleTradeType('JEONSE')">
           <span>🏢</span> 전세
         </button>
       </div>
@@ -512,14 +524,7 @@ onBeforeUnmount(() => {
       <div class="dual-range-track">
         <div
           class="dual-range-track__fill"
-          :style="
-            dualRangeStyle(
-              depositMinIndex,
-              depositMaxIndex,
-              0,
-              depositOptions.length - 1,
-            )
-          "
+          :style="dualRangeStyle(depositMinIndex, depositMaxIndex, 0, depositOptions.length - 1)"
         ></div>
         <input
           v-model.number="depositMinIndex"
@@ -588,8 +593,7 @@ onBeforeUnmount(() => {
         <p>
           시간
           <strong
-            >{{ transportMode === 'walk' ? '도보' : '대중교통' }}
-            {{ travelTime }}분 이내</strong
+            >{{ transportMode === 'walk' ? '도보' : '대중교통' }} {{ travelTime }}분 이내</strong
           >
         </p>
       </div>
@@ -640,15 +644,53 @@ onBeforeUnmount(() => {
               transportMode === 'walk' ? 40 : 60,
             )
           "
-          @input="
-            if (transportMode === 'transit' && flexTime > travelTime)
-              flexTime = travelTime;
-          "
+          @input="if (transportMode === 'transit' && flexTime > travelTime) flexTime = travelTime;"
         />
         <div class="range-labels">
           <span>{{ transportMode === 'walk' ? '5분' : '15분' }}</span
           ><span>{{ transportMode === 'walk' ? '40분' : '60분' }}</span>
         </div>
+      </div>
+
+      <!-- 🚶‍♂️ [도보 모드]: 걸음 속도 선택 -->
+      <div v-if="transportMode === 'walk'" class="space-y-2 pt-1">
+        <div class="flex justify-between text-xs font-bold text-slate-800">
+          <span>🚶‍♂️ 걸음 속도</span>
+          <span class="text-blue-600 font-extrabold text-xs">
+            {{
+              walkPace === 'SLOW'
+                ? '천천히 (약 3.5km/h)'
+                : walkPace === 'FAST'
+                  ? '빠른 걸음 (약 5.5km/h)'
+                  : '보통 걸음 (약 4.5km/h)'
+            }}
+          </span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
+          <button
+            v-for="pace in [
+              { key: 'SLOW', label: '🐢 천천히' },
+              { key: 'NORMAL', label: '🚶 보통' },
+              { key: 'FAST', label: '🏃 빠르게' },
+            ]"
+            :key="pace.key"
+            type="button"
+            class="py-1.5 rounded-lg text-xs font-bold transition-all text-center"
+            :class="
+              walkPace === pace.key
+                ? 'bg-white text-blue-600 shadow-sm font-black'
+                : 'text-slate-500 hover:text-slate-800'
+            "
+            @click="walkPace = pace.key"
+          >
+            {{ pace.label }}
+          </button>
+        </div>
+        <p
+          class="text-[11px] text-slate-400 font-medium leading-normal bg-slate-50 p-2 rounded-lg border border-slate-100"
+        >
+          * 선택한 걸음 속도에 따라 도달 가능 범위가 자동 계산됩니다.
+        </p>
       </div>
 
       <div v-if="transportMode === 'transit'" class="flex-time-control">

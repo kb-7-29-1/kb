@@ -9,9 +9,11 @@ import BookmarkList from '@/components/mypage/BookmarkList.vue';
 import MyCommentList from '@/components/mypage/MyCommentList.vue';
 import OnboardingPanel from '@/components/mypage/OnboardingPanel.vue';
 import { getOnboardingStorageKeys } from '@/utils/onboardingStorage';
+import { useAppToast } from '@/composables/useAppToast.js';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { showToast } = useAppToast();
 
 // --- 온보딩 ---
 const onboarding = ref(null);
@@ -25,7 +27,9 @@ const formatAmount = (amount) => {
 
   if (!Number.isFinite(value)) return '설정 정보 없음';
   if (value >= 10000)
-    return value % 10000 === 0 ? `${value / 10000}억원 이하` : `${value.toLocaleString()}만원 이하`;
+    return value % 10000 === 0
+      ? `${value / 10000}억원 이하`
+      : `${value.toLocaleString()}만원 이하`;
 
   return `${value.toLocaleString()}만원 이하`;
 };
@@ -34,33 +38,50 @@ const destination = computed(() => {
   if (!onboarding.value) return '설정 정보 없음';
   const dest = onboarding.value.destination;
   if (typeof dest === 'object' && dest !== null) {
-    return dest.destName || dest.name || dest.destinationName || '설정 정보 없음';
+    return (
+      dest.destName || dest.name || dest.destinationName || '설정 정보 없음'
+    );
   }
-  return dest || onboarding.value.destinationName || onboarding.value.destName || '설정 정보 없음';
+  return (
+    dest ||
+    onboarding.value.destinationName ||
+    onboarding.value.destName ||
+    '설정 정보 없음'
+  );
 });
 
 const transport = computed(() => {
   if (!onboarding.value) return '설정 정보 없음';
 
-  const travelTime = onboarding.value.maxTravelTime ?? onboarding.value.travelTime;
-  if (travelTime === undefined || travelTime === null || !Number.isFinite(Number(travelTime))) {
+  const travelTime =
+    onboarding.value.maxTravelTime ?? onboarding.value.travelTime;
+  if (
+    travelTime === undefined ||
+    travelTime === null ||
+    !Number.isFinite(Number(travelTime))
+  ) {
     return '설정 정보 없음';
   }
 
   const mode = onboarding.value.transportMode || onboarding.value.transport;
-  const label = mode && String(mode).toUpperCase().includes('WALK') ? '도보' : '대중교통';
+  const label =
+    mode && String(mode).toUpperCase().includes('WALK') ? '도보' : '대중교통';
   return `${label} (최대 ${travelTime}분)`;
 });
 
 const deposit = computed(() => {
   const dep =
-    onboarding.value?.budgetDeposit ?? onboarding.value?.maxDeposit ?? onboarding.value?.deposit;
+    onboarding.value?.budgetDeposit ??
+    onboarding.value?.maxDeposit ??
+    onboarding.value?.deposit;
   return formatAmount(dep);
 });
 
 const rent = computed(() => {
   const rawRent =
-    onboarding.value?.budgetRent ?? onboarding.value?.maxRent ?? onboarding.value?.monthlyRent;
+    onboarding.value?.budgetRent ??
+    onboarding.value?.maxRent ??
+    onboarding.value?.monthlyRent;
   const value = Number(rawRent);
   if (!Number.isFinite(value)) return '설정 정보 없음';
   return value === 0 ? '전세' : `${value.toLocaleString()}만원 이하`;
@@ -82,8 +103,12 @@ const loadOnboarding = async () => {
   let saved = null;
   try {
     const storageKeys = getOnboardingStorageKeys(authStore.user);
-    const localResult = storageKeys ? localStorage.getItem(storageKeys.result) : null;
-    const localDraft = storageKeys ? localStorage.getItem(storageKeys.draft) : null;
+    const localResult = storageKeys
+      ? localStorage.getItem(storageKeys.result)
+      : null;
+    const localDraft = storageKeys
+      ? localStorage.getItem(storageKeys.draft)
+      : null;
     if (localResult) {
       saved = JSON.parse(localResult);
     } else if (localDraft) {
@@ -95,7 +120,11 @@ const loadOnboarding = async () => {
 
   try {
     const apiData = await onboardingApi.getOnboarding();
-    if (apiData && typeof apiData === 'object' && Object.keys(apiData).length > 0) {
+    if (
+      apiData &&
+      typeof apiData === 'object' &&
+      Object.keys(apiData).length > 0
+    ) {
       saved = { ...saved, ...apiData };
     }
   } catch (error) {
@@ -142,24 +171,38 @@ const openBookmarkDetail = (property) => {
 
 // --- 비밀번호 변경 ---
 const showPasswordModal = ref(false);
-const passwordForm = ref({ currentPassword: '', newPassword: '', newPasswordConfirm: '' });
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  newPasswordConfirm: '',
+});
 const passwordError = ref('');
 
 const openPasswordModal = () => {
-  passwordForm.value = { currentPassword: '', newPassword: '', newPasswordConfirm: '' };
+  passwordForm.value = {
+    currentPassword: '',
+    newPassword: '',
+    newPasswordConfirm: '',
+  };
   passwordError.value = '';
   showPasswordModal.value = true;
 };
 
 const closePasswordModal = () => {
   showPasswordModal.value = false;
-  passwordForm.value = { currentPassword: '', newPassword: '', newPasswordConfirm: '' };
+  passwordForm.value = {
+    currentPassword: '',
+    newPassword: '',
+    newPasswordConfirm: '',
+  };
   passwordError.value = '';
 };
 
 const handleChangePassword = async () => {
   passwordError.value = '';
-  if (passwordForm.value.newPassword !== passwordForm.value.newPasswordConfirm) {
+  if (
+    passwordForm.value.newPassword !== passwordForm.value.newPasswordConfirm
+  ) {
     passwordError.value = '새 비밀번호가 일치하지 않습니다.';
     return;
   }
@@ -169,10 +212,11 @@ const handleChangePassword = async () => {
       newPassword: passwordForm.value.newPassword,
     });
     if (response.data && response.data.success === false) {
-      passwordError.value = response.data.message || '현재 비밀번호가 일치하지 않습니다.';
+      passwordError.value =
+        response.data.message || '현재 비밀번호가 일치하지 않습니다.';
       return;
     }
-    alert('비밀번호가 변경되었습니다.');
+    showToast('비밀번호가 안전하게 변경되었습니다.', { type: 'success' });
     closePasswordModal();
   } catch (error) {
     passwordError.value = '현재 비밀번호가 일치하지 않습니다.';
@@ -180,7 +224,26 @@ const handleChangePassword = async () => {
 };
 
 // --- 로그아웃 / 탈퇴 ---
-const handleLogout = () => {
+// ⚙️ 로그아웃 확인 모달 ON/OFF 스위치 (true: 확인 모달창 띄움, false: 즉시 로그아웃)
+const USE_LOGOUT_CONFIRM_MODAL = false;
+
+const showLogoutModal = ref(false);
+
+const openLogoutModal = () => {
+  if (!USE_LOGOUT_CONFIRM_MODAL) {
+    // OFF 상태: 확인창 없이 즉시 로그아웃 수행
+    confirmLogout();
+    return;
+  }
+  showLogoutModal.value = true;
+};
+
+const closeLogoutModal = () => {
+  showLogoutModal.value = false;
+};
+
+const confirmLogout = () => {
+  showLogoutModal.value = false;
   authStore.logout();
   router.push({ name: 'login' });
 };
@@ -206,7 +269,8 @@ const handleWithdraw = async () => {
   try {
     const response = await withdraw(withdrawPassword.value);
     if (response.data && response.data.success === false) {
-      withdrawError.value = response.data.message || '비밀번호가 일치하지 않습니다.';
+      withdrawError.value =
+        response.data.message || '비밀번호가 일치하지 않습니다.';
       return;
     }
     authStore.logout();
@@ -223,11 +287,17 @@ onMounted(loadOnboarding);
   <div
     class="mypage-page"
     :class="{
-      'mypage-page--leaving': isMovingToOnboarding || isOpeningBookmark || isReturningToMap,
+      'mypage-page--leaving':
+        isMovingToOnboarding || isOpeningBookmark || isReturningToMap,
     }"
   >
     <header class="mypage-header">
-      <button type="button" class="mypage-back-button" aria-label="지도로 돌아가기" @click="goHome">
+      <button
+        type="button"
+        class="mypage-back-button"
+        aria-label="지도로 돌아가기"
+        @click="goHome"
+      >
         <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
         <span class="mypage-back-label">지도 화면으로</span>
       </button>
@@ -237,12 +307,20 @@ onMounted(loadOnboarding);
     <main class="mypage-content">
       <ProfileCard />
 
-      <section v-if="isOnboardingLoading" class="onboarding-panel-skeleton" aria-busy="true">
+      <section
+        v-if="isOnboardingLoading"
+        class="onboarding-panel-skeleton"
+        aria-busy="true"
+      >
         <div class="skeleton-row skeleton-row--heading">
           <span class="skeleton-block skeleton-title"></span>
           <span class="skeleton-block skeleton-edit"></span>
         </div>
-        <div v-for="index in 5" :key="index" class="skeleton-row skeleton-row--condition">
+        <div
+          v-for="index in 5"
+          :key="index"
+          class="skeleton-row skeleton-row--condition"
+        >
           <span class="skeleton-block skeleton-icon"></span>
           <span class="skeleton-block skeleton-label"></span>
           <span class="skeleton-block skeleton-value"></span>
@@ -272,14 +350,20 @@ onMounted(loadOnboarding);
             <i class="fa-solid fa-lock"></i>
           </span>
           <span>비밀번호 변경</span>
-          <i class="fa-solid fa-chevron-right account-action__chevron" aria-hidden="true"></i>
+          <i
+            class="fa-solid fa-chevron-right account-action__chevron"
+            aria-hidden="true"
+          ></i>
         </button>
-        <button type="button" class="account-action" @click="handleLogout">
+        <button type="button" class="account-action" @click="openLogoutModal">
           <span class="account-action__icon" aria-hidden="true">
             <i class="fa-solid fa-right-from-bracket"></i>
           </span>
           <span>로그아웃</span>
-          <i class="fa-solid fa-chevron-right account-action__chevron" aria-hidden="true"></i>
+          <i
+            class="fa-solid fa-chevron-right account-action__chevron"
+            aria-hidden="true"
+          ></i>
         </button>
         <button
           type="button"
@@ -290,7 +374,10 @@ onMounted(loadOnboarding);
             <i class="fa-regular fa-trash-can"></i>
           </span>
           <span>회원 탈퇴</span>
-          <i class="fa-solid fa-chevron-right account-action__chevron" aria-hidden="true"></i>
+          <i
+            class="fa-solid fa-chevron-right account-action__chevron"
+            aria-hidden="true"
+          ></i>
         </button>
       </section>
     </main>
@@ -344,13 +431,70 @@ onMounted(loadOnboarding);
             class="account-modal-input"
             placeholder="새 비밀번호를 다시 입력해 주세요"
           />
-          <p v-if="passwordError" class="account-modal-error">{{ passwordError }}</p>
+          <p v-if="passwordError" class="account-modal-error">
+            {{ passwordError }}
+          </p>
           <div class="account-modal-actions">
-            <button type="button" class="account-cancel-button" @click="closePasswordModal">
+            <button
+              type="button"
+              class="account-cancel-button"
+              @click="closePasswordModal"
+            >
               취소
             </button>
-            <button type="button" class="account-primary-button" @click="handleChangePassword">
+            <button
+              type="button"
+              class="account-primary-button"
+              @click="handleChangePassword"
+            >
               변경하기
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <Transition name="account-modal">
+      <div v-if="showLogoutModal" class="account-modal-overlay">
+        <div
+          class="account-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="logout-modal-title"
+        >
+          <div class="account-modal-heading">
+            <h3 id="logout-modal-title">
+              <span class="account-modal-icon" aria-hidden="true">
+                <i class="fa-solid fa-right-from-bracket"></i>
+              </span>
+              로그아웃
+            </h3>
+            <button
+              type="button"
+              class="account-modal-close"
+              aria-label="닫기"
+              @click="closeLogoutModal"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="account-modal-description">
+            정말 로그아웃 하시겠습니까?
+          </p>
+          <div class="account-modal-actions">
+            <button
+              type="button"
+              class="account-cancel-button"
+              @click="closeLogoutModal"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              class="account-primary-button"
+              @click="confirmLogout"
+            >
+              로그아웃
             </button>
           </div>
         </div>
@@ -367,7 +511,10 @@ onMounted(loadOnboarding);
         >
           <div class="account-modal-heading">
             <h3 id="withdraw-modal-title">
-              <span class="account-modal-icon account-modal-icon--danger" aria-hidden="true">
+              <span
+                class="account-modal-icon account-modal-icon--danger"
+                aria-hidden="true"
+              >
                 <i class="fa-regular fa-trash-can"></i>
               </span>
               회원 탈퇴
@@ -381,7 +528,9 @@ onMounted(loadOnboarding);
               <i class="fa-solid fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
-          <p class="account-modal-description">탈퇴를 진행하려면 현재 비밀번호를 입력해 주세요.</p>
+          <p class="account-modal-description">
+            탈퇴를 진행하려면 현재 비밀번호를 입력해 주세요.
+          </p>
           <label class="account-modal-label">현재 비밀번호</label>
           <input
             v-model="withdrawPassword"
@@ -389,12 +538,22 @@ onMounted(loadOnboarding);
             class="account-modal-input"
             placeholder="현재 비밀번호를 입력해 주세요"
           />
-          <p v-if="withdrawError" class="account-modal-error">{{ withdrawError }}</p>
+          <p v-if="withdrawError" class="account-modal-error">
+            {{ withdrawError }}
+          </p>
           <div class="account-modal-actions">
-            <button type="button" class="account-cancel-button" @click="closeWithdrawModal">
+            <button
+              type="button"
+              class="account-cancel-button"
+              @click="closeWithdrawModal"
+            >
               취소
             </button>
-            <button type="button" class="account-danger-button" @click="handleWithdraw">
+            <button
+              type="button"
+              class="account-danger-button"
+              @click="handleWithdraw"
+            >
               탈퇴하기
             </button>
           </div>
@@ -408,7 +567,7 @@ onMounted(loadOnboarding);
 .mypage-page {
   box-sizing: border-box;
   width: 100%;
-  height: 100dvh;
+  height: 100%;
   max-width: 28rem;
   margin: 0 auto;
   overflow: hidden;
@@ -821,35 +980,37 @@ onMounted(loadOnboarding);
 }
 
 @media (min-width: 768px) {
-  :global(html),
-  :global(body),
-  :global(#app) {
-    height: auto;
-    min-height: 100%;
-    overflow-y: auto;
-  }
-
   .mypage-page {
-    width: min(100%, 720px);
-    height: auto;
-    min-height: 100dvh;
-    max-height: none;
-    max-width: 720px;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+    min-height: 100%;
+    max-height: 100%;
+    margin: 0;
     padding: 0;
     background: #f8fafc;
     box-shadow: none;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
   }
 
   .mypage-header {
+    width: min(100%, 720px);
+    max-width: 720px;
     height: 56px;
     padding: 0 28px;
-    margin: 0;
+    margin: 0 auto;
     border: 0;
     background: transparent;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    box-sizing: border-box;
+    flex-shrink: 0;
   }
 
   .mypage-header h1 {
@@ -878,12 +1039,15 @@ onMounted(loadOnboarding);
   }
 
   .mypage-content {
+    width: min(100%, 720px);
+    max-width: 720px;
+    margin: 0 auto;
     flex: 1 0 auto;
-    min-height: calc(100dvh - 56px);
     overflow: visible;
     justify-content: flex-start;
     gap: 18px;
     padding: 16px 28px 48px;
+    box-sizing: border-box;
   }
 }
 
@@ -895,7 +1059,6 @@ onMounted(loadOnboarding);
 
   .mypage-content {
     justify-content: flex-start;
-    min-height: calc(100dvh - 52px);
     padding-top: 12px;
   }
 }

@@ -56,62 +56,37 @@ export const reverseGeocodeCoord = (lat, lng) => {
         let buildingName = '';
         let roadAddress = v2.address?.roadAddress || '';
         let jibunAddress = v2.address?.jibunAddress || '';
-        let detailedAddress = '';
 
         if (v2.results && Array.isArray(v2.results)) {
           for (const item of v2.results) {
-            const area1 = item.region?.area1?.name || '';
-            const area2 = item.region?.area2?.name || '';
-            const area3 = item.region?.area3?.name || '';
-            const landNumber = item.land?.number1
-              ? item.land.number2
-                ? `${item.land.number1}-${item.land.number2}`
-                : item.land.number1
-              : '';
-            const roadName = item.land?.name || '';
-            const bName =
-              item.land?.addition0?.value ||
-              item.land?.buildingName ||
-              '';
-
-            if (bName && !buildingName) {
-              buildingName = bName.trim();
-            }
-
-            if (item.name === 'roadaddr' && area2 && roadName) {
-              roadAddress = `${area1} ${area2} ${roadName} ${landNumber}`.replace(/\s+/g, ' ').trim();
-            } else if (item.name === 'addr' && area2 && area3) {
-              jibunAddress = `${area1} ${area2} ${area3} ${landNumber}`.replace(/\s+/g, ' ').trim();
-            }
-
-            if (!detailedAddress && (area2 || area3)) {
-              detailedAddress = [area2, area3, roadName || landNumber]
-                .filter(Boolean)
-                .join(' ')
-                .trim();
+            if (item?.land?.buildingName) {
+              buildingName = String(item.land.buildingName).trim();
+              if (buildingName) break;
             }
           }
         }
 
+
+        // 1순위: 건물명/장소명 > 2순위: 도로명 주소 > 3순위: 지번 주소 > 4순위: 좌표
         let displayName = buildingName;
         if (!displayName) {
           if (roadAddress && roadAddress !== '서울특별시') {
-            displayName = roadAddress;
+            displayName = roadAddress.replace(/^서울특별시\s*/, '');
           } else if (jibunAddress && jibunAddress !== '서울특별시') {
-            displayName = jibunAddress;
-          } else if (detailedAddress) {
-            displayName = detailedAddress;
+            displayName = jibunAddress.replace(/^서울특별시\s*/, '');
           } else {
             displayName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
           }
         }
 
-        if (displayName === '서울특별시' && detailedAddress) {
-          displayName = detailedAddress;
-        }
-
-        const finalRoad = roadAddress && roadAddress !== '서울특별시' ? roadAddress : (jibunAddress || displayName);
-        const finalJibun = jibunAddress && jibunAddress !== '서울특별시' ? jibunAddress : (roadAddress || displayName);
+        const finalRoad =
+          roadAddress && roadAddress !== '서울특별시'
+            ? roadAddress
+            : jibunAddress || displayName;
+        const finalJibun =
+          jibunAddress && jibunAddress !== '서울특별시'
+            ? jibunAddress
+            : roadAddress || displayName;
 
         resolve({
           name: displayName,
