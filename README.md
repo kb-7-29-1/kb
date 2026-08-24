@@ -1,7 +1,7 @@
 <div align="center">
-# 🛡️ 살고싶오
+# 🏠 집으로
 
-### 낯선 동네에서도, 안심하고 살 곳을 찾다
+### 안전한 귀갓길로 완성하는 나만의 집 찾기
 
 **주거 안전 + 귀갓길 안전 + 조건별 대출 매칭을 하나의 지도에서 해결하는 안심 주거 매칭 솔루션**
 
@@ -9,21 +9,23 @@
 [![Spring](https://img.shields.io/badge/Spring-Legacy%205-6DB33F?logo=spring&logoColor=white)](https://spring.io/)
 [![Java](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white)](https://www.oracle.com/java/)
 [![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
-[![License](https://img.shields.io/badge/Team-29반%201팀-2E5AAC)]()
+[![Team](https://img.shields.io/badge/Team-29반%201팀-2E5AAC)]()
+
+📅 2026.07 – 2026.08 · 👥 살고싶오(29반 1팀) · 5인 · 🔗 [github.com/kb-7-29-1/kb](https://github.com/kb-7-29-1/kb)
 
 </div>
 ---
 
 ## 💡 왜 만들었나요
 
-> "새로운 동네로 이사할 때, 이 골목이 안전한지 검색으로는 알 수 없었습니다."
+> "집을 구할 때 왜 안전과 생활환경은 한눈에 비교하기 어려울까?"
 
 1~2년 단기 계약이 잦은 **대학생·사회초년생·1인 가구**는 짧은 시간 안에 낯선 동네의 매물을 결정해야 합니다.
 하지만 기존 부동산 플랫폼은 시세와 매물 정보만 보여줄 뿐, **"이 동네를 걸어 다녀도 안전한가?"**, **"이 건물은 법적으로 문제없나?"**, **"내 조건에 맞는 대출은 뭔가?"** 에는 답해주지 않습니다.
 
-**살고싶오**는 이 세 가지 불안을 하나의 지도 위에서 동시에 해소합니다.
+흩어진 안전·생활환경·금융 정보를 하나로 연결해, 안심하고 집을 선택할 수 있게 만든 것이 **집으로**입니다.
 
-| 기존 서비스 | 살고싶오 |
+| 기존 서비스 | 집으로 |
 |---|---|
 | 매물 시세·구조 정보 위주 | **건물 안전 + 거리 안전 + 금융**을 통합 제공 |
 | 안전 정보는 사용자가 직접 검색 | CCTV·가로등·파출소 기반 **CPTED 안전 점수 자동 산출** |
@@ -32,6 +34,8 @@
 ---
 
 ## ✨ 핵심 기능
+
+**3단계 흐름**: 🎯 맞춤 조건 설정(원하는 조건·우선순위로 매물 탐색) → 🚶 실제 귀갓길 분석(CCTV·가로등·파출소 데이터 기반 안전 점수) → 🏙️ 생활권 비교(주변 편의시설로 생활 편의성 확인)
 
 | # | 기능                      | 설명 |
 |---|-------------------------|---|
@@ -45,6 +49,20 @@
 | 8 | 👤 **회원 관리**            | 회원가입/로그인(JWT), 아이디·비밀번호 찾기, 프로필 수정, 회원 탈퇴 |
 | 9 | 🔐 **세션 관리**            | 멀티탭 로그아웃 동기화, 세션 만료 임박 알림 및 연장 |
  
+---
+
+## 🖼️ 화면 흐름 (UI/UX)
+
+전체 화면 흐름은 [UIUX 설명서.pdf](docs/project/UIUX%20설명서.pdf), 서비스 한 장 요약은 [프로젝트 요약본.pdf](docs/project/프로젝트%20요약본.pdf)에 정리되어 있습니다.
+
+| 흐름 | 화면 | 주요 기능 |
+|---|---|---|
+| **가입/인증** | 로그인 · 회원가입 | 아이디·비밀번호 로그인, 이메일 인증 기반 아이디/비밀번호 찾기, 회원가입 입력 폼 |
+| **온보딩** (5단계) | 목적지 선택 → 이동 수단 선택 → 자산 정보 입력 → 안전 점수 설정 → 결과 화면 | 자주 가는 목적지, 도보/대중교통 선호, 보증금·월세 예산, 최소 안전 점수 기준을 단계별로 수집 |
+| **탐색** | 지도 페이지 · 전체 필터 · 편의시설 필터 | AI 음성 검색, 이동 가능 영역 표시, 매물 마커/클러스터링, 목적지·안전점수·거래유형·이동시간 필터, 매물 정렬 |
+| **매물 상세** | 매물 상세 페이지 · 안전 점수 산정 기준 · 안전 시설 지도 표시 · 실거주 커뮤니티 | 귀갓길 경로 시각화 및 평가, 건물 정보(위반건축물·준공연식), CPTED 안전 점수(0~100점) 산정 근거, 추천 금융 상품, 실거주 댓글 |
+| **마이페이지** | 프로필 정보 수정 · 비밀번호 변경 · 회원 탈퇴 | 내 탐색 조건 재설정, 관심 매물·댓글 모아보기, 계정 관리 |
+
 ---
 
 ## 🧱 기술 스택
@@ -67,7 +85,7 @@
 - **Java 17** · Spring Framework 5 (Legacy, WAR) + Gretty(Tomcat 9)
 - Spring Security + JWT (`jjwt`)
 - MyBatis + MySQL + HikariCP
-- 외부 연동: 국토교통부 공공데이터, 금감원 finlife(전세자금대출 상품 검색), Naver 지도/검색, 하이브리드 라우팅(Valhalla·MOTIS Docker + Tmap 자동 폴백)
+- 외부 연동: 국토교통부 공공데이터, 금감원 finlife(전세자금대출 상품 검색), Naver 지도/검색, 하이브리드 라우팅(Valhalla Docker 도보 경로 + Tmap 자동 폴백, MOTIS Docker 대중교통)
 </td>
 </tr>
 </table>
@@ -78,9 +96,9 @@
 ## 🏗️ 시스템 아키텍처
 
 Vue 3 SPA가 Spring MVC(WAR)에 붙고, Tomcat이 정적 리소스와 API 요청을 분기합니다.
-도보/대중교통 경로는 Valhalla·MOTIS(Docker) 하이브리드 엔진이 기본이며, 컨테이너가 죽으면 Tmap으로 자동 폴백합니다.
+도보 경로는 Valhalla(Docker)가 기본 엔진이며, 컨테이너가 죽으면 Tmap으로 자동 폴백합니다. 대중교통 경로는 MOTIS(Docker) 전용이며 별도 폴백은 없습니다.
 
-![시스템 아키텍처](architecture.png)
+![시스템 아키텍처](docs/architecture.png)
 
 ---
 
@@ -112,6 +130,11 @@ kb/
 │       ├── bookmark/                     # 관심 매물(찜)
 │       └── loan/                          # 나이·예산 조건 기반 대출 상품 추천
 │
+├── docs/                      # 프로젝트 자료 및 기술 노트
+│   ├── architecture.png        # 시스템 아키텍처 다이어그램
+│   ├── project/                 # 프로젝트 요약본·UIUX 설명서 PDF
+│   └── notes/                    # 라우팅 구조, 성능 최적화 등 기술 노트
+│
 └── .agents/                  # 기획/설계 참고 문서 모음
 ```
  
@@ -119,9 +142,16 @@ kb/
 
 ## 🚀 시작하기
 
+### 0. 사전 요구사항
+
+- Node.js `20.19+` 또는 `22.12+`
+- Java 17
+- MySQL 8.0+
+- (선택) Docker — 라우팅 엔진(Valhalla/MOTIS) 실행 시
+
 ### 1. 환경 변수 설정
 
-루트 또는 각 서비스에 `.env` 파일로 아래 키를 설정합니다 (`.env.local` 참고, 값은 별도 관리):
+루트 또는 각 서비스에 `.env` 파일을 만들어 아래 키를 설정합니다 (레포에는 포함되어 있지 않으며, 값은 별도로 관리합니다):
 
 | 키 | 용도 |
 |---|---|
@@ -130,7 +160,6 @@ kb/
 | `PUBLIC_DATA_SERVICE_KEY` | 공공데이터(건축물대장 등) |
 | `SECURITY_LIGHT_API_KEY` | CCTV/가로등 등 안전 데이터 |
 | `TMAP_API_KEY` | 보행자 경로 (Docker 라우팅 엔진 다운 시 자동 폴백) |
-| `ODSAY_API_KEY` | 대중교통 경로 (예비 키, 현재 코드 미연동 — MOTIS/GraphHopper 사용 중) |
 | `ROUTING_ENGINE_MODE` | `DOCKER`(기본) / `TMAP` — 라우팅 엔진 모드 |
 | `ROUTING_VALHALLA_URL` / `ROUTING_MOTIS_URL` | 하이브리드 라우팅 엔진(Valhalla/MOTIS) 접속 URL |
 | `OPENAI_API_KEY` | AI 관련 기능 |
@@ -153,6 +182,18 @@ cd backend
 ```
 
 > DB 접속 정보 및 외부 API 키는 `backend/src/main/resources/application.properties`에서 설정합니다.
+
+### 4. (권장) 라우팅 엔진 실행
+
+기본 모드가 `DOCKER`라서 컨테이너 없이 실행해도 동작은 하지만:
+- **도보 경로**: 매 요청마다 최대 3초 연결 타임아웃을 기다린 후 Tmap으로 폴백됩니다 (지연 발생)
+- **대중교통 경로**: MOTIS 전용이라 폴백이 없어, 컨테이너가 꺼져 있으면 이동시간 데이터가 빈 값으로 반환됩니다
+
+```bash
+docker run -d -p 8000:8002 -v $(pwd)/valhalla_data:/data valhalla/valhalla:latest   # 보행자 경로(Valhalla)
+```
+
+> MOTIS(대중교통)는 GTFS 데이터 준비가 필요합니다 — 자세한 실행법은 [docs/notes/DOCKER_라우팅_구조.md](docs/notes/DOCKER_라우팅_구조.md) 참고
  
 ---
 
@@ -209,11 +250,18 @@ main (배포/제출용, PR로만 merge)
 | [mobile_ui_prompt.md](.agents/mobile_ui_prompt.md) / [pc_ui_prompt.md](.agents/pc_ui_prompt.md) | 모바일/PC UI 디자인 프롬프트 |
 | [project_plan_prompt.md](.agents/project_plan_prompt.md) | 기획안 핵심 파트별 디자인 프롬프트 |
 | [presentation_reference.md](.agents/presentation_reference.md) | 발표자료 요약 & CPTED 알고리즘 가이드 |
+
+**기술 노트 (`docs/notes/`)**
+
+| 문서 | 내용 |
+|---|---|
+| [DOCKER_라우팅_구조.md](docs/notes/DOCKER_라우팅_구조.md) | Tmap 호출 제한 문제로 Valhalla·MOTIS를 Docker로 직접 띄운 배경과 하이브리드 라우팅 구조 |
+| [성능_최적화_정리.md](docs/notes/성능_최적화_정리.md) | 커밋 히스토리 기반 DB 인덱싱, 안전시설 인메모리 그리드 인덱스, 캐싱 등 성능 최적화 정리 |
  
 ---
 
 <div align="center">
-**🏠 낯선 동네에서도, 살고 싶은 곳을 찾을 때까지 — 살고싶오**
+**🏠 안전한 귀갓길로 완성하는 나만의 집 찾기 — 집으로**
 
 </div>
 </div>
