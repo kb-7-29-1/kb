@@ -40,7 +40,7 @@ public class UserController {
 
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(@AuthenticationPrincipal CustomUser customUser,
-                                           @RequestBody UserUpdateRequestDto dto){
+                                           @Valid @RequestBody UserUpdateRequestDto dto){
         userService.updateProfile(customUser.getUsername(), dto);
         return ResponseEntity.ok().build();
     }

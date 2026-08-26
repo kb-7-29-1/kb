@@ -239,6 +239,7 @@ const handleUpdateProfile = async () => {
             type="text"
             class="profile-edit-input"
             placeholder="변경할 이름을 입력해 주세요"
+            maxlength="20"
           />
 
           <label class="profile-edit-label">이메일</label>
@@ -247,6 +248,7 @@ const handleUpdateProfile = async () => {
             type="email"
             class="profile-edit-input"
             placeholder="example@email.com"
+            maxlength="100"
           />
 
           <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
