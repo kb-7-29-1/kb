@@ -54,7 +54,7 @@ public class UserController {
 
     @PutMapping("/password")
     public ResponseEntity<?> changePassword(@AuthenticationPrincipal CustomUser customUser,
-                                            @RequestBody PasswordChangeRequestDto dto){
+                                            @Valid @RequestBody PasswordChangeRequestDto dto){
         userService.changePassword(customUser.getUsername(), dto);
         return ResponseEntity.ok().build();
     }

@@ -200,6 +200,10 @@ const closePasswordModal = () => {
 
 const handleChangePassword = async () => {
   passwordError.value = '';
+  if (passwordForm.value.newPassword.length < 8) {
+    passwordError.value = '비밀번호는 8자 이상 100자 이하로 입력해주세요.';
+    return;
+  }
   if (
     passwordForm.value.newPassword !== passwordForm.value.newPasswordConfirm
   ) {
@@ -416,13 +420,15 @@ onMounted(loadOnboarding);
             type="password"
             class="account-modal-input"
             placeholder="현재 비밀번호를 입력해 주세요"
+            maxlength="100"
           />
           <label class="account-modal-label">새 비밀번호</label>
           <input
             v-model="passwordForm.newPassword"
             type="password"
             class="account-modal-input"
-            placeholder="새 비밀번호를 입력해 주세요"
+            placeholder="새 비밀번호를 입력해 주세요 (8자 이상)"
+            maxlength="100"
           />
           <label class="account-modal-label">새 비밀번호 확인</label>
           <input
@@ -430,6 +436,7 @@ onMounted(loadOnboarding);
             type="password"
             class="account-modal-input"
             placeholder="새 비밀번호를 다시 입력해 주세요"
+            maxlength="100"
           />
           <p v-if="passwordError" class="account-modal-error">
             {{ passwordError }}
