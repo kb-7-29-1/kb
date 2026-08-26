@@ -55,7 +55,9 @@ export function useMapUrlSync() {
       mode: filters.transportMode || undefined,
       travelTime: filters.travelTime != null ? filters.travelTime : undefined,
       minTravelTime:
-        filters.minTravelTime != null ? filters.minTravelTime : undefined,
+        filters.transportMode === 'TRANSIT'
+          ? (filters.minTravelTime && filters.minTravelTime > 0 ? filters.minTravelTime : 5)
+          : (filters.minTravelTime != null ? filters.minTravelTime : undefined),
       minSafety:
         filters.minSafetyScore != null ? filters.minSafetyScore : undefined,
       amenities: Array.isArray(filters.selectedAmenities)
@@ -119,10 +121,17 @@ export function useMapUrlSync() {
     if (q.maxDeposit != null) filterStateRef.value.maxDeposit = Number(q.maxDeposit);
     if (q.minRent != null) filterStateRef.value.minRent = Number(q.minRent);
     if (q.maxRent != null) filterStateRef.value.maxRent = Number(q.maxRent);
-    if (q.mode) filterStateRef.value.transportMode = String(q.mode);
+    if (q.mode) {
+      filterStateRef.value.transportMode = String(q.mode);
+    }
     if (q.travelTime != null) filterStateRef.value.travelTime = Number(q.travelTime);
-    if (q.minTravelTime != null)
-      filterStateRef.value.minTravelTime = Number(q.minTravelTime);
+    if (q.minTravelTime != null) {
+      const parsedMin = Number(q.minTravelTime);
+      filterStateRef.value.minTravelTime =
+        q.mode === 'TRANSIT' && (!parsedMin || parsedMin <= 0) ? 5 : parsedMin;
+    } else if (q.mode === 'TRANSIT') {
+      filterStateRef.value.minTravelTime = 5;
+    }
     if (q.minSafety != null)
       filterStateRef.value.minSafetyScore = Number(q.minSafety);
     if (q.amenities) {

@@ -598,6 +598,26 @@ public class SafetyServiceImpl implements SafetyService {
                 return safetyScoreCalculator.filterFacilitiesNearRoute(route, candidates);
         }
 
+        @Override
+        public List<SafetyFacilityVO> getRouteFacilities(
+                        Long propertyId,
+                        Integer destinationId,
+                        Double swLat,
+                        Double swLng,
+                        Double neLat,
+                        Double neLng) {
+                // 🛡️ 바운딩 박스가 전달된 경우 (대중교통 환승 도보 구간 등), 해당 영역 내 안전시설물을 인메모리에서 초고속 반환
+                if (swLat != null && neLat != null && swLng != null && neLng != null) {
+                        double minLat = Math.min(swLat, neLat);
+                        double maxLat = Math.max(swLat, neLat);
+                        double minLng = Math.min(swLng, neLng);
+                        double maxLng = Math.max(swLng, neLng);
+                        return safetyFacilityRepository.findInBounds(minLat, maxLat, minLng, maxLng);
+                }
+
+                return getRouteFacilities(propertyId, destinationId);
+        }
+
         private SafetyRouteCandidateDTO createRouteCandidateFromCache(
                         PropertySafetyVO safety,
                         SafetyRouteCacheVO routeCache) {

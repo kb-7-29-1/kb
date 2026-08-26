@@ -48,10 +48,13 @@ const safetyService = {
    * "경로 자세히 보기" 토글 ON 시에만 호출하는 지연 로딩 API.
    * 이미 계산된 경로의 bounding box 안에 있는 CCTV/가로등/파출소 원본 좌표를 반환합니다.
    */
-  async getRouteFacilities({ propertyId, destinationId }) {
-    const { data } = await api.get('/safety/route/facilities', {
-      params: { propertyId, destinationId },
-    });
+  async getRouteFacilities({ propertyId, destinationId, swLat, swLng, neLat, neLng }) {
+    const params = { propertyId, destinationId };
+    if (swLat != null) params.swLat = swLat;
+    if (swLng != null) params.swLng = swLng;
+    if (neLat != null) params.neLat = neLat;
+    if (neLng != null) params.neLng = neLng;
+    const { data } = await api.get('/safety/route/facilities', { params });
     return data;
   },
 };

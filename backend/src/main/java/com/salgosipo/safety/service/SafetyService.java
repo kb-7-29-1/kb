@@ -39,4 +39,15 @@ public interface SafetyService {
             Long propertyId,
             Integer destinationId
     );
+
+    default java.util.List<com.salgosipo.safety.domain.SafetyFacilityVO> getRouteFacilities(
+            Long propertyId,
+            Integer destinationId,
+            Double swLat,
+            Double swLng,
+            Double neLat,
+            Double neLng
+    ) {
+        return getRouteFacilities(propertyId, destinationId);
+    }
 }

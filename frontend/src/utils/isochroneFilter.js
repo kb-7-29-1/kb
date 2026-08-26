@@ -27,7 +27,8 @@ export const getMinSearchRadiusKm = (filters) => {
     return undefined; // 도보 모드 최소 거리 제한 무조건 해제 (0m부터 전체 노출)
   }
 
-  const minTravelTime = Number(filters?.minTravelTime) || 0;
+  const minTravelTime =
+    Number(filters?.minTravelTime) || (filters?.transportMode === 'TRANSIT' ? 5 : 0);
   if (minTravelTime <= 0) return undefined;
   return (minTravelTime * 180) / 1000;
 };
@@ -51,11 +52,11 @@ export const isWithinReachDistance = (property, filters, destLat, destLng) => {
     if (distMeters < minReachMeters || distMeters > maxReachMeters) return false;
   } else {
     const travelTime = filters?.travelTime || 15;
-    let minTime = 0;
-    if (filters?.minTravelTime != null && filters.minTravelTime > 0) {
-      minTime = filters.minTravelTime;
-    } else if (filters?.flexTime != null && filters.flexTime > 0) {
-      minTime = filters.flexTime;
+    let minTime = 5;
+    if (filters?.minTravelTime != null && Number(filters.minTravelTime) > 0) {
+      minTime = Number(filters.minTravelTime);
+    } else if (filters?.flexTime != null && Number(filters.flexTime) > 0) {
+      minTime = Number(filters.flexTime);
     }
 
     const transitMaxRadius = Math.max(500, travelTime * 180);

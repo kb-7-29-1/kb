@@ -154,33 +154,71 @@ const handleToggleRouteFacilities = async () => {
 
   isRouteFacilitiesLoading.value = true;
   try {
-    const facilities = await safetyService.getRouteFacilities({
-      propertyId: selectedProperty.value.propertyId,
-      destinationId: destinationConfig.value.id,
-    });
-
-    let result = Array.isArray(facilities) ? facilities : [];
-
-    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 안전 계산에서 완전히 배제
-    // 오직 실제 걸어가는 도보(WALK) 구간 주변(80m) 안전시설물만 선별 노출
     const transitSegments = selectedSafetyRoute.value?.transitSegments;
+    let bboxParams = {};
+    let walkPoints = [];
     if (Array.isArray(transitSegments) && transitSegments.length > 0) {
-      const walkPoints = transitSegments
+      walkPoints = transitSegments
         .filter((seg) => String(seg.type || '').toUpperCase() === 'WALK')
         .flatMap((seg) => seg.routePoints || []);
 
       if (walkPoints.length > 0) {
-        result = result.filter((fac) => {
-          const fLat = Number(fac.latitude);
-          const fLng = Number(fac.longitude);
-          if (!Number.isFinite(fLat) || !Number.isFinite(fLng)) return false;
-          return walkPoints.some((wp) => {
-            const dLat = (Number(wp.latitude) - fLat) * 111000;
-            const dLng = (Number(wp.longitude) - fLng) * 88800;
-            return dLat * dLat + dLng * dLng <= 80 * 80;
-          });
+        let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+        walkPoints.forEach((wp) => {
+          const lat = Number(wp.lat ?? wp.latitude);
+          const lng = Number(wp.lng ?? wp.longitude);
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+          }
         });
+        if (minLat <= maxLat && minLng <= maxLng) {
+          // 500m(파출소/CCTV/가로등) 반경 여유 마진(~0.006도) 부여
+          bboxParams = {
+            swLat: minLat - 0.006,
+            swLng: minLng - 0.006,
+            neLat: maxLat + 0.006,
+            neLng: maxLng + 0.006,
+          };
+        }
       }
+    }
+
+    const facilities = await safetyService.getRouteFacilities({
+      propertyId: selectedProperty.value.propertyId,
+      destinationId: destinationConfig.value.id,
+      ...bboxParams,
+    });
+
+    let result = Array.isArray(facilities) ? facilities : [];
+
+    // 🛡️ 대중교통 모드일 때는 대중교통(지하철/버스) 탑승 구간을 배제하고,
+    // 오직 실제 걸어가는 도보(WALK) 구간 주변 백엔드 공식 반경(CCTV 50m, 가로등 20m, 파출소 500m) 안전시설물만 선별 노출
+    if (walkPoints.length > 0) {
+      result = result.filter((fac) => {
+        const fLat = Number(fac.latitude);
+        const fLng = Number(fac.longitude);
+        if (!Number.isFinite(fLat) || !Number.isFinite(fLng)) return false;
+
+        const facilityType = String(fac.facilityType || '').toUpperCase();
+        const radiusMeters =
+          facilityType === 'CCTV'
+            ? 50
+            : facilityType === 'STREET_LIGHT'
+              ? 20
+              : 500;
+
+        return walkPoints.some((wp) => {
+          const wpLat = Number(wp.lat ?? wp.latitude);
+          const wpLng = Number(wp.lng ?? wp.longitude);
+          if (!Number.isFinite(wpLat) || !Number.isFinite(wpLng)) return false;
+          const dLat = (wpLat - fLat) * 111000;
+          const dLng = (wpLng - fLng) * 88800;
+          return dLat * dLat + dLng * dLng <= radiusMeters * radiusMeters;
+        });
+      });
     }
 
     // 🛡️ [미지원 자치구 시설 필터링] 관악구 등 보안등 미구축 자치구 영역 내부의 CCTV/가로등 핀은 지도 렌더링에서 제외

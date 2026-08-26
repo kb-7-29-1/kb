@@ -68,10 +68,14 @@ public class SafetyController {
     @GetMapping("/route/facilities")
     public ResponseEntity<List<SafetyFacilityVO>> getRouteFacilities(
             @RequestParam Long propertyId,
-            @RequestParam Integer destinationId
+            @RequestParam Integer destinationId,
+            @RequestParam(required = false) Double swLat,
+            @RequestParam(required = false) Double swLng,
+            @RequestParam(required = false) Double neLat,
+            @RequestParam(required = false) Double neLng
     ) {
         return ResponseEntity.ok(
-                safetyService.getRouteFacilities(propertyId, destinationId)
+                safetyService.getRouteFacilities(propertyId, destinationId, swLat, swLng, neLat, neLng)
         );
     }
 
