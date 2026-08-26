@@ -115,12 +115,18 @@ public class ValhallaPedestrianClient {
 
             double effectiveSpeed = (customWalkingSpeed != null && customWalkingSpeed > 0) ? customWalkingSpeed : 4.5;
 
-            // 🚶 발할라 보행자 전용 고도화 옵션: 인도(Sidewalk), 횡단보도(Crossing), 보행자길(Walkway) 1순위 우선 가중치 + 맞춤 보행 속도
+            // 🚶 발할라 보행자 전용 고도화 옵션: 골목길·생활도로·횡단보도·육교 계단 지름길 1순위 관통 (큰 도로 램프 우회 차단)
             Map<String, Object> costingOptions = new HashMap<>();
             Map<String, Object> pedOptions = new HashMap<>();
             pedOptions.put("use_sidewalk", 1.0);           // 인도/보도 우선순위 최대화 (0.0 ~ 1.0)
             pedOptions.put("use_crossing", 1.0);           // 횡단보도 이용 우선순위 최대화 (0.0 ~ 1.0)
-            pedOptions.put("walkway_factor", 0.5);         // 보행자 전용 도로/골목길 선호 가중치
+            pedOptions.put("use_living_streets", 1.0);     // 주택가 생활도로/골목길 적극 이용
+            pedOptions.put("use_tracks", 1.0);             // 보행 전용 소로 이용
+            pedOptions.put("walkway_factor", 0.1);         // 보행자 전용도로/샛길 지름길 최우선 가중치
+            pedOptions.put("alley_factor", 0.1);           // 골목길 지름길 최우선 가중치
+            pedOptions.put("service_factor", 1.0);         // 단지/주택가 내 보행 통로 허용
+            pedOptions.put("step_penalty", 0);             // 육교/지하도/골목 계단 감점 제거 (최단거리 관통)
+            pedOptions.put("use_hills", 0.5);              // 경사로/계단 지름길 적극 수용
             pedOptions.put("walking_speed", effectiveSpeed); // ⏱️ 프론트 연동 맞춤 보행 속도 (km/h)
             costingOptions.put("pedestrian", pedOptions);
             body.put("costing_options", costingOptions);

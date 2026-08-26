@@ -9,6 +9,12 @@ export default {
     return data;
   },
 
+  async getLandmarkDestinations(ids) {
+    const params = ids && ids.length ? { ids: ids.join(',') } : {};
+    const { data } = await api.get('/destinations/landmarks', { params });
+    return data;
+  },
+
   async saveDestination(destination) {
     const { data } = await api.post('/destinations', destination);
     return data;

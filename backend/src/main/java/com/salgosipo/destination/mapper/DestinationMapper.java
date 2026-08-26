@@ -25,6 +25,9 @@ public interface DestinationMapper {
     // 목적지 명 검색
     DestinationVO findByName(@Param("destName") String destName);
 
+    // ID 목록으로 목적지 목록 검색
+    List<DestinationVO> findByIds(@Param("ids") List<Integer> ids);
+
     // 목적지 저장
     int insertDestination(DestinationVO destination);
 }

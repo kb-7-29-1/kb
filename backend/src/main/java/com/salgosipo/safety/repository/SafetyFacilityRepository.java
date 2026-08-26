@@ -29,6 +29,10 @@ public class SafetyFacilityRepository {
     private static final double CELL_SIZE_DEGREES = 0.01;
     private static final String DEFAULT_RESOURCE = "public_data/safety_facility_normalized.csv";
 
+    public static final java.util.Set<String> UNSUPPORTED_DISTRICTS = java.util.Set.of(
+            "강남구", "강북구", "강서구", "관악구", "마포구", "성동구", "성북구", "영등포구", "용산구", "중구", "중랑구"
+    );
+
     private final Map<GridCell, List<SafetyFacilityVO>> facilitiesByCell;
     private final int facilityCount;
 
@@ -171,10 +175,19 @@ public class SafetyFacilityRepository {
                 return null;
             }
 
+            String facilityName = value(values, headerIndex, "facility_name");
+            if (facilityName != null) {
+                for (String unsupported : UNSUPPORTED_DISTRICTS) {
+                    if (facilityName.contains(unsupported)) {
+                        return null; // 🛡️ 미지원 11개 자치구 내부 시설물은 로딩 및 점수 계산에서 완전 제외
+                    }
+                }
+            }
+
             SafetyFacilityVO facility = new SafetyFacilityVO();
             facility.setFacilityId(syntheticId);
             facility.setFacilityType(type);
-            facility.setFacilityName(value(values, headerIndex, "facility_name"));
+            facility.setFacilityName(facilityName);
             facility.setLatitude(latitude);
             facility.setLongitude(longitude);
             facility.setFacilityCount(facilityCount);

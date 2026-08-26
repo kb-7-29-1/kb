@@ -27,6 +27,17 @@ public class DestinationController {
         return ResponseEntity.ok(destinations);
     }
 
+    // 랜드마크 목적지 목록 조회 (ID 기준 DB 조회)
+    @GetMapping("/landmarks")
+    public ResponseEntity<List<DestinationDTO>> getLandmarkDestinations(
+            @RequestParam(required = false) List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            ids = List.of(1, 5, 126, 1234);
+        }
+        List<DestinationDTO> destinations = destinationService.getDestinationsByIds(ids);
+        return ResponseEntity.ok(destinations);
+    }
+
     // 목적지 저장
     @PostMapping
     public ResponseEntity<DestinationDTO> saveDestination(@RequestBody DestinationDTO destination) {

@@ -34,7 +34,10 @@ import {
   renderHybridRouteOverlays,
   clearHybridRouteOverlays,
 } from '@/utils/hybridRouteOverlay.js';
-import { MAJOR_LANDMARK_DESTINATIONS } from '@/utils/landmarkDestinations.js';
+import {
+  MAJOR_LANDMARK_METADATA,
+  LANDMARK_IDS,
+} from '@/utils/landmarkDestinations.js';
 
 const props = defineProps({
   properties: {
@@ -191,6 +194,36 @@ const renderLandmarkPinHTML = (landmark, isCurrentDest = false) => {
 
 const activePropertyMarkersMap = new Map();
 const landmarkMarkers = new Map();
+const dbLandmarks = ref([]);
+
+// DB에서 랜드마크 목적지 좌표 및 정보 로드 (Single Source of Truth)
+const fetchLandmarksFromDb = async () => {
+  try {
+    const list = await onboardingApi.getLandmarkDestinations(LANDMARK_IDS);
+    if (Array.isArray(list) && list.length > 0) {
+      dbLandmarks.value = list.map((item) => {
+        const meta = MAJOR_LANDMARK_METADATA[item.destinationId] || {};
+        return {
+          id: item.destinationId,
+          name: item.destName,
+          destName: item.destName,
+          address: item.destAddress,
+          destAddress: item.destAddress,
+          lat: Number(item.destLatitude),
+          lng: Number(item.destLongitude),
+          latitude: Number(item.destLatitude),
+          longitude: Number(item.destLongitude),
+          logo: meta.logo,
+          shortName: meta.shortName || item.destName,
+          badgeColor: meta.badgeColor || '#333333',
+        };
+      });
+      renderLandmarkMarkers();
+    }
+  } catch (error) {
+    console.error('Failed to fetch landmark destinations from DB:', error);
+  }
+};
 let activeDestMarker = null;
 const destinationMarkers = new Set();
 let pendingRenderFrame = null;
@@ -543,12 +576,15 @@ const clearLandmarkMarkers = () => {
 
 const renderLandmarkMarkers = () => {
   if (!mapInstance.value || !window.naver || !window.naver.maps) return;
+  if (!dbLandmarks.value || dbLandmarks.value.length === 0) return;
 
   const currentDestName =
     props.destination?.name || props.destination?.destName || '';
 
-  MAJOR_LANDMARK_DESTINATIONS.forEach((landmark) => {
+  dbLandmarks.value.forEach((landmark) => {
     const isCurrentDest =
+      (props.destination?.id != null &&
+        Number(props.destination.id) === Number(landmark.id)) ||
       currentDestName.includes(landmark.shortName) ||
       currentDestName.includes(landmark.name);
     const existing = landmarkMarkers.get(landmark.id);
@@ -615,11 +651,12 @@ const renderMarkers = () => {
 
   const currentDestName =
     props.destination?.name || props.destination?.destName || '';
-  const isLandmarkDestination = MAJOR_LANDMARK_DESTINATIONS.some(
+  const isLandmarkDestination = dbLandmarks.value.some(
     (lm) =>
+      (props.destination?.id != null &&
+        Number(props.destination.id) === Number(lm.id)) ||
       currentDestName.includes(lm.shortName) ||
-      currentDestName.includes(lm.name) ||
-      (props.destination?.id != null && Number(props.destination.id) === lm.id),
+      currentDestName.includes(lm.name),
   );
 
   if (isLandmarkDestination) {
@@ -1125,7 +1162,11 @@ const handleMapRightClick = async (e) => {
 
   try {
     const geoResult = await reverseGeocodeCoord(lat, lng);
-    const placeName = geoResult.buildingName || geoResult.name || geoResult.roadAddress || geoResult.jibunAddress;
+    const placeName =
+      geoResult.buildingName ||
+      geoResult.name ||
+      geoResult.roadAddress ||
+      geoResult.jibunAddress;
     const roadOrJibunAddress =
       geoResult.roadAddress || geoResult.jibunAddress || placeName;
 
@@ -1179,10 +1220,10 @@ const handleMapRightClick = async (e) => {
         <div class="${isMobile ? 'text-[10px]' : 'text-[11px]'} text-slate-500 font-medium">이 위치를 목적지로 지정하시겠습니까?</div>
         <div class="${isMobile ? 'text-xs' : 'text-sm'} font-black text-slate-900 mt-0.5 break-all leading-snug">${resolvedPlaceName}</div>
         ${(() => {
-          const normPlace = (resolvedPlaceName || '').replace(/\s+/g, ' ').trim();
-          const normAddr = (resolvedAddress || '')
+          const normPlace = (resolvedPlaceName || '')
             .replace(/\s+/g, ' ')
             .trim();
+          const normAddr = (resolvedAddress || '').replace(/\s+/g, ' ').trim();
           if (
             !normAddr ||
             normPlace === normAddr ||
@@ -1399,6 +1440,8 @@ watch(zoomLevel, (newZoom) => {
 });
 
 onMounted(() => {
+  fetchLandmarksFromDb();
+
   const clientId = import.meta.env.VITE_NAVER_CLIENT_ID;
   if (!clientId) return;
 
@@ -1604,9 +1647,7 @@ defineExpose({
     </Transition>
 
     <!-- 4. 지도 줌 & 내 위치 오버레이 컨트롤 (z-20) -->
-    <div
-      class="absolute right-4 top-4 z-20 flex flex-col items-center gap-2"
-    >
+    <div class="absolute right-4 top-4 z-20 flex flex-col items-center gap-2">
       <!-- 확대/축소 버튼 바 -->
       <div
         class="flex flex-col gap-0 rounded-lg border border-slate-200 bg-white p-0.5 shadow-md"

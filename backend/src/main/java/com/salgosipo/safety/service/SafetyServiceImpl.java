@@ -2,6 +2,7 @@ package com.salgosipo.safety.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.salgosipo.global.routing.RoutingEngineRouter;
 import com.salgosipo.safety.client.SafetyRouteClient;
 import com.salgosipo.safety.domain.PedestrianRoute;
 import com.salgosipo.safety.domain.PropertySafetyVO;
@@ -45,6 +46,10 @@ public class SafetyServiceImpl implements SafetyService {
 
         private static final double FACILITY_QUERY_MARGIN_METERS = 520.0;
 
+        public static final Set<Integer> LANDMARK_DESTINATION_IDS = Set.of(1, 5, 126, 1234);
+        public static final Set<String> LANDMARK_DESTINATION_NAMES = Set.of(
+                        "세종대학교", "세종대", "연세대학교", "연세대", "중앙대학교", "중앙대", "공릉역", "과기대", "서울과학기술대학교");
+
         public static final Set<String> SUPPORTED_DISTRICTS = Set.of(
                         "강동구", "광진구", "구로구", "금천구", "노원구", "도봉구",
                         "동대문구", "동작구", "서대문구", "서초구", "송파구", "양천구",
@@ -53,12 +58,26 @@ public class SafetyServiceImpl implements SafetyService {
         public static final Set<String> UNSUPPORTED_DISTRICTS = Set.of(
                         "강남구", "강북구", "강서구", "관악구", "마포구", "성동구", "성북구", "영등포구", "용산구", "중구", "중랑구");
 
+        public static boolean isLandmarkDestination(Integer destId, String destName) {
+                if (destId != null && LANDMARK_DESTINATION_IDS.contains(destId)) {
+                        return true;
+                }
+                if (destName != null) {
+                        for (String landmark : LANDMARK_DESTINATION_NAMES) {
+                                if (destName.contains(landmark)) {
+                                        return true;
+                                }
+                        }
+                }
+                return false;
+        }
+
         public static boolean isSupportedDistrict(String... texts) {
                 if (texts == null) {
                         return true;
                 }
                 for (String text : texts) {
-                        if (text == null || text.isBlank()) {
+                        if (text == null) {
                                 continue;
                         }
                         // 미지원 11개 자치구 중 하나라도 포함되어 있으면 즉시 미지원(false) 판정
@@ -73,6 +92,7 @@ public class SafetyServiceImpl implements SafetyService {
 
         private final SafetyMapper safetyMapper;
         private final SafetyRouteClient safetyRouteClient;
+        private final RoutingEngineRouter routingEngineRouter;
         private final SafetyFacilityRepository safetyFacilityRepository;
         private final SafetyScoreCalculator safetyScoreCalculator;
         private final ObjectMapper objectMapper;
@@ -80,11 +100,13 @@ public class SafetyServiceImpl implements SafetyService {
         @Autowired
         public SafetyServiceImpl(
                         SafetyMapper safetyMapper,
+                        @Autowired(required = false) RoutingEngineRouter routingEngineRouter,
                         @Value("${TMAP_API_KEY:}") String tmapApiKey,
                         @Value("${SAFETY_FACILITY_RESOURCE:"
                                         + "public_data/safety_facility_normalized.csv}") String facilityResource) {
                 this(
                                 safetyMapper,
+                                routingEngineRouter,
                                 new SafetyRouteClient(tmapApiKey),
                                 new SafetyFacilityRepository(facilityResource),
                                 new SafetyScoreCalculator());
@@ -92,14 +114,35 @@ public class SafetyServiceImpl implements SafetyService {
 
         SafetyServiceImpl(
                         SafetyMapper safetyMapper,
+                        RoutingEngineRouter routingEngineRouter,
                         SafetyRouteClient safetyRouteClient,
                         SafetyFacilityRepository safetyFacilityRepository,
                         SafetyScoreCalculator safetyScoreCalculator) {
                 this.safetyMapper = safetyMapper;
+                this.routingEngineRouter = routingEngineRouter;
                 this.safetyRouteClient = safetyRouteClient;
                 this.safetyFacilityRepository = safetyFacilityRepository;
                 this.safetyScoreCalculator = safetyScoreCalculator;
                 this.objectMapper = new ObjectMapper();
+        }
+
+        private PedestrianRoute resolvePedestrianRoute(
+                        double startLat, double startLon, String startName,
+                        double endLat, double endLon, String endName,
+                        Integer destId) {
+                if (isLandmarkDestination(destId, endName)) {
+                        log.info("[SafetyRoute] 4대 랜드마크({}) 감지 -> 티맵(TMAP) 상용 API로 정밀 계산합니다.", endName);
+                        return safetyRouteClient.findPreferredRoute(startLat, startLon, startName, endLat, endLon,
+                                        endName);
+                }
+
+                if (routingEngineRouter != null) {
+                        log.info("[SafetyRoute] 일반 목적지({}) -> 도커(Valhalla) 1순위 엔진으로 초고속 계산합니다.", endName);
+                        return routingEngineRouter.findPedestrianRoute(startLat, startLon, startName, endLat, endLon,
+                                        endName);
+                }
+
+                return safetyRouteClient.findPreferredRoute(startLat, startLon, startName, endLat, endLon, endName);
         }
 
         @Override
@@ -186,13 +229,14 @@ public class SafetyServiceImpl implements SafetyService {
                 destination.setName(request.getDestinationName());
                 destination.setAddress(request.getDestinationAddress());
 
-                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                PedestrianRoute route = resolvePedestrianRoute(
                                 property.getLatitude(),
                                 property.getLongitude(),
                                 defaultName(request.getPropertyName(), property.getAddress()),
                                 destination.getLatitude().doubleValue(),
                                 destination.getLongitude().doubleValue(),
-                                defaultName(destination.getName(), "Selected destination"));
+                                defaultName(destination.getName(), "Selected destination"),
+                                destination.getDestinationId());
                 BoundingBox boundingBox = calculateBoundingBox(route);
                 SafetyRouteCandidateDTO selectedRoute = safetyScoreCalculator.calculate(
                                 route,
@@ -360,13 +404,14 @@ public class SafetyServiceImpl implements SafetyService {
                                 property.getLongitude(),
                                 "매물");
 
-                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                PedestrianRoute route = resolvePedestrianRoute(
                                 property.getLatitude(),
                                 property.getLongitude(),
                                 defaultName(propertyName, property.getAddress()),
                                 destination.getLatitude().doubleValue(),
                                 destination.getLongitude().doubleValue(),
-                                defaultName(destination.getName(), "선택 목적지"));
+                                defaultName(destination.getName(), "선택 목적지"),
+                                destination.getDestinationId());
 
                 BoundingBox boundingBox = calculateBoundingBox(route);
                 List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
@@ -905,13 +950,14 @@ public class SafetyServiceImpl implements SafetyService {
                         String propertyName) {
                 validateCoordinate(property.getLatitude(), property.getLongitude(), "매물");
 
-                PedestrianRoute route = safetyRouteClient.findPreferredRoute(
+                PedestrianRoute route = resolvePedestrianRoute(
                                 property.getLatitude(),
                                 property.getLongitude(),
                                 defaultName(propertyName, property.getAddress()),
                                 destination.getLatitude().doubleValue(),
                                 destination.getLongitude().doubleValue(),
-                                defaultName(destination.getName(), "선택 목적지"));
+                                defaultName(destination.getName(), "선택 목적지"),
+                                destination.getDestinationId());
 
                 BoundingBox boundingBox = calculateBoundingBox(route);
                 List<SafetyFacilityVO> facilities = safetyFacilityRepository.findInBounds(
