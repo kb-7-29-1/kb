@@ -41,6 +41,7 @@ import {
 } from '@/utils/isochroneFilter.js';
 import DistrictToast from '@/components/common/DistrictToast.vue';
 import { isSupportedSafetyDistrict } from '@/utils/districtSupport.js';
+import { isPointInUnsupportedDistrict } from '@/utils/districtPolygonOverlay.js';
 import { useDistrictToast } from '@/composables/useDistrictToast.js';
 import { useAppToast } from '@/composables/useAppToast.js';
 
@@ -181,6 +182,14 @@ const handleToggleRouteFacilities = async () => {
         });
       }
     }
+
+    // 🛡️ [미지원 자치구 시설 필터링] 관악구 등 보안등 미구축 자치구 영역 내부의 CCTV/가로등 핀은 지도 렌더링에서 제외
+    result = result.filter((fac) => {
+      const fLat = Number(fac.latitude);
+      const fLng = Number(fac.longitude);
+      if (!Number.isFinite(fLat) || !Number.isFinite(fLng)) return false;
+      return !isPointInUnsupportedDistrict(fLat, fLng);
+    });
 
     routeFacilities.value = result;
     showRouteFacilities.value = true;
@@ -1294,25 +1303,19 @@ watch(visibleProperties, (list) => {
   if (isPropertyLoading.value || amenityFilterLoading.value || !list.length)
     return;
 
-  console.table(
-    list.map((property) => ({
-      propertyId: property.propertyId,
-      address: property.address || property.title,
-      deposit: property.deposit,
-      monthlyRent: property.monthlyRent,
-      safetyScore: property.safetyScore,
-    })),
-  );
+  // console.table(
+  //   list.map((property) => ({
+  //     propertyId: property.propertyId,
+  //     address: property.address || property.title,
+  //     deposit: property.deposit,
+  //     monthlyRent: property.monthlyRent,
+  //     safetyScore: property.safetyScore,
+  //   })),
+  // );
 });
-// 사이드바 목록 10개씩 무한 동적 스크롤 로딩
-const displayLimit = ref(10);
-
-watch(
-  () => visibleProperties.value.length,
-  () => {
-    displayLimit.value = 10;
-  },
-);
+// 사이드바 목록 10개씩 무한 동적 스크롤 로딩 (새로고침 시 보고 있던 스크롤 개수 유지)
+const savedDisplayLimit = Number(sessionStorage.getItem('salgosipo_display_limit'));
+const displayLimit = ref(Number.isFinite(savedDisplayLimit) && savedDisplayLimit >= 10 ? savedDisplayLimit : 10);
 
 const displayedProperties = computed(() =>
   visibleProperties.value.slice(0, displayLimit.value),
@@ -1324,6 +1327,7 @@ const handleListScroll = (e) => {
   if (el.scrollTop + el.clientHeight >= el.scrollHeight - 60) {
     if (displayLimit.value < visibleProperties.value.length) {
       displayLimit.value += 10;
+      sessionStorage.setItem('salgosipo_display_limit', displayLimit.value);
     }
   }
 };

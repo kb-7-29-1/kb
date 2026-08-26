@@ -121,6 +121,22 @@ public class DestinationServiceImpl implements DestinationService {
     }
 
     @Override
+    public List<DestinationDTO> getDestinationsByIds(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        try {
+            List<DestinationVO> voList = destinationMapper.findByIds(ids);
+            if (voList != null) {
+                return voList.stream().map(DestinationDTO::fromVO).toList();
+            }
+        } catch (Exception e) {
+            log.error("Failed to fetch destinations by IDs: {}", ids, e);
+        }
+        return List.of();
+    }
+
+    @Override
     @Transactional
     public DestinationDTO saveDestination(DestinationDTO destination) {
         validateDestination(destination);

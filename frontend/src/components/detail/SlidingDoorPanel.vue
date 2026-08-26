@@ -618,10 +618,9 @@ const detailImageUrl = computed(() => {
                       class="text-[11px] font-semibold leading-tight text-slate-500 break-keep mt-0.5"
                     >
                       {{
-                        property.illegalReason ||
-                        (property.isIllegalBuilding
-                          ? '위반건축물 지정 이력'
-                          : '건축물대장 기준 적법')
+                        property.isIllegalBuilding
+                          ? (property.illegalReason || '위반건축물 지정 이력')
+                          : '건축물대장 기준 적법'
                       }}
                     </p>
                   </div>
@@ -632,7 +631,7 @@ const detailImageUrl = computed(() => {
                   <span
                     class="text-[14.5px] font-extrabold text-slate-800 leading-snug whitespace-nowrap"
                   >
-                    {{ formattedUseAprDay || `${property.builtYear}년 준공` }}
+                    {{ property.builtYear ? `${property.builtYear}년 준공` : '준공일 정보 없음' }}
                   </span>
                   <div class="group relative mt-1 inline-block">
                     <span

@@ -35,6 +35,15 @@
         LIMIT 1
     </select>
 
+    <select id="findByIds" resultMap="DestinationResultMap">
+        SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
+        FROM destinations
+        WHERE destination_id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="searchByNameOrAddress" resultMap="DestinationResultMap">
         SELECT destination_id, dest_latitude, dest_longitude, dest_name, dest_address
         FROM destinations
