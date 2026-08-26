@@ -207,20 +207,9 @@
             COALESCE(p.deal_count, 1) AS dealCount,
             CASE WHEN b.property_id IS NOT NULL THEN TRUE ELSE FALSE END AS isBookmarked
         FROM properties p
-        LEFT JOIN (
-            SELECT property_id,
-                   MAX(safety_score) AS safety_score,
-                   MAX(cctv_count) AS cctv_count,
-                   MAX(street_lamp_count) AS street_lamp_count,
-                   MAX(has_police_station) AS has_police_station
-            FROM property_safety
-            <where>
-                <if test="destinationId != null">
-                    destination_id = #{destinationId}
-                </if>
-            </where>
-            GROUP BY property_id
-        ) ps ON p.property_id = ps.property_id
+        LEFT JOIN property_safety ps
+               ON p.property_id = ps.property_id
+              AND ps.destination_id = #{destinationId}
         LEFT JOIN bookmarks b
                ON p.property_id = b.property_id
         <if test="userId != null">
