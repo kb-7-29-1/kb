@@ -1,9 +1,9 @@
 <table>
   <tr>
-    <td width="33%" align="center" valign="middle">
+    <td width="45%" align="center" valign="middle">
       <img src="docs/logo.png" alt="집으로 서비스 로고" width="100%" />
     </td>
-    <td width="67%" valign="middle">
+    <td width="55%" valign="middle">
       <h2>🏠 집으로</h2>
       <h4>안전한 귀갓길로 완성하는 나만의 집 찾기</h4>
       <p><b>주거 안전 + 귀갓길 안전 + 조건별 대출 매칭을 하나의 지도에서 해결하는 안심 주거 매칭 솔루션</b></p>
@@ -75,31 +75,13 @@
 
 ## 🧱 기술 스택
 
-<table>
-<tr>
-<td valign="top" width="50%">
-### 🎨 Frontend
-`frontend/`
-
-- **Vue 3** (Composition API, `<script setup>`)
-- Vite · Pinia · Vue Router
-- Axios · Tailwind CSS
-- Naver Map API
-</td>
-<td valign="top" width="50%">
-
-### ⚙️ Backend
-
-`backend/`
-
-- **Java 17** · Spring Framework 5 (Legacy, WAR) + Gretty(Tomcat 9)
-- Spring Security + JWT (`jjwt`)
-- MyBatis + MySQL + HikariCP
-- 외부 연동: 국토교통부 공공데이터, 금감원 finlife(전세자금대출 상품 검색), Naver 지도/검색, 하이브리드 라우팅(Valhalla Docker 도보 경로 + Tmap 자동 폴백, MOTIS Docker 대중교통)
-</td>
-</tr>
-</table>
-**공통/인프라**: Docker · GitHub 기반 협업 (main / develop / feature 브랜치 전략)
+| 분류                            | 기술 스택 & 라이브러리                              | 상세 내용                                                                    |
+| ------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **🎨 Frontend**<br/>`frontend/` | **Vue 3**, **Vite**, **Pinia**, **Vue Router**      | Composition API (`<script setup>`), Tailwind CSS, Axios, Naver Map API       |
+| **⚙️ Backend**<br/>`backend/`   | **Java 17**, **Spring 5 (Legacy)**, **MyBatis**     | Tomcat 9 (WAR), Spring Security + JWT (`jjwt`), MySQL 8.0, HikariCP          |
+| **🗺️ Routing**                  | **Valhalla (Docker)**, **MOTIS (Docker)**, **Tmap** | 하이브리드 라우팅 (Valhalla 도보 기본 + Tmap 자동 폴백, MOTIS GTFS 대중교통) |
+| **☁️ Infra & CI/CD**            | **Docker**, **Railway**, **GitHub**                 | 컨테이너 가상화, Railway 자동 빌드/배포, GitHub 브랜치 협업 전략             |
+| **🔌 외부 연동**                | **국토교통부**, **금융감독원 finlife**, **Naver**   | 건축물대장 공공데이터, 전세자금대출 상품 검색 API, Naver 지도/검색 API       |
 
 ---
 
@@ -114,7 +96,7 @@ Vue 3 SPA가 Spring MVC(WAR)에 붙고, Tomcat이 정적 리소스와 API 요청
 
 ## 🔄 CI/CD 파이프라인
 
-GitHub Actions와 Docker를 활용하여 빌드, 테스트, 배포를 자동화한 CI/CD 파이프라인 구조입니다.
+GitHub Repository(`main` 브랜치)와 Railway를 연동하여 코드 체크아웃, Gradle/Vite 빌드, 아티팩트(WAR, Docker) 생성 및 배포를 자동화한 CI/CD 파이프라인 구조입니다.
 
 ![CI/CD 파이프라인](docs/cicd.png)
 
