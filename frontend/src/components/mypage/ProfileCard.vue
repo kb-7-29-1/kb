@@ -1,14 +1,72 @@
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { getProfile, updateProfile, updateProfileImage } from '@/api/authService.js';
 
 const AVATAR_SIZE = 200;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const profile = ref(null);
 const isLoading = ref(true);
 const isEditing = ref(false);
 
-const editForm = ref({ name: '', email: '' });
+const editForm = ref({ name: '' });
+
+const emailLocal = ref('');
+const emailDomain = ref('');
+const selectedEmailDomain = ref('SELECT');
+const isCustomEmailDomain = computed(() => selectedEmailDomain.value === 'CUSTOM');
+const customEmailDomainInput = ref(null);
+const isEmailDomainMenuOpen = ref(false);
+const emailDomainMenuRef = ref(null);
+const emailDomainOptions = ['naver.com', 'gmail.com', 'daum.net', 'nate.com', 'hanmail.net'];
+
+const emailAddress = computed(() => {
+  const local = emailLocal.value.trim();
+  const domain = emailDomain.value.trim();
+  return local && domain ? `${local}@${domain}` : '';
+});
+
+const applyEmailToForm = (email) => {
+  const [local = '', domain = ''] = (email || '').split('@');
+  emailLocal.value = local;
+  emailDomain.value = domain;
+  selectedEmailDomain.value = emailDomainOptions.includes(domain)
+    ? domain
+    : domain
+      ? 'CUSTOM'
+      : 'SELECT';
+};
+
+const handleEmailDomainChange = async () => {
+  emailDomain.value =
+    selectedEmailDomain.value === 'SELECT' || isCustomEmailDomain.value
+      ? ''
+      : selectedEmailDomain.value;
+
+  if (isCustomEmailDomain.value) {
+    await nextTick();
+    customEmailDomainInput.value?.focus();
+  }
+};
+
+const toggleEmailDomainMenu = () => {
+  isEmailDomainMenuOpen.value = !isEmailDomainMenuOpen.value;
+};
+
+const selectEmailDomain = async (domain) => {
+  selectedEmailDomain.value = domain;
+  isEmailDomainMenuOpen.value = false;
+  await handleEmailDomainChange();
+};
+
+const closeEmailDomainMenuOnOutsideClick = (event) => {
+  if (!emailDomainMenuRef.value?.contains(event.target)) {
+    isEmailDomainMenuOpen.value = false;
+  }
+};
+
+onMounted(() => document.addEventListener('click', closeEmailDomainMenuOnOutsideClick));
+onBeforeUnmount(() => document.removeEventListener('click', closeEmailDomainMenuOnOutsideClick));
 
 const updateError = ref('');
 const imageError = ref('');
@@ -21,7 +79,7 @@ const fetchProfile = async () => {
     const response = await getProfile();
     profile.value = response.data;
     editForm.value.name = response.data.name;
-    editForm.value.email = response.data.email;
+    applyEmailToForm(response.data.email);
   } catch (error) {
     console.error('PROFILE GET ERROR: ', error);
   } finally {
@@ -125,15 +183,19 @@ const startEdit = () => {
 const cancelEdit = () => {
   isEditing.value = false;
   editForm.value.name = profile.value.name;
-  editForm.value.email = profile.value.email;
+  applyEmailToForm(profile.value.email);
 };
 
 const handleUpdateProfile = async () => {
   updateError.value = '';
+  if (!EMAIL_REGEX.test(emailAddress.value)) {
+    updateError.value = '올바른 이메일 형식이 아닙니다.';
+    return;
+  }
   try {
     const response = await updateProfile({
       name: editForm.value.name,
-      email: editForm.value.email,
+      email: emailAddress.value,
     });
     if (response.data && response.data.success === false) {
       updateError.value = response.data.message || '프로필 수정 중 오류가 발생했습니다.';
@@ -239,15 +301,83 @@ const handleUpdateProfile = async () => {
             type="text"
             class="profile-edit-input"
             placeholder="변경할 이름을 입력해 주세요"
+            maxlength="20"
           />
 
           <label class="profile-edit-label">이메일</label>
-          <input
-            v-model="editForm.email"
-            type="email"
-            class="profile-edit-input"
-            placeholder="example@email.com"
-          />
+          <div class="profile-email-field">
+            <div class="email-input-row">
+              <i class="fa-regular fa-envelope email-envelope-icon" aria-hidden="true"></i>
+              <input
+                v-model="emailLocal"
+                type="text"
+                inputmode="email"
+                autocomplete="email"
+                placeholder="이메일 입력"
+                class="email-local-input"
+                maxlength="64"
+              />
+              <span class="email-at" aria-hidden="true">@</span>
+              <span ref="emailDomainMenuRef" class="email-domain-select-wrap">
+                <template v-if="isCustomEmailDomain">
+                  <input
+                    ref="customEmailDomainInput"
+                    v-model="emailDomain"
+                    type="text"
+                    inputmode="url"
+                    placeholder="직접 입력"
+                    class="email-domain-input"
+                    maxlength="100"
+                  />
+                  <button
+                    type="button"
+                    class="email-domain-options-button"
+                    aria-label="이메일 도메인 목록 열기"
+                    @click="toggleEmailDomainMenu"
+                  >
+                    <i class="fa-solid fa-chevron-down email-domain-chevron" aria-hidden="true"></i>
+                  </button>
+                </template>
+                <button
+                  v-else
+                  class="email-domain-select"
+                  type="button"
+                  :aria-expanded="isEmailDomainMenuOpen"
+                  @click="toggleEmailDomainMenu"
+                >
+                  {{ selectedEmailDomain === 'SELECT' ? '선택' : selectedEmailDomain }}
+                </button>
+                <i
+                  v-if="!isCustomEmailDomain"
+                  class="fa-solid fa-chevron-down email-domain-chevron"
+                  :class="{ 'is-open': isEmailDomainMenuOpen }"
+                  aria-hidden="true"
+                ></i>
+                <Transition name="email-domain-menu">
+                  <div v-if="isEmailDomainMenuOpen" class="email-domain-menu">
+                    <button
+                      v-for="domain in emailDomainOptions"
+                      :key="domain"
+                      type="button"
+                      class="email-domain-option"
+                      :class="{ 'is-selected': selectedEmailDomain === domain }"
+                      @click="selectEmailDomain(domain)"
+                    >
+                      {{ domain }}
+                    </button>
+                    <button
+                      type="button"
+                      class="email-domain-option"
+                      :class="{ 'is-selected': isCustomEmailDomain }"
+                      @click="selectEmailDomain('CUSTOM')"
+                    >
+                      직접 입력
+                    </button>
+                  </div>
+                </Transition>
+              </span>
+            </div>
+          </div>
 
           <p v-if="updateError" class="profile-edit-error">{{ updateError }}</p>
 
@@ -590,6 +720,177 @@ const handleUpdateProfile = async () => {
 .profile-edit-input:focus {
   border-color: #4058f5;
   box-shadow: 0 0 0 3px rgb(64 88 245 / 12%);
+}
+
+.email-input-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+  min-height: 48px;
+  margin: 0 0 14px;
+  overflow: visible;
+  border: 1px solid #e0e5f5;
+  border-radius: 12px;
+  background: #fff;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.email-input-row:focus-within {
+  border-color: #4058f5;
+  box-shadow: 0 0 0 3px rgb(64 88 245 / 12%);
+}
+
+.profile-email-field .email-local-input,
+.profile-email-field .email-domain-select,
+.profile-email-field .email-domain-input {
+  height: 46px;
+  min-height: 46px;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none !important;
+  outline: 0;
+}
+
+.profile-email-field .email-local-input {
+  grid-column: 1;
+  padding-left: 38px;
+}
+
+.profile-email-field .email-local-input,
+.profile-email-field .email-domain-select,
+.profile-email-field .email-domain-input {
+  color: #20283a;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.email-envelope-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  z-index: 1;
+  color: #8b9ab5;
+  font-size: 13px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.email-domain-select-wrap {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  grid-column: 3;
+  align-items: center;
+}
+
+.profile-email-field .email-domain-select {
+  width: 100%;
+  padding: 0 34px 0 10px;
+  color: #20283a;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.profile-email-field .email-domain-input {
+  width: 100%;
+  padding: 0 34px 0 10px;
+}
+
+.email-domain-chevron {
+  position: absolute;
+  right: 13px;
+  color: #8b9ab5;
+  font-size: 11px;
+  pointer-events: none;
+  transition: transform 0.2s ease;
+}
+
+.email-domain-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.email-domain-options-button {
+  position: absolute;
+  right: 0;
+  display: inline-flex;
+  width: 36px;
+  height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #8b9ab5;
+  cursor: pointer;
+}
+
+.email-domain-menu {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: 100%;
+  overflow: hidden;
+  padding: 5px;
+  border: 1px solid #dbe3f4;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 10px 22px rgb(30 41 59 / 14%);
+}
+
+.email-domain-option {
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.email-domain-option:hover,
+.email-domain-option:focus-visible {
+  outline: 0;
+  background: #eef1ff;
+  color: #4058f5;
+}
+
+.email-domain-option.is-selected {
+  background: #e8edff;
+  color: #4058f5;
+  font-weight: 700;
+}
+
+.email-domain-menu-enter-active,
+.email-domain-menu-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.email-domain-menu-enter-from,
+.email-domain-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.email-at {
+  grid-column: 2;
+  justify-self: center;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .profile-edit-error {

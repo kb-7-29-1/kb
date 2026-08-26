@@ -40,7 +40,7 @@ public class UserController {
 
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(@AuthenticationPrincipal CustomUser customUser,
-                                           @RequestBody UserUpdateRequestDto dto){
+                                           @Valid @RequestBody UserUpdateRequestDto dto){
         userService.updateProfile(customUser.getUsername(), dto);
         return ResponseEntity.ok().build();
     }
@@ -54,7 +54,7 @@ public class UserController {
 
     @PutMapping("/password")
     public ResponseEntity<?> changePassword(@AuthenticationPrincipal CustomUser customUser,
-                                            @RequestBody PasswordChangeRequestDto dto){
+                                            @Valid @RequestBody PasswordChangeRequestDto dto){
         userService.changePassword(customUser.getUsername(), dto);
         return ResponseEntity.ok().build();
     }

@@ -5,6 +5,7 @@ import { formatDeposit } from '@/utils/priceFormatter.js';
 
 const bookmarks = ref([]);
 const isLoading = ref(true);
+const pendingBookmarkIds = ref(new Set());
 const emit = defineEmits(['open-property']);
 
 const fetchBookmarks = async () => {
@@ -24,12 +25,16 @@ const fetchBookmarks = async () => {
 
 const toggleBookmark = async (item) => {
   const propertyId = item.propertyId;
+  if (pendingBookmarkIds.value.has(propertyId)) return;
 
+  pendingBookmarkIds.value.add(propertyId);
   try {
     await api.delete(`/bookmark/${propertyId}`);
     bookmarks.value = bookmarks.value.filter((b) => b.propertyId !== propertyId);
   } catch (error) {
     console.error('BOOKMARK TOGGLE ERROR: ', error);
+  } finally {
+    pendingBookmarkIds.value.delete(propertyId);
   }
 };
 
@@ -100,6 +105,7 @@ onMounted(fetchBookmarks);
             class="bookmark-remove-button"
             :class="{ 'bookmark-remove-button--active': item.isBookmarked !== false }"
             :aria-label="item.isBookmarked !== false ? '관심 매물 해제' : '관심 매물 등록'"
+            :disabled="pendingBookmarkIds.has(item.propertyId)"
             @click.stop="toggleBookmark(item)"
           >
             <i
@@ -331,6 +337,7 @@ onMounted(fetchBookmarks);
   cursor: pointer;
   transition:
     color 0.15s ease,
+    opacity 0.15s ease,
     border-color 0.15s ease,
     background-color 0.15s ease,
     transform 0.15s ease;
@@ -342,6 +349,11 @@ onMounted(fetchBookmarks);
     color: #dc4b5d;
     transform: scale(1.06);
   }
+}
+
+.bookmark-remove-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .bookmark-remove-button--active {
