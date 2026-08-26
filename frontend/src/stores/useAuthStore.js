@@ -20,6 +20,11 @@ export const useAuthStore = defineStore('auth',{
             this.token = token
             localStorage.setItem('token', token)
         },
+        // 다른 탭에서 storage 이벤트로 전달받은 토큰을 반영할 때 사용.
+        // localStorage에 다시 쓰지 않음(이미 그 탭이 써서 이 이벤트가 발생한 것이므로, 재작성 시 불필요한 이벤트 재발생을 피함).
+        syncToken(token){
+            this.token = token
+        },
         logout() {
             clearMapFilterCache(this.user);
             this.clearAuthState();
