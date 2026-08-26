@@ -1,21 +1,21 @@
 <table>
   <tr>
-    <td width="45%" align="center" valign="middle">
+    <td width="55%" align="center" valign="middle">
       <img src="docs/logo.png" alt="집으로 서비스 로고" width="100%" />
     </td>
-    <td width="55%" valign="middle">
+    <td width="45%" valign="middle">
       <h2>🏠 집으로</h2>
       <h4>안전한 귀갓길로 완성하는 나만의 집 찾기</h4>
-      <p><b>주거 안전 + 귀갓길 안전 + 조건별 대출 매칭을 하나의 지도에서 해결하는 안심 주거 매칭 솔루션</b></p>
+      <p><b>주거 안전 + 귀갓길 안전 + 조건별 대출 매칭을 <br/> 하나의 지도에서 해결하는 안심 주거 매칭 솔루션</b></p>
       <p>
         <a href="https://vuejs.org/"><img src="https://img.shields.io/badge/Vue.js-3.x-4FC08D?style=flat-square&logo=vuedotjs&logoColor=white" alt="Vue" /></a>
         <a href="https://spring.io/"><img src="https://img.shields.io/badge/Spring-Legacy%205-6DB33F?style=flat-square&logo=spring&logoColor=white" alt="Spring" /></a>
-        <a href="https://www.oracle.com/java/"><img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java" /></a>
+        <a href="https://www.oracle.com/java/"><img src="https://img.shields.io/badge/Java-17-ED8B00?style=flat-square&logo=openjdk&logoColor=white" alt="Java" /></a><br/>
         <a href="https://www.mysql.com/"><img src="https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql&logoColor=white" alt="MySQL" /></a>
         <a href="https://www.docker.com/"><img src="https://img.shields.io/badge/Docker-Valhalla%20%7C%20MOTIS-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker" /></a>
       </p>
       <p>
-        📅 <b>프로젝트 기간</b>: 2026.07 – 2026.08 &nbsp;|&nbsp; 👥 <b>팀 살고싶오</b>: 29반 1팀 (5인)<br/>
+        📅 <b>프로젝트 기간</b>: 2026.07 – 2026.08 &nbsp; <br/> 👥 <b>팀 살고싶오</b>: 29반 1팀 (5인)<br/>
         🔗 <a href="https://github.com/kb-7-29-1/kb">GitHub 저장소</a> &nbsp;|&nbsp; 🌐 <a href="https://salgosipo.site/">salgosipo.site (배포 사이트)</a>
       </p>
     </td>
